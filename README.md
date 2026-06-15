@@ -8,7 +8,7 @@
 |---|------|
 | 前端 | Vue 3 + TypeScript + Vite + Element Plus + ECharts + Leaflet |
 | 后端 | Spring Boot 3.4 + MyBatis Plus + Spring Security + JWT |
-| 数据库 | MySQL 8.0 + Redis + RabbitMQ |
+| 数据库 | MySQL 8.0 + Redis (Stream 消息队列) |
 | AI | DeepSeek / 通义千问 API + 图像识别 |
 | 部署 | Docker Compose + Nginx |
 
@@ -25,7 +25,7 @@ OceanVerse/
 │   ├── data-visual-analytics/  # 📊 数据可视化 (成员C)
 │   ├── smart-ai-service/       # 🤖 AI 服务 (成员B/E)
 │   ├── community-manager/      # 👥 社区互动 (成员D)
-│   ├── message-service/        # 📨 消息服务 (WebSocket/MQ)
+│   ├── message-service/        # 📨 消息服务 (WebSocket/Redis Stream)
 │   └── oceanverse-app/         # 启动模块
 ├── OceanVerse-frontend/        # 前端 (Vue 3)
 │   └── src/
@@ -84,7 +84,7 @@ docker-compose up -d
 | B | species-manager + AI | 物种 CRUD、AI 图像识别 |
 | C | data-visual-analytics | ECharts 大屏、Leaflet 地图 |
 | D | community-manager + AI | 社区动态、评论、AI 智能问答 |
-| E | message-service + 运维 | 消息队列、WebSocket、Docker 部署 |
+| E | message-service + 运维 | Redis Stream 消息队列、WebSocket、Docker 部署 |
 
 ## API 文档
 

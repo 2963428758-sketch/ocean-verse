@@ -13,7 +13,7 @@
     <artifactId>message-service</artifactId>
     <packaging>jar</packaging>
     <name>message-service</name>
-    <description>消息服务模块 — 消息队列 + WebSocket 推送</description>
+    <description>消息服务模块 — Redis Stream 消息队列 + WebSocket 推送</description>
 
     <dependencies>
         <dependency>
@@ -27,11 +27,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
-        </dependency>
-        <!-- RabbitMQ -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
