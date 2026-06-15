@@ -18,6 +18,14 @@ public final class CommonConstants {
     public static final String REDIS_CAPTCHA = "captcha:";
     public static final String REDIS_RATE_LIMIT = "rate:limit:";
 
+    // ==================== Redis Stream ====================
+    public static final String STREAM_NOTIFICATION = "stream:notification";
+    public static final String STREAM_COMMUNITY = "stream:community";
+    public static final String STREAM_AI = "stream:ai";
+    public static final String STREAM_SYSTEM = "stream:system";
+    public static final String STREAM_CONSUMER_GROUP = "oceanverse-group";
+    public static final String STREAM_CONSUMER_NAME = "oceanverse-consumer";
+
     // ==================== 用户状态 ====================
     public static final int USER_STATUS_NORMAL = 1;
     public static final int USER_STATUS_DISABLED = 0;

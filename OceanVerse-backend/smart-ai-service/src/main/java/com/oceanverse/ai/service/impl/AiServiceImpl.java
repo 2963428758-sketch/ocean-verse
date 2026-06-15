@@ -8,6 +8,7 @@ import com.oceanverse.ai.service.AiService;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
 import com.oceanverse.pojo.entity.QaHistory;
+import com.oceanverse.common.utils.OssUtil;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +26,17 @@ public class AiServiceImpl implements AiService {
 
     private final ImageRecognitionMapper recognitionMapper;
     private final QaHistoryMapper qaHistoryMapper;
+    private final OssUtil ossUtil;
 
     @Override
     public Object recognizeImage(MultipartFile file, Double latitude, Double longitude) {
-        // TODO: 接入真实 AI 识别 API（百度AI / 讯飞 / Python微服务）
-        // 当前返回模拟数据
+        // TODO: 接入真实 AI 识别 API（通义千问 qwen-vl-max）
+        // 当前返回模拟数据，文件已上传至 OSS
+        String imageUrl = ossUtil.upload(file);
+
         ImageRecognition record = new ImageRecognition();
         record.setRecognitionCode("REC" + UUID.randomUUID().toString().substring(0, 8));
-        record.setImageUrl("/uploads/" + file.getOriginalFilename());
+        record.setImageUrl(imageUrl);
         record.setFileName(file.getOriginalFilename());
         record.setFileSize(file.getSize());
         record.setAiModelVersion("mock-v1.0");
@@ -44,7 +48,7 @@ public class AiServiceImpl implements AiService {
         record.setUpdateTime(LocalDateTime.now());
         recognitionMapper.insert(record);
 
-        log.info("图像识别记录已创建: {}", record.getRecognitionCode());
+        log.info("图像已上传至 OSS 并创建识别记录: {}", record.getRecognitionCode());
         return record;
     }
 

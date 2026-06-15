@@ -25,17 +25,6 @@ services:
     volumes:
       - redis_data:/data
 
-  # RabbitMQ 消息队列
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: oceanverse-rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-
   # 后端应用
   backend:
     build:
