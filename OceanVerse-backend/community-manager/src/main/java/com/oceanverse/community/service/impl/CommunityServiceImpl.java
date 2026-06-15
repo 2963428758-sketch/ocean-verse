@@ -1,6 +1,7 @@
 package com.oceanverse.community.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.exception.BusinessException;
 import com.oceanverse.common.utils.JwtUtil;
@@ -102,7 +103,7 @@ public class CommunityServiceImpl implements CommunityService {
         commentMapper.insert(comment);
 
         // 更新帖子评论数
-        postMapper.update(null, new LambdaQueryWrapper<CommunityPost>()
+        postMapper.update(null, new LambdaUpdateWrapper<CommunityPost>()
                 .eq(CommunityPost::getId, dto.getPostId())
                 .setSql("comment_count = comment_count + 1"));
     }
