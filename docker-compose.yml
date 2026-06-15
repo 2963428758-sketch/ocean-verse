@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  # MySQL 数据库
+  mysql:
+    image: mysql:8.0
+    container_name: oceanverse-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: oceanverse
+      MYSQL_CHARSET: utf8mb4
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/oceanverse.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: oceanverse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # RabbitMQ 消息队列
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: oceanverse-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  # 后端应用
+  backend:
+    build:
+      context: ./OceanVerse-backend
+      dockerfile: Dockerfile
+    container_name: oceanverse-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/oceanverse?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
+
+  # 前端 + Nginx
+  frontend:
+    build:
+      context: ./OceanVerse-frontend
+      dockerfile: Dockerfile
+    container_name: oceanverse-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
+  redis_data:

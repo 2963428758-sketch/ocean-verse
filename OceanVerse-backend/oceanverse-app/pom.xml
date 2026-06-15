@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.oceanverse</groupId>
+        <artifactId>OceanVerse-backend</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>oceanverse-app</artifactId>
+    <packaging>jar</packaging>
+    <name>oceanverse-app</name>
+    <description>OceanVerse 启动模块</description>
+
+    <dependencies>
+        <!-- 引入所有业务模块 -->
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>user-auth-manager</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>species-manager</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>eco-observation-manager</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>data-visual-analytics</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>smart-ai-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>community-manager</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>message-service</artifactId>
+        </dependency>
+        <!-- MySQL -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Druid -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid-spring-boot-3-starter</artifactId>
+        </dependency>
+        <!-- Actuator 监控 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!-- SpringDoc -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
