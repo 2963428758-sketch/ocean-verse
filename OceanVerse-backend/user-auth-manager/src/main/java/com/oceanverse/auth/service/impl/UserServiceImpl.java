@@ -2,17 +2,21 @@ package com.oceanverse.auth.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.oceanverse.auth.mapper.PermissionMapper;
 import com.oceanverse.auth.mapper.UserMapper;
+import com.oceanverse.auth.mapper.UserRoleMapper;
 import com.oceanverse.auth.service.UserService;
 import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.exception.BusinessException;
 import com.oceanverse.common.result.PageResult;
 import com.oceanverse.common.utils.JwtUtil;
 import com.oceanverse.common.utils.RedisUtil;
+import com.oceanverse.pojo.dto.AssignRolesDTO;
 import com.oceanverse.pojo.dto.LoginDTO;
 import com.oceanverse.pojo.dto.RegisterDTO;
 import com.oceanverse.pojo.dto.UpdatePasswordDTO;
 import com.oceanverse.pojo.dto.UpdateProfileDTO;
+import com.oceanverse.pojo.entity.SysUserRole;
 import com.oceanverse.pojo.entity.User;
 import com.oceanverse.pojo.vo.LoginVO;
 import com.oceanverse.pojo.vo.UserInfoVO;
@@ -22,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.DigestUtils;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -35,6 +40,8 @@ import java.util.Map;
 public class UserServiceImpl implements UserService {
 
     private final UserMapper userMapper;
+    private final UserRoleMapper userRoleMapper;
+    private final PermissionMapper permissionMapper;
     private final PasswordEncoder passwordEncoder;
     private final RedisUtil redisUtil;
 
@@ -71,6 +78,9 @@ public class UserServiceImpl implements UserService {
 
         redisUtil.set(CommonConstants.REDIS_USER_TOKEN + user.getId(), accessToken, 7200);
         redisUtil.set(CommonConstants.REDIS_USER_REFRESH_TOKEN + user.getId(), refreshToken, 604800);
+
+        // 缓存用户权限和角色到 Redis（TTL 与 AccessToken 一致 = 2h）
+        cacheUserPermissions(user.getId());
 
         // 更新最后登录时间和IP
         user.setLastLoginTime(LocalDateTime.now());
@@ -153,6 +163,19 @@ public class UserServiceImpl implements UserService {
 
         String roleCode = userMapper.selectRoleCodeByUserId(userId);
 
+        // 从 Redis 缓存加载权限列表
+        @SuppressWarnings("unchecked")
+        List<String> permissions = redisUtil.getObject(
+                CommonConstants.REDIS_USER_PERMS + userId, List.class);
+        if (permissions == null) {
+            // 缓存未命中，从 DB 加载并缓存
+            permissions = permissionMapper.selectPermCodesByUserId(userId);
+            if (permissions == null) {
+                permissions = Collections.emptyList();
+            }
+            redisUtil.setObject(CommonConstants.REDIS_USER_PERMS + userId, permissions, 7200);
+        }
+
         UserInfoVO vo = new UserInfoVO();
         vo.setId(user.getId());
         vo.setUsername(user.getUsername());
@@ -162,7 +185,7 @@ public class UserServiceImpl implements UserService {
         vo.setRealName(user.getRealName());
         vo.setAvatarUrl(user.getAvatarUrl());
         vo.setRole(roleCode);
-        vo.setPermissions(Collections.emptyList());
+        vo.setPermissions(permissions);
         vo.setDataScope(user.getDataScope());
         vo.setStatus(user.getStatus());
         vo.setCreateTime(user.getCreateTime());
@@ -332,5 +355,79 @@ public class UserServiceImpl implements UserService {
         }
 
         log.info("管理员修改用户状态: userId={}, status={}", userId, status);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void assignRoles(AssignRolesDTO dto) {
+        User user = userMapper.selectById(dto.getUserId());
+        if (user == null) {
+            throw BusinessException.notFound("用户");
+        }
+
+        // 先删后插（全量替换用户角色）
+        userRoleMapper.deleteByUserId(dto.getUserId());
+
+        for (Long roleId : dto.getRoleIds()) {
+            SysUserRole userRole = new SysUserRole();
+            userRole.setUserId(dto.getUserId());
+            userRole.setRoleId(roleId);
+            userRoleMapper.insert(userRole);
+        }
+
+        // 清除该用户的权限和角色缓存，下次请求时重新加载
+        redisUtil.delete(CommonConstants.REDIS_USER_PERMS + dto.getUserId());
+        redisUtil.delete(CommonConstants.REDIS_USER_ROLES + dto.getUserId());
+
+        log.info("用户角色分配: userId={}, roleIds={}", dto.getUserId(), dto.getRoleIds());
+    }
+
+    @Override
+    public void forceLogout(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw BusinessException.notFound("用户");
+        }
+
+        // 1. 清除 Redis 权限缓存
+        redisUtil.delete(CommonConstants.REDIS_USER_PERMS + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_ROLES + userId);
+
+        // 2. 将当前 AccessToken 加入黑名单
+        String accessToken = redisUtil.get(CommonConstants.REDIS_USER_TOKEN + userId);
+        if (accessToken != null) {
+            String tokenHash = DigestUtils.md5DigestAsHex(accessToken.getBytes());
+            long remainingSeconds = JwtUtil.getRemainingSeconds(accessToken);
+            if (remainingSeconds > 0) {
+                redisUtil.set(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash, "1", remainingSeconds);
+            }
+        }
+
+        // 3. 清除 Token 缓存
+        redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
+
+        log.info("强制下线: userId={}, username={}", userId, user.getUsername());
+    }
+
+    /**
+     * 缓存用户权限和角色到 Redis（TTL 与 AccessToken 一致 = 2h）
+     */
+    private void cacheUserPermissions(Long userId) {
+        try {
+            List<String> permCodes = permissionMapper.selectPermCodesByUserId(userId);
+            if (permCodes == null) {
+                permCodes = Collections.emptyList();
+            }
+            redisUtil.setObject(CommonConstants.REDIS_USER_PERMS + userId, permCodes, 7200);
+
+            List<String> roles = userMapper.selectRolesByUserId(userId);
+            if (roles == null || roles.isEmpty()) {
+                roles = List.of("VIEWER");
+            }
+            redisUtil.setObject(CommonConstants.REDIS_USER_ROLES + userId, roles, 7200);
+        } catch (Exception e) {
+            log.warn("缓存用户权限失败: userId={}, error={}", userId, e.getMessage());
+        }
     }
 }

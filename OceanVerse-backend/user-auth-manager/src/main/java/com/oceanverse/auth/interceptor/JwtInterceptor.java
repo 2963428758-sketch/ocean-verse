@@ -18,6 +18,17 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * JWT 拦截器 — 解析 Token 并构建 UserContext
+ * <p>
+ * 设计为"可选认证"模式：
+ * - 有 Token 且有效 → 解析并设置 UserContext
+ * - 有 Token 但无效 → 返回 401（明确拒绝）
+ * - 无 Token → 不设置 UserContext，放行给 PermissionInterceptor 决定是否拒绝
+ * <p>
+ * 这样公开接口（如 GET /api/species/1）无需 Token 也能访问，
+ * 而需要登录的接口由 PermissionInterceptor 通过注解校验拦截。
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -34,9 +45,10 @@ public class JwtInterceptor implements HandlerInterceptor {
         }
 
         String header = request.getHeader("Authorization");
+
+        // 无 Token → 放行（由 PermissionInterceptor 根据注解决定是否需要登录）
         if (header == null || !header.startsWith("Bearer ")) {
-            writeUnauthorized(response, "未登录或 token 无效");
-            return false;
+            return true;
         }
 
         String token = header.substring(7);
@@ -74,13 +86,24 @@ public class JwtInterceptor implements HandlerInterceptor {
         userInfo.setRole(role);
         userInfo.setDataScope(dataScope != null ? dataScope : CommonConstants.DATA_SCOPE_SELF);
 
-        // 6. 从 Redis 加载权限缓存（Day 4 RBAC 实现后生效）
+        // 6. 从 Redis 加载权限缓存
         @SuppressWarnings("unchecked")
         List<String> permissions = redisUtil.getObject(
                 CommonConstants.REDIS_USER_PERMS + userId, List.class);
         userInfo.setPermissions(permissions != null ? permissions : Collections.emptyList());
 
+        // 7. 从 Redis 加载角色列表缓存
+        @SuppressWarnings("unchecked")
+        List<String> roles = redisUtil.getObject(
+                CommonConstants.REDIS_USER_ROLES + userId, List.class);
+        if (roles != null && !roles.isEmpty()) {
+            userInfo.setRoles(roles);
+        } else {
+            userInfo.setRoles(role != null ? List.of(role) : Collections.emptyList());
+        }
+
         UserContext.set(userInfo);
+        log.debug("JwtInterceptor: method={}, uri={}, userId={}, role={}", request.getMethod(), request.getRequestURI(), userId, role);
         return true;
     }
 

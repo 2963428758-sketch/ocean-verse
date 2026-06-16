@@ -40,8 +40,14 @@ http.interceptors.response.use(
     return res
   },
   async error => {
+    // 网络级错误（后端未启动、代理失败）不走 Token 刷新流程
+    if (!error.response) {
+      ElMessage.error('网络连接失败，请检查后端服务是否已启动')
+      return Promise.reject(error)
+    }
+
     const originalRequest = error.config
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response.status === 401 && !originalRequest._retry) {
       const url = originalRequest.url || ''
       if (NO_REFRESH_URLS.some(u => url.includes(u))) {
         clearAuth()
@@ -91,7 +97,7 @@ http.interceptors.response.use(
     }
 
     if (error.response?.status !== 401) {
-      ElMessage.error(error.response?.data?.message || error.message || '网络错误')
+      ElMessage.error(error.response?.data?.message || error.message || '请求失败')
     }
     return Promise.reject(error)
   }

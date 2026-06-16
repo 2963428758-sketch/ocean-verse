@@ -61,6 +61,11 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Swagger/OpenAPI Annotations（供所有业务模块编译期使用） -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
         <!-- Hutool -->
         <dependency>
             <groupId>cn.hutool</groupId>

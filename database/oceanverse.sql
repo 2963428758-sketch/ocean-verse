@@ -51,8 +51,48 @@ CREATE TABLE `sys_user_role` (
     `role_id` BIGINT UNSIGNED NOT NULL,
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_user_role` (`user_id`, `role_id`)
+    UNIQUE KEY `uk_user_role` (`user_id`, `role_id`),
+    KEY `idx_role_id` (`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色关联表';
+
+CREATE TABLE `sys_permission` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '权限ID',
+    `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '父权限ID，0表示顶级',
+    `name` VARCHAR(100) NOT NULL COMMENT '权限名称',
+    `perm_code` VARCHAR(100) NOT NULL COMMENT '权限标识，如 user:list',
+    `type` VARCHAR(20) NOT NULL COMMENT '类型: MENU-菜单, BUTTON-按钮, API-接口',
+    `sort` INT NOT NULL DEFAULT 0 COMMENT '排序号',
+    `description` VARCHAR(500) DEFAULT NULL COMMENT '描述',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_perm_code` (`perm_code`),
+    KEY `idx_parent_id` (`parent_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统权限表';
+
+CREATE TABLE `sys_role_permission` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `role_id` BIGINT UNSIGNED NOT NULL,
+    `permission_id` BIGINT UNSIGNED NOT NULL,
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_role_perm` (`role_id`, `permission_id`),
+    KEY `idx_permission_id` (`permission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色权限关联表';
+
+CREATE TABLE `sys_login_log` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+    `user_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '用户ID（登录失败时可能为空）',
+    `username` VARCHAR(50) DEFAULT NULL COMMENT '登录用户名',
+    `ip_address` VARCHAR(50) DEFAULT NULL COMMENT '登录IP',
+    `user_agent` VARCHAR(500) DEFAULT NULL COMMENT '浏览器UA',
+    `status` TINYINT NOT NULL COMMENT '登录状态: 1-成功, 0-失败',
+    `message` VARCHAR(200) DEFAULT NULL COMMENT '结果说明',
+    `login_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_login_time` (`login_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录日志表';
 
 -- =====================================================
 -- 2. 物种管理模块 (成员B)
@@ -361,15 +401,17 @@ CREATE TABLE `sys_notification` (
 
 CREATE TABLE `sys_operation_log` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `module` VARCHAR(50) DEFAULT NULL,
-    `operation_type` VARCHAR(30) DEFAULT NULL,
-    `request_url` VARCHAR(500) DEFAULT NULL,
-    `operator_id` BIGINT UNSIGNED DEFAULT NULL,
-    `operator_name` VARCHAR(100) DEFAULT NULL,
-    `ip_address` VARCHAR(50) DEFAULT NULL,
-    `execution_time` INT UNSIGNED DEFAULT NULL,
-    `operation_result` TINYINT DEFAULT 1,
-    `error_message` TEXT,
+    `module` VARCHAR(50) DEFAULT NULL COMMENT '模块名',
+    `operation_type` VARCHAR(30) DEFAULT NULL COMMENT '操作类型: CREATE/UPDATE/DELETE/QUERY/EXPORT',
+    `request_url` VARCHAR(500) DEFAULT NULL COMMENT '请求URL',
+    `request_method` VARCHAR(10) DEFAULT NULL COMMENT '请求方法: GET/POST/PUT/DELETE',
+    `request_params` TEXT COMMENT '请求参数JSON',
+    `operator_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '操作人ID',
+    `operator_name` VARCHAR(100) DEFAULT NULL COMMENT '操作人姓名',
+    `ip_address` VARCHAR(50) DEFAULT NULL COMMENT '操作IP',
+    `execution_time` INT UNSIGNED DEFAULT NULL COMMENT '执行耗时(ms)',
+    `operation_result` TINYINT DEFAULT 1 COMMENT '操作结果: 1-成功, 0-失败',
+    `error_message` TEXT COMMENT '错误信息',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_operator` (`operator_id`),
@@ -410,3 +452,74 @@ INSERT INTO `species` (`species_code`, `scientific_name`, `common_name`, `chines
 ('SP001', 'Chelonia mydas', 'Green Sea Turtle', '绿海龟', 'EN', 'Cheloniidae', 'Chelonia', '绿海龟是海龟科中体型较大的一种，广泛分布于热带和亚热带海域。', 'VERIFIED'),
 ('SP002', 'Neophocaena phocaenoides', 'Finless Porpoise', '江豚', 'VU', 'Phocoenidae', 'Neophocaena', '长江江豚是中国特有的淡水鲸类动物，被称为"水中大熊猫"。', 'VERIFIED'),
 ('SP003', 'Hippocampus kuda', 'Yellow Seahorse', '海马', 'VU', 'Syngnathidae', 'Hippocampus', '海马是一种小型海洋鱼类，以其独特的马头形状而闻名。', 'VERIFIED');
+
+-- =====================================================
+-- 权限种子数据
+-- =====================================================
+
+-- 一级菜单
+INSERT INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `type`, `sort`) VALUES
+(1,  0, '用户管理', 'system:user',    'MENU', 1),
+(2,  0, '角色管理', 'system:role',    'MENU', 2),
+(3,  0, '物种管理', 'species',        'MENU', 3),
+(4,  0, '社区管理', 'community',      'MENU', 4),
+(5,  0, '数据可视化', 'visual',       'MENU', 5),
+(6,  0, '日志管理', 'system:log',     'MENU', 6);
+
+-- 用户管理 — 按钮/接口权限
+INSERT INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `type`, `sort`) VALUES
+(10, 1, '用户列表',   'user:list',    'BUTTON', 1),
+(11, 1, '用户详情',   'user:info',    'BUTTON', 2),
+(12, 1, '用户新增',   'user:create',  'BUTTON', 3),
+(13, 1, '用户编辑',   'user:update',  'BUTTON', 4),
+(14, 1, '用户删除',   'user:delete',  'BUTTON', 5),
+(15, 1, '分配角色',   'user:assign-role', 'BUTTON', 6),
+(16, 1, '强制下线',   'user:force-logout','BUTTON', 7),
+(17, 1, '启用/禁用',  'user:status',  'BUTTON', 8);
+
+-- 角色管理 — 按钮/接口权限
+INSERT INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `type`, `sort`) VALUES
+(20, 2, '角色列表',   'role:list',    'BUTTON', 1),
+(21, 2, '角色新增',   'role:create',  'BUTTON', 2),
+(22, 2, '角色编辑',   'role:update',  'BUTTON', 3),
+(23, 2, '角色删除',   'role:delete',  'BUTTON', 4),
+(24, 2, '分配权限',   'role:assign-perm', 'BUTTON', 5);
+
+-- 物种管理 — 按钮/接口权限
+INSERT INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `type`, `sort`) VALUES
+(30, 3, '物种列表',   'species:list',   'BUTTON', 1),
+(31, 3, '物种新增',   'species:create', 'BUTTON', 2),
+(32, 3, '物种编辑',   'species:update', 'BUTTON', 3),
+(33, 3, '物种删除',   'species:delete', 'BUTTON', 4);
+
+-- 社区管理 — 按钮/接口权限
+INSERT INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `type`, `sort`) VALUES
+(40, 4, '动态列表',   'community:post:list',   'BUTTON', 1),
+(41, 4, '动态审核',   'community:post:audit',  'BUTTON', 2),
+(42, 4, '动态删除',   'community:post:delete', 'BUTTON', 3);
+
+-- 日志管理 — 按钮/接口权限
+INSERT INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `type`, `sort`) VALUES
+(60, 6, '登录日志',   'log:login',    'BUTTON', 1),
+(61, 6, '操作日志',   'log:operate',  'BUTTON', 2);
+
+-- =====================================================
+-- 超级管理员分配全部权限
+-- =====================================================
+INSERT INTO `sys_role_permission` (`role_id`, `permission_id`)
+SELECT 1, id FROM `sys_permission`;
+
+-- 管理员分配: 用户管理(查看+启用禁用)、角色管理(查看)、日志管理
+INSERT INTO `sys_role_permission` (`role_id`, `permission_id`) VALUES
+(2, 1), (2, 10), (2, 11), (2, 14),
+(2, 2), (2, 20),
+(2, 6), (2, 60), (2, 61);
+
+-- 研究员分配: 物种管理(全部)、社区管理(查看)
+INSERT INTO `sys_role_permission` (`role_id`, `permission_id`) VALUES
+(3, 3), (3, 30), (3, 31), (3, 32), (3, 33),
+(3, 4), (3, 40);
+
+-- 观测员分配: 物种管理(查看)
+INSERT INTO `sys_role_permission` (`role_id`, `permission_id`) VALUES
+(4, 3), (4, 30);
