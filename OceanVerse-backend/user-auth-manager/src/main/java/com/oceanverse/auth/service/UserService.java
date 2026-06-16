@@ -1,32 +1,31 @@
 package com.oceanverse.auth.service;
 
+import com.oceanverse.common.result.PageResult;
 import com.oceanverse.pojo.dto.LoginDTO;
 import com.oceanverse.pojo.dto.RegisterDTO;
+import com.oceanverse.pojo.dto.UpdatePasswordDTO;
+import com.oceanverse.pojo.dto.UpdateProfileDTO;
+import com.oceanverse.pojo.vo.LoginVO;
+import com.oceanverse.pojo.vo.UserInfoVO;
+import com.oceanverse.pojo.vo.UserListVO;
 
-import java.util.Map;
-
-/**
- * 用户服务接口 — 成员A
- */
 public interface UserService {
 
-    /**
-     * 登录，返回 token 和用户信息
-     */
-    Map<String, Object> login(LoginDTO dto);
+    LoginVO login(LoginDTO dto, String clientIp);
 
-    /**
-     * 注册新用户
-     */
     void register(RegisterDTO dto);
 
-    /**
-     * 退出登录
-     */
     void logout(String token);
 
-    /**
-     * 获取当前用户信息
-     */
-    Map<String, Object> getUserInfo(String token);
+    UserInfoVO getUserInfo(Long userId);
+
+    void updateProfile(Long userId, UpdateProfileDTO dto);
+
+    void updatePassword(Long userId, UpdatePasswordDTO dto);
+
+    LoginVO refreshToken(String refreshToken);
+
+    PageResult<UserListVO> listUsers(int page, int size, String keyword);
+
+    void updateUserStatus(Long userId, int status);
 }

@@ -10,15 +10,12 @@ import org.springframework.context.annotation.ComponentScan;
  * 启动类
  */
 @SpringBootApplication
-@ComponentScan(basePackages = "com.oceanverse")
 @MapperScan(basePackages = {
         "com.oceanverse.auth.mapper",
         "com.oceanverse.species.mapper",
         "com.oceanverse.eco.mapper",
-        "com.oceanverse.visual.mapper",
         "com.oceanverse.ai.mapper",
-        "com.oceanverse.community.mapper",
-        "com.oceanverse.message.mapper"
+        "com.oceanverse.community.mapper"
 })
 public class OceanVerseApplication {
 

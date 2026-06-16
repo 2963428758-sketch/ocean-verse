@@ -14,12 +14,14 @@ SET FOREIGN_KEY_CHECKS = 0;
 CREATE TABLE `sys_user` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `username` VARCHAR(50) NOT NULL COMMENT '用户名',
+    `nickname` VARCHAR(50) DEFAULT NULL COMMENT '昵称',
     `password` VARCHAR(255) NOT NULL COMMENT '密码(BCrypt加密)',
     `email` VARCHAR(100) NOT NULL COMMENT '邮箱',
     `phone` VARCHAR(20) DEFAULT NULL COMMENT '手机号',
     `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名',
     `avatar_url` VARCHAR(500) DEFAULT NULL COMMENT '头像URL',
     `status` TINYINT NOT NULL DEFAULT 1 COMMENT '状态: 0-禁用, 1-正常, 2-锁定',
+    `data_scope` TINYINT NOT NULL DEFAULT 1 COMMENT '数据权限: 1-仅本人, 2-全部',
     `last_login_time` DATETIME DEFAULT NULL COMMENT '最后登录时间',
     `last_login_ip` VARCHAR(50) DEFAULT NULL COMMENT '最后登录IP',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -390,9 +392,9 @@ INSERT INTO `sys_role` (`id`, `role_code`, `role_name`, `description`, `status`)
 
 -- 管理员账号 admin / admin123
 INSERT INTO `sys_user` (`id`, `username`, `password`, `email`, `real_name`, `status`) VALUES
-(1, 'admin', '$2a$10$okLu3Ot8hNzj/TSY71wNbuRwcQoFKEaotqMoQ7u9DrEqq/5YV716K', 'admin@oceanverse.com', '系统管理员', 1),
-(2, 'researcher', '$2a$10$lM5zG8EkSPCqHNPwuLVEd.85c4KWH3zP9YWC5kEJFhEvVmWkPl0o6', 'researcher@oceanverse.com', '张研究员', 1),
-(3, 'observer', '$2a$10$lM5zG8EkSPCqHNPwuLVEd.85c4KWH3zP9YWC5kEJFhEvVmWkPl0o6', 'observer@oceanverse.com', '李观测员', 1);
+(1, 'admin', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', 'admin@oceanverse.com', '系统管理员', 1),
+(2, 'researcher', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', 'researcher@oceanverse.com', '张研究员', 1),
+(3, 'observer', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', 'observer@oceanverse.com', '李观测员', 1);
 
 INSERT INTO `sys_user_role` (`user_id`, `role_id`) VALUES
 (1, 1), (2, 3), (3, 4);
