@@ -40,6 +40,35 @@ public final class CommonConstants {
     public static final int DEFAULT_PAGE_SIZE = 10;
     public static final int MAX_PAGE_SIZE = 100;
 
+    // ==================== 消息公共字段名 ====================
+    public static final String FIELD_TYPE = "type";
+    public static final String FIELD_PAYLOAD = "payload";
+    public static final String FIELD_TIMESTAMP = "timestamp";
+
+    // ==================== 通知类型 ====================
+    public static final String NOTIFY_LIKE = "LIKE";
+    public static final String NOTIFY_COMMENT = "COMMENT";
+    public static final String NOTIFY_SYSTEM = "SYSTEM";
+    public static final String NOTIFY_AI_RESULT = "AI_RESULT";
+
+    // ==================== 社区事件动作 ====================
+    public static final String ACTION_POST_CREATED = "POST_CREATED";
+    public static final String ACTION_POST_DELETED = "POST_DELETED";
+    public static final String ACTION_COMMENT_CREATED = "COMMENT_CREATED";
+    public static final String ACTION_LIKE_TOGGLED = "LIKE_TOGGLED";
+    public static final String ACTION_FAVORITE_TOGGLED = "FAVORITE_TOGGLED";
+
+    // ==================== AI 事件动作 ====================
+    public static final String ACTION_RECOGNITION_COMPLETE = "RECOGNITION_COMPLETE";
+    public static final String ACTION_CHAT_SESSION = "CHAT_SESSION";
+    public static final String ACTION_FEEDBACK = "FEEDBACK";
+
+    // ==================== 系统事件动作 ====================
+    public static final String ACTION_CACHE_REFRESH = "CACHE_REFRESH";
+    public static final String ACTION_STATS_UPDATE = "STATS_UPDATE";
+    public static final String ACTION_LOG_ARCHIVE = "LOG_ARCHIVE";
+    public static final String ACTION_USER_REGISTER = "USER_REGISTER";
+
     // ==================== 通用响应码 ====================
     public static final int CODE_SUCCESS = 200;
     public static final int CODE_BAD_REQUEST = 400;
