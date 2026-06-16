@@ -1,6 +1,6 @@
 import http from '@/utils/http'
 
-// 物种列表
+// 物种列表（分页查询）
 export const getSpeciesList = (params: any) => http.get('/species/list', { params })
 
 // 物种详情
@@ -17,3 +17,6 @@ export const deleteSpecies = (id: number) => http.delete(`/species/${id}`)
 
 // 物种统计
 export const getSpeciesStats = () => http.get('/species/statistics')
+
+// 物种分布信息
+export const getSpeciesDistributions = (id: number) => http.get(`/species/${id}/distributions`)

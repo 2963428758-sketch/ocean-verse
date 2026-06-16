@@ -8,11 +8,11 @@ const routes: RouteRecordRaw[] = [
     path: '/', component: MainLayout, redirect: '/dashboard', meta: { requiresAuth: true },
     children: [
       { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/Dashboard.vue'), meta: { title: '仪表盘', icon: 'Odometer' } },
-      { path: 'species', name: 'Species', redirect: '/species/list', meta: { title: '物种百科', icon: 'Leaf' }, children: [
+      { path: 'species', name: 'Species', redirect: '/species/list', meta: { title: '物种百科', icon: 'Collection' }, children: [
         { path: 'list', name: 'SpeciesList', component: () => import('@/views/species/SpeciesList.vue'), meta: { title: '物种列表' } },
         { path: 'detail/:id', name: 'SpeciesDetail', component: () => import('@/views/species/SpeciesDetail.vue'), meta: { title: '物种详情', hidden: true } }
       ]},
-      { path: 'observation', name: 'Observation', redirect: '/observation/list', meta: { title: '观测记录', icon: 'Binoculars' }, children: [
+      { path: 'observation', name: 'Observation', redirect: '/observation/list', meta: { title: '观测记录', icon: 'Compass' }, children: [
         { path: 'list', name: 'ObservationList', component: () => import('@/views/observation/ObservationList.vue'), meta: { title: '观测列表' } }
       ]},
       { path: 'visualization', name: 'Visualization', redirect: '/visualization/statistics', meta: { title: '数据可视化', icon: 'DataAnalysis' }, children: [
