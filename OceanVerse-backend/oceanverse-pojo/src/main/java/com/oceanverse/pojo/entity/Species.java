@@ -41,6 +41,6 @@ public class Species {
     private LocalDateTime updateTime;
     private Long createBy;
     private Long updateBy;
-    @TableLogic
-    private Integer deleted;
+    @TableLogic(delval = "#{id}")
+    private Long deleted;
 }

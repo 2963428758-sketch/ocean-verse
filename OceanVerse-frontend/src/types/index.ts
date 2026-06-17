@@ -84,6 +84,7 @@ export interface SpeciesMedia {
   isPrimary?: number
   status?: number
   createTime?: string
+  updateTime?: string
 }
 
 export interface SpeciesStatistics {
@@ -100,6 +101,7 @@ export interface SpeciesQueryDTO {
   family?: string
   iucnStatus?: string
   protectionLevel?: string
+  sort?: string
   page?: number
   size?: number
 }

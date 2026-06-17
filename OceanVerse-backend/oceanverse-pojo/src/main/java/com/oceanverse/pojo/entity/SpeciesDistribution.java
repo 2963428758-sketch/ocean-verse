@@ -28,6 +28,6 @@ public class SpeciesDistribution {
     private String distributionStatus;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    @TableLogic
-    private Integer deleted;
+    @TableLogic(delval = "#{id}")
+    private Long deleted;
 }
