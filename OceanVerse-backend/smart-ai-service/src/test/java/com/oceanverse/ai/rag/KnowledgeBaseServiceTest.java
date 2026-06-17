@@ -147,6 +147,57 @@ class KnowledgeBaseServiceTest {
         assertDoesNotThrow(() -> knowledgeBaseService.saveOnShutdown());
     }
 
+    @Test
+    void saveOnShutdown_afterRebuild_doesNotQueryDbCount(@TempDir Path tempDir) throws IOException {
+        // 验证 indexedDocumentCount 设置后，saveOnShutdown 不调用 countSpecies
+        // 通过磁盘加载路径设置 indexedDocumentCount（不依赖真实 EmbeddingModel）
+        Path storeFile = tempDir.resolve("vector-store.json");
+        Files.createFile(storeFile);
+        Path metaFile = Path.of(storeFile + ".meta");
+        Files.writeString(metaFile, "19", StandardCharsets.UTF_8);
+
+        AiProperties props = new AiProperties();
+        props.setVectorStorePath(storeFile.toString());
+
+        SimpleVectorStore mockSimpleStore = mock(SimpleVectorStore.class);
+        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel);
+
+        when(documentLoader.countSpecies()).thenReturn(19L);
+        svc.initKnowledgeBase(); // 磁盘加载 → indexedDocumentCount = 19
+
+        // 模拟 rebuild 后物种被删除：DB 变成 18
+        // saveOnShutdown 应使用 indexedDocumentCount（19），不调用 countSpecies
+        svc.saveOnShutdown();
+
+        // countSpecies 只在 initKnowledgeBase 中被调用 1 次，saveOnShutdown 不应再调用
+        verify(documentLoader, times(1)).countSpecies();
+        // .meta 应为 "19"（indexedDocumentCount），而非 DB 实时值
+        assertEquals("19", Files.readString(metaFile, StandardCharsets.UTF_8).trim());
+    }
+
+    @Test
+    void saveOnShutdown_afterDiskLoad_writesCorrectCount(@TempDir Path tempDir) throws IOException {
+        // 从磁盘加载索引后，saveOnShutdown 应写入正确的索引数量
+        Path storeFile = tempDir.resolve("vector-store.json");
+        Files.createFile(storeFile);
+        Path metaFile = Path.of(storeFile + ".meta");
+        Files.writeString(metaFile, "7", StandardCharsets.UTF_8);
+
+        AiProperties props = new AiProperties();
+        props.setVectorStorePath(storeFile.toString());
+
+        SimpleVectorStore mockSimpleStore = mock(SimpleVectorStore.class);
+        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel);
+
+        when(documentLoader.countSpecies()).thenReturn(7L);
+        svc.initKnowledgeBase();
+
+        svc.saveOnShutdown();
+
+        // .meta 应为 "7"（从磁盘加载时设置的数量）
+        assertEquals("7", Files.readString(metaFile, StandardCharsets.UTF_8).trim());
+    }
+
     // ==================== 搜索测试 ====================
 
     @Test

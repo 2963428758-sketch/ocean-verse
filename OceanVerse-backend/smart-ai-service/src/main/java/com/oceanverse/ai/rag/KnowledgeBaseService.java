@@ -45,6 +45,15 @@ public class KnowledgeBaseService {
      */
     private final AtomicReference<SimpleVectorStore> rebuiltStore = new AtomicReference<>();
 
+    /**
+     * 当前索引中实际的文档数量
+     * <p>
+     * 用于 saveToDisk() 写入 .meta 文件，替代实时查询 DB 的 countSpecies()。
+     * 避免物种在 rebuild 之后增删导致 .meta 记录的数量与实际索引不一致。
+     * -1 表示尚未初始化（降级为查询 DB）。
+     */
+    private volatile long indexedDocumentCount = -1;
+
     public KnowledgeBaseService(DocumentLoader documentLoader,
                                 VectorStore vectorStore,
                                 AiProperties aiProperties,
@@ -82,6 +91,7 @@ public class KnowledgeBaseService {
                     && metaFile.exists() && readMetaCount(metaFile) == dbCount) {
                 log.info("从磁盘加载向量索引: {}（物种数: {}）", storeFile.getAbsolutePath(), dbCount);
                 simpleStore.load(storeFile);
+                this.indexedDocumentCount = dbCount;
                 log.info("向量索引加载完成");
                 return;
             }
@@ -121,6 +131,9 @@ public class KnowledgeBaseService {
 
             // 原子替换，后续 search 自动使用新实例
             rebuiltStore.set(freshStore);
+
+            // 记录实际索引的文档数量（saveToDisk 依赖此值写入 .meta）
+            this.indexedDocumentCount = documents.size();
 
             // 持久化到磁盘
             saveToDisk();
@@ -193,11 +206,11 @@ public class KnowledgeBaseService {
                 simpleStore.save(storeFile);
                 log.info("向量索引已保存到磁盘: {}", storeFile.getAbsolutePath());
 
-                // 同时保存物种数量元数据
+                // 同时保存物种数量元数据（使用实际索引数量，而非实时查 DB）
                 File metaFile = metaFile(storeFile);
-                long dbCount = documentLoader.countSpecies();
-                Files.writeString(metaFile.toPath(), String.valueOf(dbCount), StandardCharsets.UTF_8);
-                log.debug("物种数量元数据已保存: count={}", dbCount);
+                long count = indexedDocumentCount >= 0 ? indexedDocumentCount : documentLoader.countSpecies();
+                Files.writeString(metaFile.toPath(), String.valueOf(count), StandardCharsets.UTF_8);
+                log.debug("物种数量元数据已保存: count={}", count);
             }
         } catch (Exception e) {
             log.error("保存向量索引失败: {}", e.getMessage(), e);
