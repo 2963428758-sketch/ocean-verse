@@ -2,10 +2,17 @@ package com.oceanverse.eco.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.result.Result;
-import com.oceanverse.pojo.entity.Observation;
+import com.oceanverse.eco.service.ObservationLocationService;
 import com.oceanverse.eco.service.ObservationService;
+import com.oceanverse.pojo.dto.ObservationQueryDTO;
+import com.oceanverse.pojo.entity.Ecosystem;
+import com.oceanverse.pojo.entity.Observation;
+import com.oceanverse.pojo.entity.ObservationLocation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 观测管理接口
@@ -16,12 +23,11 @@ import org.springframework.web.bind.annotation.*;
 public class ObservationController {
 
     private final ObservationService observationService;
+    private final ObservationLocationService observationLocationService;
 
     @GetMapping("/list")
-    public Result<Page<Observation>> list(
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "10") Integer size) {
-        return Result.success(observationService.listObservations(page, size));
+    public Result<Page<Observation>> list(ObservationQueryDTO query) {
+        return Result.success(observationService.listObservations(query));
     }
 
     @GetMapping("/{id}")
@@ -46,5 +52,20 @@ public class ObservationController {
     public Result<Void> delete(@PathVariable Long id) {
         observationService.delete(id);
         return Result.success();
+    }
+
+    @GetMapping("/statistics")
+    public Result<Map<String, Object>> statistics() {
+        return Result.success(observationService.getStatistics());
+    }
+
+    @GetMapping("/locations")
+    public Result<List<ObservationLocation>> locations() {
+        return Result.success(observationLocationService.listAll());
+    }
+
+    @GetMapping("/ecosystems")
+    public Result<List<Ecosystem>> ecosystems() {
+        return Result.success(observationService.listEcosystems());
     }
 }

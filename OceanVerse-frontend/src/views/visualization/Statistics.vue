@@ -9,53 +9,86 @@
         <el-card shadow="hover"><div ref="iucnChart" style="height:400px"></div></el-card>
       </el-col>
     </el-row>
+    <el-row :gutter="20" style="margin-top:20px">
+      <el-col :span="24">
+        <el-card shadow="hover"><div ref="trendChart" style="height:400px"></div></el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import * as echarts from 'echarts'
+import { getSpeciesByFamily, getSpeciesByIucn, getObservationTrend } from '@/api/visual'
 
 const familyChart = ref<HTMLElement>()
 const iucnChart = ref<HTMLElement>()
+const trendChart = ref<HTMLElement>()
 
-onMounted(() => {
-  // 科分布图
+onMounted(async () => {
+  // 科分布图 — 调用后端真实数据
   if (familyChart.value) {
     const chart = echarts.init(familyChart.value)
+    const res = await getSpeciesByFamily()
     chart.setOption({
       title: { text: '物种按科分布', left: 'center' },
       tooltip: { trigger: 'item' },
       series: [{
         type: 'pie', radius: ['40%', '70%'],
-        data: [
-          { value: 35, name: 'Cheloniidae' },
-          { value: 28, name: 'Syngnathidae' },
-          { value: 22, name: 'Delphinidae' },
-          { value: 18, name: 'Scombridae' },
-          { value: 15, name: '其他' }
-        ]
+        data: res.data.map((item: any) => ({
+          value: item.count,
+          name: item.family
+        }))
       }]
     })
   }
-  // IUCN 状态分布
+  // IUCN 状态分布 — 调用后端真实数据
   if (iucnChart.value) {
     const chart = echarts.init(iucnChart.value)
+    const res = await getSpeciesByIucn()
+    const colorMap: Record<string, string> = {
+      CR: '#f56c6c', EN: '#e6a23c', VU: '#409eff',
+      NT: '#67c23a', LC: '#909399', DD: '#c0c4cc'
+    }
     chart.setOption({
       title: { text: 'IUCN 保护等级分布', left: 'center' },
       tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: ['CR', 'EN', 'VU', 'NT', 'LC', 'DD'] },
+      xAxis: {
+        type: 'category',
+        data: res.data.map((item: any) => item.iucn_status)
+      },
       yAxis: { type: 'value' },
       series: [{
         type: 'bar',
-        data: [
-          { value: 5, itemStyle: { color: '#f56c6c' } },
-          { value: 12, itemStyle: { color: '#e6a23c' } },
-          { value: 23, itemStyle: { color: '#409eff' } },
-          { value: 18, itemStyle: { color: '#67c23a' } },
-          { value: 56, itemStyle: { color: '#909399' } },
-          { value: 14, itemStyle: { color: '#c0c4cc' } }
-        ]
+        data: res.data.map((item: any) => ({
+          value: item.count,
+          itemStyle: { color: colorMap[item.iucn_status] || '#909399' }
+        }))
+      }]
+    })
+  }
+  // 观测趋势图 — 调用后端真实数据
+  if (trendChart.value) {
+    const chart = echarts.init(trendChart.value)
+    const res = await getObservationTrend()
+    chart.setOption({
+      title: { text: '观测记录趋势', left: 'center' },
+      tooltip: { trigger: 'axis' },
+      xAxis: {
+        type: 'category',
+        data: res.data.map((item: any) => item.period)
+      },
+      yAxis: { type: 'value', name: '观测次数' },
+      series: [{
+        type: 'line',
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 8,
+        lineStyle: { width: 3, color: '#409eff' },
+        areaStyle: { color: 'rgba(64,158,255,0.15)' },
+        itemStyle: { color: '#409eff' },
+        data: res.data.map((item: any) => item.count)
       }]
     })
   }
