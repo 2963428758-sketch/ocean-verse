@@ -246,7 +246,7 @@ async function doRecognize() {
 
 <style scoped lang="scss">
 .recognize-page {
-  max-width: 960px;
+  width: 100%;
 }
 
 .page-header {
@@ -258,7 +258,7 @@ async function doRecognize() {
 /* ── 两栏布局 ── */
 .recognize-layout {
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: minmax(300px, 1fr) 2fr;
   gap: 20px;
 }
 
