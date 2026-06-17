@@ -35,12 +35,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AI 智能服务实现 — 接入 DashScope 通义千问大模型
@@ -174,7 +176,7 @@ public class AiServiceImpl implements AiService {
     // ==================== 智能问答 SSE 流式（第二层：Prompt模板 + RAG + 多轮对话）====================
 
     @Override
-    public Flux<String> chatStream(ChatDTO dto) {
+    public Flux<String> chatStream(ChatDTO dto, AtomicReference<Long> savedIdRef) {
         long startTime = System.currentTimeMillis();
 
         // 1. 创建问答记录骨架（流结束后填充完整回答）
@@ -242,6 +244,7 @@ public class AiServiceImpl implements AiService {
                     }
                     try {
                         qaHistoryMapper.insert(history);
+                        savedIdRef.set(history.getId());
                         publishChatEvent(history);
                         log.info("智能问答完成: code={}, 耗时={}ms, 回答长度={}, RAG={}, 历史轮数={}",
                                 history.getQuestionCode(),
@@ -253,7 +256,17 @@ public class AiServiceImpl implements AiService {
                         log.error("保存问答记录失败（不影响流式响应）", e);
                     }
                 })
-                .doOnError(e -> log.error("AI 流式调用异常", e));
+                .doOnError(e -> log.error("AI 流式调用异常", e))
+                // 流结束后追加一条元数据事件，携带 QaHistory ID 供前端反馈使用
+                .concatWith(Mono.fromSupplier(() -> {
+                    try {
+                        Long qaId = savedIdRef.get();
+                        return objectMapper.writeValueAsString(
+                                Map.of("qaId", qaId != null ? qaId : 0L));
+                    } catch (Exception e) {
+                        return "{\"qaId\":0}";
+                    }
+                }));
     }
 
     // ==================== 历史记录查询 ====================

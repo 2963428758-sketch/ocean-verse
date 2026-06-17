@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * AI 智能服务接口 — 成员B/E
  * 包含：图像识别、智能问答、数据分析
@@ -47,8 +49,9 @@ public class AiController {
     @PostMapping("/chat")
     public SseEmitter chat(@Valid @RequestBody ChatDTO dto) {
         SseEmitter emitter = new SseEmitter(120_000L);
+        AtomicReference<Long> savedIdRef = new AtomicReference<>();
 
-        Disposable subscription = aiService.chatStream(dto)
+        Disposable subscription = aiService.chatStream(dto, savedIdRef)
                 .subscribe(
                         chunk -> {
                             try {
