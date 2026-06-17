@@ -14,24 +14,25 @@ export const useUserStore = defineStore('user', () => {
 
   const isLoggedIn = computed(() => !!token.value)
 
-  function setLoginInfo(data: { token: string; userId: number; username: string; avatarUrl?: string; role?: string }) {
-    token.value = data.token
+  function setLoginInfo(data: { accessToken: string; refreshToken?: string; userId: number; username: string; avatarUrl?: string; role?: string }) {
+    token.value = data.accessToken
     userId.value = data.userId
     username.value = data.username
     avatarUrl.value = data.avatarUrl || ''
     role.value = data.role || ''
-    localStorage.setItem('token', data.token)
+    localStorage.setItem('token', data.accessToken)
     localStorage.setItem('userId', String(data.userId))
     localStorage.setItem('username', data.username)
     if (data.avatarUrl) localStorage.setItem('avatarUrl', data.avatarUrl)
     if (data.role) localStorage.setItem('role', data.role)
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
     infoLoaded.value = true
   }
 
   async function fetchUserInfo() {
     if (infoLoaded.value) return
     try {
-      const res: any = await http.get('/auth/user/info')
+      const res: any = await http.get('/auth/info')
       const data = res.data || res
       if (data) {
         userId.value = data.id ?? data.userId ?? userId.value
@@ -58,6 +59,7 @@ export const useUserStore = defineStore('user', () => {
     role.value = ''
     infoLoaded.value = false
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('userId')
     localStorage.removeItem('username')
     localStorage.removeItem('avatarUrl')
