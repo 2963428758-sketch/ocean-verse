@@ -20,3 +20,23 @@ export const getSpeciesStats = () => http.get('/species/statistics')
 
 // 物种分布信息
 export const getSpeciesDistributions = (id: number) => http.get(`/species/${id}/distributions`)
+
+// ==================== 物种媒体 ====================
+
+// 上传物种图片（支持多文件）
+export const uploadSpeciesMedia = (speciesId: number, files: File[]) => {
+  const formData = new FormData()
+  files.forEach(f => formData.append('files', f))
+  return http.post(`/species/${speciesId}/media`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+// 获取物种的所有媒体资源
+export const getSpeciesMedia = (speciesId: number) => http.get(`/species/${speciesId}/media`)
+
+// 删除媒体资源
+export const deleteSpeciesMedia = (mediaId: number) => http.delete(`/species/media/${mediaId}`)
+
+// 设置主图
+export const setPrimaryMedia = (mediaId: number) => http.put(`/species/media/${mediaId}/primary`)

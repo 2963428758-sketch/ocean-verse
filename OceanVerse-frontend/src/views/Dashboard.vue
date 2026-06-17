@@ -118,8 +118,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
+import { getDashboardData } from '@/api/visual'
 
 const userStore = useUserStore()
 
@@ -140,31 +141,31 @@ const todayStr = computed(() => {
 })
 
 /* ── 统计卡片 ── */
-const statCards = [
+const statCards = ref([
   {
     key: 'species',
     label: '物种总数',
-    value: '128',
+    value: '-',
     size: 'tile-wide',
     iconBg: '#e8f4f8',
     iconComp: h('span', { innerHTML: '🐋', style: 'font-size:22px' }),
-    trend: '+3 本月',
-    trendDir: 'up'
+    trend: null,
+    trendDir: ''
   },
   {
     key: 'observation',
     label: '观测记录',
-    value: '56',
+    value: '-',
     size: '',
     iconBg: '#fef4ee',
     iconComp: h('span', { innerHTML: '🔭', style: 'font-size:22px' }),
-    trend: '+8 本周',
-    trendDir: 'up'
+    trend: null,
+    trendDir: ''
   },
   {
     key: 'ai',
     label: 'AI 识别',
-    value: '23',
+    value: '-',
     size: '',
     iconBg: '#f0eefa',
     iconComp: h('span', { innerHTML: '✨', style: 'font-size:22px' }),
@@ -172,16 +173,29 @@ const statCards = [
     trendDir: ''
   },
   {
-    key: 'community',
-    label: '社区动态',
-    value: '89',
+    key: 'users',
+    label: '用户总数',
+    value: '-',
     size: 'tile-wide',
     iconBg: '#f4f8e8',
-    iconComp: h('span', { innerHTML: '💬', style: 'font-size:22px' }),
-    trend: '+12 本月',
-    trendDir: 'up'
+    iconComp: h('span', { innerHTML: '👥', style: 'font-size:22px' }),
+    trend: null,
+    trendDir: ''
   }
-]
+])
+
+onMounted(async () => {
+  try {
+    const res = await getDashboardData()
+    const data = res.data
+    statCards.value.find(c => c.key === 'species')!.value = String(data.totalSpecies)
+    statCards.value.find(c => c.key === 'observation')!.value = String(data.totalObservations)
+    statCards.value.find(c => c.key === 'ai')!.value = String(data.totalRecognitions)
+    statCards.value.find(c => c.key === 'users')!.value = String(data.totalUsers)
+  } catch (e) {
+    console.error('获取仪表盘数据失败', e)
+  }
+})
 
 /* ── 近期活动 ── */
 const recentActivities = [

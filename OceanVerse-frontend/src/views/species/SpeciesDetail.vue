@@ -65,6 +65,58 @@
         </div>
       </div>
 
+      <!-- 物种图片画廊 -->
+      <div class="media-gallery-card" v-if="mediaList.length > 0">
+        <h3 class="section-title">物种图片</h3>
+        <div class="gallery-main">
+          <div class="gallery-carousel">
+            <el-carousel
+              :interval="4000"
+              height="400px"
+              indicator-position="outside"
+              arrow="always"
+              class="detail-carousel"
+            >
+              <el-carousel-item v-for="media in mediaList" :key="media.id">
+                <div class="carousel-slide">
+                  <img :src="media.fileUrl" :alt="media.mediaTitle || media.fileName" />
+                  <div class="slide-caption" v-if="media.mediaTitle">
+                    {{ media.mediaTitle }}
+                    <el-tag v-if="media.isPrimary === 1" type="warning" size="small" class="primary-tag">主图</el-tag>
+                  </div>
+                </div>
+              </el-carousel-item>
+            </el-carousel>
+          </div>
+          <div class="gallery-thumbs" v-if="mediaList.length > 1">
+            <div
+              v-for="(media, idx) in mediaList"
+              :key="media.id"
+              :class="['thumb-item', { active: idx === activeThumbIdx }]"
+              @click="activeThumbIdx = idx"
+            >
+              <img :src="media.fileUrl" :alt="media.fileName" />
+              <el-tag v-if="media.isPrimary === 1" type="warning" size="small" class="thumb-primary-tag">主</el-tag>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 无图片占位 -->
+      <div class="media-gallery-card media-empty" v-else>
+        <h3 class="section-title">物种图片</h3>
+        <div class="gallery-placeholder">
+          <div class="placeholder-content">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            <p>暂无图片，点击编辑上传</p>
+          </div>
+        </div>
+      </div>
+
       <!-- 基本信息 -->
       <div class="info-card">
         <el-descriptions :column="2" border>
@@ -120,7 +172,7 @@
         <h3 class="section-title">分布信息</h3>
 
         <div v-if="distributions.length > 0" class="map-wrapper">
-          <div ref="mapContainer" class="leaf-map"></div>
+          <div ref="mapContainer" class="amap-container"></div>
           <div class="map-legend">
             <div v-for="item in distributionSummary" :key="item.type" class="legend-item">
               <span class="legend-dot" :style="{ background: item.color }"></span>
@@ -166,7 +218,7 @@
     <el-empty v-else-if="!loading" description="物种不存在" />
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="editDialogVisible" title="编辑物种" width="700px" destroy-on-close>
+    <el-dialog v-model="editDialogVisible" title="编辑物种" width="750px" destroy-on-close>
       <el-form :model="editForm" label-width="100px" :rules="editRules" ref="editFormRef">
         <el-row :gutter="16">
           <el-col :span="12">
@@ -255,6 +307,50 @@
         <el-form-item label="数据来源">
           <el-input v-model="editForm.source" />
         </el-form-item>
+
+        <!-- 图片上传区域 -->
+        <el-divider content-position="left">物种图片</el-divider>
+        <el-form-item label="上传图片">
+          <el-upload
+            action=""
+            :auto-upload="false"
+            :file-list="editUploadFileList"
+            :on-change="handleEditUploadChange"
+            :on-remove="handleEditUploadRemove"
+            :before-upload="beforeEditUpload"
+            multiple
+            accept="image/*"
+            list-type="picture-card"
+            :limit="10"
+          >
+            <el-icon><Plus /></el-icon>
+            <template #tip>
+              <div class="upload-tip">支持 jpg/png/gif 格式，单张不超过 20MB，最多 10 张</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+
+        <!-- 已有图片管理 -->
+        <el-form-item label="已有图片" v-if="editExistingMedia.length > 0">
+          <div class="existing-media-list">
+            <div v-for="media in editExistingMedia" :key="media.id" class="existing-media-item">
+              <img :src="media.fileUrl" :alt="media.fileName" />
+              <div class="media-actions">
+                <el-tag v-if="media.isPrimary === 1" type="warning" size="small">主图</el-tag>
+                <el-button
+                  v-if="media.isPrimary !== 1"
+                  link type="primary" size="small"
+                  @click="handleEditSetPrimary(media.id!)"
+                >设为主图</el-button>
+                <el-popconfirm title="确定删除此图片？" @confirm="handleEditDeleteMedia(media.id!)">
+                  <template #reference>
+                    <el-button link type="danger" size="small">删除</el-button>
+                  </template>
+                </el-popconfirm>
+              </div>
+            </div>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="editDialogVisible = false">取消</el-button>
@@ -268,28 +364,36 @@
 import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import {
   getSpeciesDetail,
   getSpeciesDistributions,
   updateSpecies,
-  deleteSpecies
+  deleteSpecies,
+  getSpeciesMedia,
+  uploadSpeciesMedia,
+  deleteSpeciesMedia,
+  setPrimaryMedia
 } from '@/api/species'
-import type { Species, SpeciesDistribution } from '@/types'
+import type { Species, SpeciesDistribution, SpeciesMedia } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(true)
 const species = ref<Species | null>(null)
 const distributions = ref<SpeciesDistribution[]>([])
+const mediaList = ref<SpeciesMedia[]>([])
+const activeThumbIdx = ref(0)
 const mapContainer = ref<HTMLElement>()
 
 const editDialogVisible = ref(false)
 const editSubmitting = ref(false)
 const editFormRef = ref<FormInstance>()
+const editUploadFileList = ref<UploadFile[]>([])
+const editExistingMedia = ref<SpeciesMedia[]>([])
+const editPendingFiles = ref<File[]>([])
+
 const editForm = reactive<Species>({
   speciesCode: '',
   scientificName: '',
@@ -391,6 +495,78 @@ function protectionLabel(level: string) {
   return map[level] || level
 }
 
+// ===== 图片上传相关 =====
+function beforeEditUpload(file: File) {
+  const isImage = file.type.startsWith('image/')
+  const isLt20M = file.size / 1024 / 1024 < 20
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt20M) {
+    ElMessage.error('图片大小不能超过 20MB')
+    return false
+  }
+  return true
+}
+
+function handleEditUploadChange(file: UploadFile) {
+  if (file.raw) {
+    if (beforeEditUpload(file.raw)) {
+      editPendingFiles.value.push(file.raw)
+    }
+  }
+}
+
+function handleEditUploadRemove(file: UploadFile) {
+  const idx = editPendingFiles.value.findIndex(f => f.name === file.name)
+  if (idx > -1) {
+    editPendingFiles.value.splice(idx, 1)
+  }
+}
+
+async function handleEditDeleteMedia(mediaId: number) {
+  try {
+    await deleteSpeciesMedia(mediaId)
+    ElMessage.success('图片已删除')
+    // 刷新已有图片
+    if (species.value?.id) {
+      const res: any = await getSpeciesMedia(species.value.id)
+      editExistingMedia.value = res.data || []
+    }
+  } catch (e: any) {
+    // 错误已由拦截器处理
+  }
+}
+
+async function handleEditSetPrimary(mediaId: number) {
+  try {
+    await setPrimaryMedia(mediaId)
+    ElMessage.success('主图已更新')
+    if (species.value?.id) {
+      const res: any = await getSpeciesMedia(species.value.id)
+      editExistingMedia.value = res.data || []
+    }
+  } catch (e: any) {
+    // 错误已由拦截器处理
+  }
+}
+
+// ===== 高德地图动态加载 =====
+function loadAMap(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).AMap) { resolve(); return }
+    ;(window as any)._AMapSecurityConfig = {
+      securityJsCode: '9cbd4e854789581ae43ffea839fa4cc3'
+    }
+    const script = document.createElement('script')
+    script.src = 'https://webapi.amap.com/maps?v=2.0&key=e07413fbaef5c330b8034a514a9b0537'
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('高德地图加载失败'))
+    document.head.appendChild(script)
+  })
+}
+
 // ===== 数据加载 =====
 async function loadData() {
   loading.value = true
@@ -402,14 +578,18 @@ async function loadData() {
     const distRes: any = await getSpeciesDistributions(speciesId)
     distributions.value = distRes.data || []
 
+    // 加载媒体资源
+    const mediaRes: any = await getSpeciesMedia(speciesId)
+    mediaList.value = mediaRes.data || []
+
     await nextTick()
-    initMap()
+    await initMap()
   } finally {
     loading.value = false
   }
 }
 
-function initMap() {
+async function initMap() {
   if (!mapContainer.value || distributions.value.length === 0) return
 
   const points = distributions.value
@@ -417,53 +597,70 @@ function initMap() {
 
   if (points.length === 0) return
 
-  const map = L.map(mapContainer.value, {
-    scrollWheelZoom: false,
-    zoomControl: true
+  await loadAMap()
+  const AMap = (window as any).AMap
+
+  const map = new AMap.Map(mapContainer.value, {
+    zoom: 5,
+    center: [112, 25],
+    viewMode: '2D',
+    scrollWheel: false
   })
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 18
-  }).addTo(map)
-
-  const bounds = L.latLngBounds([])
+  const markers: any[] = []
 
   points.forEach(d => {
     const color = distTypeColors[d.distributionType] || '#6b7280'
-    const marker = L.circleMarker([d.latitude!, d.longitude!], {
+    const circleMarker = new AMap.CircleMarker({
+      center: [d.longitude!, d.latitude!],
       radius: 8,
       fillColor: color,
-      color: '#fff',
-      weight: 2,
-      fillOpacity: 0.85
-    }).addTo(map)
+      fillOpacity: 0.85,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      strokeOpacity: 1,
+      cursor: 'pointer'
+    })
 
     const typeLabel = distTypeLabel(d.distributionType)
-    marker.bindPopup(`
-      <div style="min-width:160px;line-height:1.6">
-        <strong>${d.regionName || '未知区域'}</strong><br/>
-        <span style="color:#666">${d.country || ''} ${d.province || ''}</span><br/>
-        类型: ${typeLabel}<br/>
-        ${d.depthMin != null && d.depthMax != null ? `深度: ${d.depthMin}~${d.depthMax}m` : ''}
-        ${d.habitatType ? `<br/>栖息地: ${d.habitatType}` : ''}
-      </div>
-    `)
+    const infoWindow = new AMap.InfoWindow({
+      content:
+        `<div style="min-width:160px;line-height:1.6;padding:4px 8px;font-size:13px">` +
+        `<strong>${d.regionName || '未知区域'}</strong><br/>` +
+        `<span style="color:#666">${d.country || ''} ${d.province || ''}</span><br/>` +
+        `类型: <span style="color:${color};font-weight:600">${typeLabel}</span><br/>` +
+        (d.depthMin != null && d.depthMax != null ? `深度: ${d.depthMin}~${d.depthMax}m<br/>` : '') +
+        (d.habitatType ? `栖息地: ${d.habitatType}` : '') +
+        `</div>`,
+      offset: new AMap.Pixel(0, -10)
+    })
 
-    bounds.extend([d.latitude!, d.longitude!])
+    circleMarker.on('click', () => {
+      infoWindow.open(map, circleMarker.getCenter())
+    })
+
+    map.add(circleMarker)
+    markers.push(circleMarker)
   })
 
-  if (points.length === 1) {
-    map.setView([points[0].latitude!, points[0].longitude!], 8)
-  } else {
-    map.fitBounds(bounds, { padding: [40, 40] })
+  if (markers.length > 0) {
+    map.setFitView(markers, false, [60, 60, 60, 60])
   }
 }
 
 // ===== 编辑/删除 =====
-function openEditDialog() {
+async function openEditDialog() {
   if (species.value) {
     Object.assign(editForm, { ...species.value })
+    editUploadFileList.value = []
+    editPendingFiles.value = []
+    // 加载已有图片
+    try {
+      const res: any = await getSpeciesMedia(species.value.id!)
+      editExistingMedia.value = res.data || []
+    } catch {
+      editExistingMedia.value = []
+    }
     editDialogVisible.value = true
   }
 }
@@ -473,6 +670,10 @@ async function handleEditSubmit() {
   editSubmitting.value = true
   try {
     await updateSpecies(editForm.id!, editForm)
+    // 上传新图片
+    if (editPendingFiles.value.length > 0 && editForm.id) {
+      await uploadSpeciesMedia(editForm.id, editPendingFiles.value)
+    }
     ElMessage.success('物种更新成功')
     editDialogVisible.value = false
     loadData()
@@ -693,6 +894,134 @@ onMounted(loadData)
   }
 }
 
+/* ===== 图片画廊 ===== */
+.media-gallery-card {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 24px 28px;
+  animation: fadeSlideUp 0.45s ease both;
+  animation-delay: 0.05s;
+}
+
+.gallery-main {
+  display: flex;
+  gap: 16px;
+}
+
+.gallery-carousel {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-carousel {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  :deep(.el-carousel__container) {
+    border-radius: var(--radius-md);
+  }
+}
+
+.carousel-slide {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .slide-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px 16px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.6));
+    color: #fff;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .primary-tag {
+      margin-left: auto;
+    }
+  }
+}
+
+.gallery-thumbs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 80px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 400px;
+  padding-right: 4px;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: var(--neutral-200); border-radius: 2px; }
+}
+
+.thumb-item {
+  position: relative;
+  width: 80px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &:hover {
+    border-color: var(--primary-lighter);
+  }
+
+  &.active {
+    border-color: var(--primary-main);
+    box-shadow: 0 2px 8px rgba(15, 76, 117, 0.3);
+  }
+
+  .thumb-primary-tag {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    transform: scale(0.7);
+    transform-origin: top right;
+  }
+}
+
+.gallery-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+
+  .placeholder-content {
+    text-align: center;
+    color: var(--neutral-300);
+
+    p {
+      margin: 12px 0 0;
+      font-size: 14px;
+      color: var(--neutral-400);
+    }
+  }
+}
+
 /* ===== 通用卡片样式 ===== */
 .info-card,
 .taxonomy-card,
@@ -821,7 +1150,7 @@ onMounted(loadData)
   position: relative;
 }
 
-.leaf-map {
+.amap-container {
   height: 400px;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -866,6 +1195,42 @@ onMounted(loadData)
 
   :deep(.el-collapse-item__content) {
     padding-top: 8px;
+  }
+}
+
+/* ===== 图片上传区域 ===== */
+.upload-tip {
+  font-size: 12px;
+  color: var(--neutral-400);
+  margin-top: 4px;
+}
+
+.existing-media-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.existing-media-item {
+  position: relative;
+  width: 104px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--neutral-100);
+
+  img {
+    width: 104px;
+    height: 104px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .media-actions {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 0;
+    background: var(--neutral-50);
   }
 }
 </style>

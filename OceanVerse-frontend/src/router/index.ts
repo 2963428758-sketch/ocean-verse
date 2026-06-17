@@ -14,7 +14,8 @@ const routes: RouteRecordRaw[] = [
         { path: 'detail/:id', name: 'SpeciesDetail', component: () => import('@/views/species/SpeciesDetail.vue'), meta: { title: '物种详情', hidden: true } }
       ]},
       { path: 'observation', name: 'Observation', redirect: '/observation/list', meta: { title: '观测记录', icon: 'Compass' }, children: [
-        { path: 'list', name: 'ObservationList', component: () => import('@/views/observation/ObservationList.vue'), meta: { title: '观测列表' } }
+        { path: 'list', name: 'ObservationList', component: () => import('@/views/observation/ObservationList.vue'), meta: { title: '观测列表' } },
+        { path: 'detail/:id', name: 'ObservationDetail', component: () => import('@/views/observation/ObservationDetail.vue'), meta: { title: '观测详情', hidden: true } }
       ]},
       { path: 'visualization', name: 'Visualization', redirect: '/visualization/statistics', meta: { title: '数据可视化', icon: 'DataAnalysis' }, children: [
         { path: 'statistics', name: 'Statistics', component: () => import('@/views/visualization/Statistics.vue'), meta: { title: '数据统计' } },

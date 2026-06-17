@@ -15,6 +15,7 @@
           class="search-input"
           size="large"
           @keyup.enter="search"
+          @clear="search"
         >
           <template #prefix>
             <el-icon><Search /></el-icon>
@@ -76,6 +77,21 @@
           <span class="filter-badge">{{ activeFilterCount }} 项筛选</span>
         </template>
       </div>
+      <div class="sort-control">
+        <span class="sort-label">排序：</span>
+        <button
+          :class="['sort-btn', { active: queryParams.sort === 'createTime' }]"
+          @click="changeSort('createTime')"
+        >
+          按创建日期
+        </button>
+        <button
+          :class="['sort-btn', { active: queryParams.sort === 'speciesCode' }]"
+          @click="changeSort('speciesCode')"
+        >
+          按编号
+        </button>
+      </div>
       <div class="view-switch">
         <button
           :class="['switch-btn', { active: viewMode === 'grid' }]"
@@ -103,6 +119,43 @@
         :style="{ animationDelay: `${idx * 0.04}s` }"
         @click="$router.push(`/species/detail/${sp.id}`)"
       >
+        <!-- 图片轮播区域 -->
+        <div class="card-media" v-if="speciesMediaMap[sp.id!] && speciesMediaMap[sp.id!].length > 0">
+          <el-carousel
+            v-if="speciesMediaMap[sp.id!].length > 1"
+            :interval="3000"
+            :indicator-position="'none'"
+            height="140px"
+            class="card-carousel"
+            arrow="never"
+          >
+            <el-carousel-item v-for="media in speciesMediaMap[sp.id!]" :key="media.id">
+              <img :src="media.fileUrl" :alt="media.fileName" class="card-img" />
+            </el-carousel-item>
+          </el-carousel>
+          <img
+            v-else
+            :src="speciesMediaMap[sp.id!][0].fileUrl"
+            :alt="speciesMediaMap[sp.id!][0].fileName"
+            class="card-img"
+          />
+          <div class="card-media-overlay">
+            <span class="media-count" v-if="speciesMediaMap[sp.id!].length > 1">
+              {{ speciesMediaMap[sp.id!].length }} 张图片
+            </span>
+          </div>
+        </div>
+        <div class="card-media card-media-placeholder" v-else>
+          <div class="placeholder-icon">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+              <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+              <circle cx="9" cy="10" r="1" fill="currentColor"/>
+              <circle cx="15" cy="10" r="1" fill="currentColor"/>
+            </svg>
+          </div>
+        </div>
+
         <div class="card-iucn-band" :style="{ background: iucnColor(sp.iucnStatus) }"></div>
         <div class="card-body">
           <div class="card-top">
@@ -140,6 +193,17 @@
     <!-- 表格视图 -->
     <el-card v-else class="table-card" v-loading="loading">
       <el-table :data="speciesList" stripe>
+        <el-table-column label="图片" width="80">
+          <template #default="{ row }">
+            <div class="table-thumb" v-if="speciesMediaMap[row.id] && speciesMediaMap[row.id].length > 0">
+              <img :src="speciesMediaMap[row.id][0].fileUrl" class="thumb-img" />
+              <span v-if="speciesMediaMap[row.id].length > 1" class="thumb-count">
+                {{ speciesMediaMap[row.id].length }}
+              </span>
+            </div>
+            <span v-else class="no-thumb">—</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="speciesCode" label="编码" width="100" />
         <el-table-column prop="chineseName" label="中文名" width="150">
           <template #default="{ row }">
@@ -205,7 +269,7 @@
     </div>
 
     <!-- 新增/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px" destroy-on-close>
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="750px" destroy-on-close>
       <el-form :model="formData" label-width="100px" :rules="formRules" ref="formRef">
         <el-row :gutter="16">
           <el-col :span="12">
@@ -294,6 +358,84 @@
         <el-form-item label="数据来源">
           <el-input v-model="formData.source" />
         </el-form-item>
+
+        <!-- 地理分布信息 -->
+        <el-divider content-position="left">分布信息</el-divider>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="经度">
+              <el-input-number
+                v-model="formData.longitude"
+                :min="-180"
+                :max="180"
+                :precision="6"
+                :step="1"
+                controls-position="right"
+                placeholder="如 120.345678"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="纬度">
+              <el-input-number
+                v-model="formData.latitude"
+                :min="-90"
+                :max="90"
+                :precision="6"
+                :step="1"
+                controls-position="right"
+                placeholder="如 30.123456"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 图片上传区域 -->
+        <el-divider content-position="left">物种图片</el-divider>
+        <el-form-item label="上传图片">
+          <el-upload
+            ref="uploadRef"
+            action=""
+            :auto-upload="false"
+            :file-list="uploadFileList"
+            :on-change="handleUploadChange"
+            :on-remove="handleUploadRemove"
+            :before-upload="beforeUpload"
+            multiple
+            accept="image/*"
+            list-type="picture-card"
+            :limit="10"
+          >
+            <el-icon><Plus /></el-icon>
+            <template #tip>
+              <div class="upload-tip">支持 jpg/png/gif 格式，单张不超过 20MB，最多 10 张</div>
+            </template>
+          </el-upload>
+        </el-form-item>
+
+        <!-- 已有图片展示（编辑模式） -->
+        <el-form-item label="已有图片" v-if="isEdit && existingMedia.length > 0">
+          <div class="existing-media-list">
+            <div v-for="media in existingMedia" :key="media.id" class="existing-media-item">
+              <img :src="media.fileUrl" :alt="media.fileName" />
+              <div class="media-actions">
+                <el-tag v-if="media.isPrimary === 1" type="warning" size="small">主图</el-tag>
+                <el-button
+                  v-if="media.isPrimary !== 1"
+                  link type="primary" size="small"
+                  @click="handleSetPrimary(media.id!)"
+                >设为主图</el-button>
+                <el-popconfirm title="确定删除此图片？" @confirm="handleDeleteMedia(media.id!)">
+                  <template #reference>
+                    <el-button link type="danger" size="small">删除</el-button>
+                  </template>
+                </el-popconfirm>
+              </div>
+            </div>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -304,17 +446,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import type { FormInstance, FormRules, UploadFile, UploadInstance } from 'element-plus'
 import {
   getSpeciesList,
   createSpecies,
   updateSpecies,
   deleteSpecies,
-  getSpeciesStats
+  getSpeciesStats,
+  getSpeciesMedia,
+  uploadSpeciesMedia,
+  deleteSpeciesMedia,
+  setPrimaryMedia
 } from '@/api/species'
-import type { Species, SpeciesQueryDTO, SpeciesStatistics } from '@/types'
+import type { Species, SpeciesQueryDTO, SpeciesStatistics, SpeciesMedia } from '@/types'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -325,11 +471,15 @@ const familyOptions = ref<string[]>([])
 const viewMode = ref<'grid' | 'table'>('grid')
 const showAdvanced = ref(false)
 
+// 物种图片映射：speciesId -> SpeciesMedia[]
+const speciesMediaMap = reactive<Record<number, SpeciesMedia[]>>({})
+
 const queryParams = reactive<SpeciesQueryDTO>({
   keyword: '',
   family: '',
   iucnStatus: '',
   protectionLevel: '',
+  sort: 'createTime',
   page: 1,
   size: 12
 })
@@ -358,22 +508,23 @@ function iucnColor(status?: string): string {
   return iucnColorMap[status || 'DD'] || '#9ca3af'
 }
 
-function gridSpan(status?: string): number {
-  const map: Record<string, number> = { CR: 2, EN: 2, VU: 1, NT: 1, LC: 1, EX: 1, EW: 1, DD: 1 }
-  return map[status || 'DD'] || 1
-}
-
 // 对话框
 const dialogVisible = ref(false)
 const dialogTitle = computed(() => isEdit.value ? '编辑物种' : '新增物种')
 const isEdit = ref(false)
 const formRef = ref<FormInstance>()
+const uploadRef = ref<UploadInstance>()
+const uploadFileList = ref<UploadFile[]>([])
+const existingMedia = ref<SpeciesMedia[]>([])
+const pendingUploadFiles = ref<File[]>([])
+
 const formData = reactive<Species>({
   speciesCode: '', scientificName: '', chineseName: '', commonName: '',
   protectionLevel: '', iucnStatus: '', kingdom: '', phylum: '', className: '',
   orderName: '', family: '', genus: '', species: '',
   description: '', morphology: '', ecology: '',
-  isEndemic: 0, isInvasive: 0, source: ''
+  isEndemic: 0, isInvasive: 0, source: '',
+  longitude: undefined, latitude: undefined
 })
 
 const formRules: FormRules = {
@@ -396,15 +547,100 @@ function protectionLabel(level: string) {
   return map[level] || level
 }
 
+// ==================== 图片上传相关 ====================
+
+function beforeUpload(file: File) {
+  const isImage = file.type.startsWith('image/')
+  const isLt20M = file.size / 1024 / 1024 < 20
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt20M) {
+    ElMessage.error('图片大小不能超过 20MB')
+    return false
+  }
+  return true
+}
+
+function handleUploadChange(file: UploadFile) {
+  if (file.raw) {
+    if (beforeUpload(file.raw)) {
+      pendingUploadFiles.value.push(file.raw)
+    }
+  }
+}
+
+function handleUploadRemove(file: UploadFile) {
+  const idx = pendingUploadFiles.value.findIndex(f => f.name === file.name)
+  if (idx > -1) {
+    pendingUploadFiles.value.splice(idx, 1)
+  }
+}
+
+async function handleDeleteMedia(mediaId: number) {
+  try {
+    await deleteSpeciesMedia(mediaId)
+    ElMessage.success('图片已删除')
+    // 刷新已有图片列表
+    if (formData.id) {
+      const res: any = await getSpeciesMedia(formData.id)
+      existingMedia.value = res.data || []
+    }
+  } catch (e: any) {
+    // 错误已由拦截器处理
+  }
+}
+
+async function handleSetPrimary(mediaId: number) {
+  try {
+    await setPrimaryMedia(mediaId)
+    ElMessage.success('主图已更新')
+    if (formData.id) {
+      const res: any = await getSpeciesMedia(formData.id)
+      existingMedia.value = res.data || []
+    }
+  } catch (e: any) {
+    // 错误已由拦截器处理
+  }
+}
+
+// 高级筛选条件变更时自动搜索
+watch(
+  () => [queryParams.family, queryParams.iucnStatus, queryParams.protectionLevel],
+  () => {
+    queryParams.page = 1
+    search()
+  }
+)
+
+// ==================== 数据加载 ====================
+
 async function search() {
   loading.value = true
   try {
     const res: any = await getSpeciesList(queryParams)
     speciesList.value = res.data?.records || []
     total.value = res.data?.total || 0
+    // 加载每个物种的图片
+    await loadAllSpeciesMedia()
   } finally {
     loading.value = false
   }
+}
+
+async function loadAllSpeciesMedia() {
+  const promises = speciesList.value.map(async (sp) => {
+    if (sp.id) {
+      try {
+        const res: any = await getSpeciesMedia(sp.id)
+        speciesMediaMap[sp.id] = res.data || []
+      } catch {
+        speciesMediaMap[sp.id] = []
+      }
+    }
+  })
+  await Promise.all(promises)
 }
 
 function resetQuery() {
@@ -414,6 +650,12 @@ function resetQuery() {
   queryParams.protectionLevel = ''
   queryParams.page = 1
   queryParams.size = 12
+  // watcher 会自动触发 search()，无需手动调用
+}
+
+function changeSort(sort: string) {
+  queryParams.sort = sort
+  queryParams.page = 1
   search()
 }
 
@@ -432,14 +674,27 @@ function openAddDialog() {
     protectionLevel: '', iucnStatus: '', kingdom: '', phylum: '', className: '',
     orderName: '', family: '', genus: '', species: '',
     description: '', morphology: '', ecology: '',
-    isEndemic: 0, isInvasive: 0, source: ''
+    isEndemic: 0, isInvasive: 0, source: '',
+    longitude: undefined, latitude: undefined
   })
+  uploadFileList.value = []
+  pendingUploadFiles.value = []
+  existingMedia.value = []
   dialogVisible.value = true
 }
 
-function openEditDialog(row: Species) {
+async function openEditDialog(row: Species) {
   isEdit.value = true
   Object.assign(formData, { ...row })
+  uploadFileList.value = []
+  pendingUploadFiles.value = []
+  // 加载已有图片
+  try {
+    const res: any = await getSpeciesMedia(row.id!)
+    existingMedia.value = res.data || []
+  } catch {
+    existingMedia.value = []
+  }
   dialogVisible.value = true
 }
 
@@ -449,9 +704,21 @@ async function handleSubmit() {
   try {
     if (isEdit.value) {
       await updateSpecies(formData.id!, formData)
+      // 上传新图片
+      if (pendingUploadFiles.value.length > 0) {
+        await uploadSpeciesMedia(formData.id!, pendingUploadFiles.value)
+      }
       ElMessage.success('物种更新成功')
     } else {
-      await createSpecies(formData)
+      const createRes: any = await createSpecies(formData)
+      // 创建物种后上传图片（需要获取新创建的物种ID）
+      if (pendingUploadFiles.value.length > 0) {
+        // 从返回中获取新物种ID
+        const newSpeciesId = createRes.data
+        if (newSpeciesId) {
+          await uploadSpeciesMedia(newSpeciesId, pendingUploadFiles.value)
+        }
+      }
       ElMessage.success('物种创建成功')
     }
     dialogVisible.value = false
@@ -578,6 +845,36 @@ onMounted(() => {
     }
   }
 
+  .sort-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    .sort-label {
+      font-size: 13px;
+      color: var(--neutral-500);
+      margin-right: 4px;
+    }
+
+    .sort-btn {
+      padding: 4px 12px;
+      border: 1px solid var(--neutral-200);
+      background: #fff;
+      color: var(--neutral-500);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all var(--transition-fast);
+      &:first-of-type { border-radius: 4px 0 0 4px; }
+      &:last-of-type { border-radius: 0 4px 4px 0; border-left: none; }
+      &:hover { color: var(--primary-light); border-color: var(--primary-lighter); }
+      &.active {
+        background: var(--primary-main);
+        color: #fff;
+        border-color: var(--primary-main);
+      }
+    }
+  }
+
   .view-switch {
     display: flex;
     background: #fff;
@@ -610,12 +907,11 @@ onMounted(() => {
 /* ===== Bento Grid ===== */
 .bento-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   min-height: 200px;
 
-  @media (max-width: 1400px) { grid-template-columns: repeat(4, 1fr); }
-  @media (max-width: 1100px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1100px) { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 480px) { grid-template-columns: 1fr; }
 }
@@ -628,16 +924,6 @@ onMounted(() => {
   transition: all var(--transition-smooth);
   animation: fadeSlideUp 0.5s ease both;
 
-  /* Bento sizing based on IUCN */
-  &.iucn-cr, &.iucn-en {
-    grid-column: span 2;
-    .card-body { min-height: 180px; }
-    .card-name { font-size: 20px; }
-  }
-  &.iucn-vu {
-    grid-column: span 2;
-  }
-
   &:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
@@ -646,6 +932,59 @@ onMounted(() => {
   background: #fff;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--neutral-100);
+}
+
+/* ===== 卡片图片区域 ===== */
+.card-media {
+  position: relative;
+  height: 140px;
+  overflow: hidden;
+  background: var(--neutral-100);
+}
+
+.card-media-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e8f4f8, #d4e8f0);
+
+  .placeholder-icon {
+    color: var(--neutral-300);
+    opacity: 0.6;
+  }
+}
+
+.card-img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
+}
+
+.card-carousel {
+  :deep(.el-carousel__container) {
+    height: 140px !important;
+  }
+}
+
+.card-media-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 10px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.4));
+  display: flex;
+  justify-content: flex-end;
+
+  .media-count {
+    font-size: 11px;
+    color: #fff;
+    background: rgba(0,0,0,0.5);
+    padding: 1px 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(4px);
+  }
 }
 
 .card-iucn-band {
@@ -657,7 +996,7 @@ onMounted(() => {
 
 .card-body {
   padding: 14px 16px 12px;
-  min-height: 140px;
+  min-height: 120px;
   display: flex;
   flex-direction: column;
 }
@@ -762,6 +1101,7 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   padding: 4px 8px;
   box-shadow: var(--shadow-sm);
+  z-index: 10;
 
   .species-card:hover & {
     opacity: 1;
@@ -779,6 +1119,78 @@ onMounted(() => {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   :deep(.el-card__body) { padding: 0; }
+}
+
+.table-thumb {
+  position: relative;
+  width: 50px;
+  height: 50px;
+
+  .thumb-img {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--neutral-100);
+  }
+
+  .thumb-count {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    background: var(--primary-main);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+  }
+}
+
+.no-thumb {
+  color: var(--neutral-300);
+  font-size: 18px;
+}
+
+/* ===== 图片上传区域 ===== */
+.upload-tip {
+  font-size: 12px;
+  color: var(--neutral-400);
+  margin-top: 4px;
+}
+
+.existing-media-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.existing-media-item {
+  position: relative;
+  width: 104px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--neutral-100);
+
+  img {
+    width: 104px;
+    height: 104px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .media-actions {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 4px 0;
+    background: var(--neutral-50);
+  }
 }
 
 /* ===== 分页 ===== */

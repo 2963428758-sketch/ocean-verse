@@ -15,5 +15,5 @@ public interface SpeciesService {
     void updateSpecies(Species species);
     void deleteSpecies(Long id);
     Map<String, Object> getStatistics();
-    List<SpeciesDistribution> getDistributions(Long speciesId);
+    List<SpeciesDistribution> getSpeciesDistributions(Long speciesId);
 }

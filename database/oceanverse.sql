@@ -126,10 +126,10 @@ CREATE TABLE `species` (
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `create_by` BIGINT UNSIGNED DEFAULT NULL,
     `update_by` BIGINT UNSIGNED DEFAULT NULL,
-    `deleted` TINYINT NOT NULL DEFAULT 0,
+    `deleted` BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_species_code` (`species_code`),
-    UNIQUE KEY `uk_scientific_name` (`scientific_name`),
+    UNIQUE KEY `uk_species_code` (`species_code`, `deleted`),
+    UNIQUE KEY `uk_scientific_name` (`scientific_name`, `deleted`),
     KEY `idx_family` (`family`),
     KEY `idx_chinese_name` (`chinese_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物种信息表';
@@ -151,7 +151,7 @@ CREATE TABLE `species_distribution` (
     `distribution_status` VARCHAR(20) DEFAULT 'COMMON',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `deleted` TINYINT NOT NULL DEFAULT 0,
+    `deleted` BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
     KEY `idx_species_id` (`species_id`),
     KEY `idx_lat_lng` (`latitude`, `longitude`)
@@ -171,7 +171,7 @@ CREATE TABLE `species_media` (
     `status` TINYINT NOT NULL DEFAULT 1,
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `deleted` TINYINT NOT NULL DEFAULT 0,
+    `deleted` BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
     KEY `idx_species_id` (`species_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物种媒体资源表';
