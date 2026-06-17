@@ -1,9 +1,9 @@
 package com.oceanverse.ai.rag;
 
 import com.oceanverse.ai.config.AiProperties;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -15,8 +15,8 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 知识库服务
@@ -24,18 +24,46 @@ import java.util.List;
  * 应用启动时从数据库加载物种数据并向量化索引到 SimpleVectorStore。
  * 支持向量索引持久化：启动时优先从磁盘加载已有索引，关闭时自动保存。
  * 启动时通过物种数量比对检测数据库变更，自动重建索引。
- * 问答时根据用户问题进行语义检索，返回最相关的文档片段作为 RAG 上下文。
+ * 支持运行时手动重建（POST /api/ai/knowledge/rebuild），通过创建新实例原子替换旧数据。
  * <p>
  * 技术栈：text-embedding-v3（向量化）+ SimpleVectorStore（内存向量存储 + 余弦相似度检索）
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class KnowledgeBaseService {
 
     private final DocumentLoader documentLoader;
-    private final VectorStore vectorStore;
+    private final VectorStore originalVectorStore;
     private final AiProperties aiProperties;
+    private final EmbeddingModel embeddingModel;
+
+    /**
+     * 重建后的向量存储实例（原子替换，确保线程安全）
+     * <p>
+     * SimpleVectorStore 不支持 remove，因此重建时创建全新实例。
+     * search() 和 saveOnShutdown() 优先使用此引用中的实例。
+     */
+    private final AtomicReference<SimpleVectorStore> rebuiltStore = new AtomicReference<>();
+
+    public KnowledgeBaseService(DocumentLoader documentLoader,
+                                VectorStore vectorStore,
+                                AiProperties aiProperties,
+                                EmbeddingModel embeddingModel) {
+        this.documentLoader = documentLoader;
+        this.originalVectorStore = vectorStore;
+        this.aiProperties = aiProperties;
+        this.embeddingModel = embeddingModel;
+    }
+
+    /**
+     * 获取当前活跃的向量存储实例
+     * <p>
+     * 优先返回重建后的实例，否则返回 Spring 注入的原始实例。
+     */
+    private VectorStore activeStore() {
+        SimpleVectorStore rebuilt = rebuiltStore.get();
+        return rebuilt != null ? rebuilt : originalVectorStore;
+    }
 
     /**
      * 应用启动时初始化知识库
@@ -50,7 +78,7 @@ public class KnowledgeBaseService {
             long dbCount = documentLoader.countSpecies();
 
             // 尝试从磁盘加载已有索引（需数量一致）
-            if (storeFile.exists() && vectorStore instanceof SimpleVectorStore simpleStore
+            if (storeFile.exists() && originalVectorStore instanceof SimpleVectorStore simpleStore
                     && metaFile.exists() && readMetaCount(metaFile) == dbCount) {
                 log.info("从磁盘加载向量索引: {}（物种数: {}）", storeFile.getAbsolutePath(), dbCount);
                 simpleStore.load(storeFile);
@@ -71,14 +99,14 @@ public class KnowledgeBaseService {
 
     /**
      * 手动重建索引：从数据库重新加载并向量化，保存到磁盘。
-     * 可在管理接口或物种数据变更后调用。
+     * <p>
+     * 创建全新的 SimpleVectorStore 实例并原子替换旧实例，
+     * 确保旧数据被彻底清除。可在管理接口或物种数据变更后调用。
      */
     public void rebuildIndex() {
         try {
             log.info("开始初始化海洋知识库...");
 
-            // 重建前清空内存中的旧数据（SimpleVectorStore 不支持 remove，需重建实例）
-            // 由于 Spring 管理的 bean 无法替换，这里通过重新加载覆盖
             List<Document> documents = documentLoader.loadSpeciesDocuments();
 
             if (documents.isEmpty()) {
@@ -86,10 +114,15 @@ public class KnowledgeBaseService {
                 return;
             }
 
-            vectorStore.add(documents);
+            // 创建全新实例，避免旧数据残留（SimpleVectorStore 不支持 remove）
+            SimpleVectorStore freshStore = SimpleVectorStore.builder(embeddingModel).build();
+            freshStore.add(documents);
             log.info("知识库初始化完成，共加载 {} 个文档", documents.size());
 
-            // 持久化向量索引和元数据到磁盘
+            // 原子替换，后续 search 自动使用新实例
+            rebuiltStore.set(freshStore);
+
+            // 持久化到磁盘
             saveToDisk();
         } catch (Exception e) {
             log.error("知识库重建失败（RAG 功能将降级为裸模型）: {}", e.getMessage(), e);
@@ -113,7 +146,7 @@ public class KnowledgeBaseService {
      */
     public List<Document> search(String query, int topK) {
         try {
-            return vectorStore.similaritySearch(
+            return activeStore().similaritySearch(
                     SearchRequest.builder()
                             .query(query)
                             .topK(topK)
@@ -153,7 +186,8 @@ public class KnowledgeBaseService {
 
     private void saveToDisk() {
         try {
-            if (vectorStore instanceof SimpleVectorStore simpleStore) {
+            VectorStore store = activeStore();
+            if (store instanceof SimpleVectorStore simpleStore) {
                 File storeFile = new File(aiProperties.getVectorStorePath());
                 storeFile.getParentFile().mkdirs();
                 simpleStore.save(storeFile);
