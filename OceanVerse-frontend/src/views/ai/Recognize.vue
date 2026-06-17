@@ -247,10 +247,14 @@ async function doRecognize() {
 <style scoped lang="scss">
 .recognize-page {
   width: 100%;
+  height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
 }
 
 .page-header {
-  margin-bottom: 20px;
+  flex-shrink: 0;
+  margin-bottom: 16px;
   h2 { margin: 0; font-size: 20px; }
   p { margin: 4px 0 0; color: var(--neutral-500); font-size: 14px; }
 }
@@ -260,6 +264,8 @@ async function doRecognize() {
   display: grid;
   grid-template-columns: minmax(300px, 1fr) 2fr;
   gap: 20px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ── 左栏：图片区 ── */
@@ -267,6 +273,8 @@ async function doRecognize() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  justify-content: center;
+  align-items: stretch;
 }
 
 .upload-zone {
@@ -275,7 +283,6 @@ async function doRecognize() {
   padding: 48px 24px;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -310,14 +317,13 @@ async function doRecognize() {
   border-radius: 12px;
   overflow: hidden;
   background: var(--neutral-75);
-  flex: 1;
-  min-height: 0;
-  display: flex;
 
   .preview-img {
     width: 100%;
     display: block;
     border-radius: 12px;
+    max-height: calc(100vh - 280px);
+    object-fit: contain;
   }
 
   &.scanning .preview-img {
