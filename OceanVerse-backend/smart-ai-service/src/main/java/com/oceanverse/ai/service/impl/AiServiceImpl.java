@@ -15,7 +15,6 @@ import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
 import com.oceanverse.pojo.entity.QaHistory;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -23,11 +22,12 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.PrintWriter;
 import java.math.BigDecimal;
+import reactor.core.publisher.Flux;
 import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -104,15 +104,18 @@ public class AiServiceImpl implements AiService {
 
         try {
             // 3. 调用 qwen-vl-max 多模态视觉模型
-            //    通过 DashScopeChatOptions 切换模型，.media(MimeType, URL) 传入图片
+            //    withMultiModel(true) 强制走多模态端点，.media(MimeType, URL) 传入图片
             URL imageUrlObj = new URL(imageUrl);
+            MimeType imageMimeType = MimeTypeUtils.parseMimeType(
+                    file.getContentType() != null ? file.getContentType() : "image/jpeg");
             String response = ChatClient.create(chatModel).prompt()
                     .options(DashScopeChatOptions.builder()
                             .withModel(aiProperties.getImageModel())
+                            .withMultiModel(true)
                             .build())
                     .user(u -> u
                             .text(RECOGNITION_PROMPT)
-                            .media(MimeTypeUtils.IMAGE_JPEG, imageUrlObj)
+                            .media(imageMimeType, imageUrlObj)
                     )
                     .call()
                     .content();
@@ -161,91 +164,47 @@ public class AiServiceImpl implements AiService {
     // ==================== 智能问答 SSE 流式（任务 1.3）====================
 
     @Override
-    public void chatStream(ChatDTO dto, HttpServletResponse response) {
+    public Flux<String> chatStream(ChatDTO dto) {
         long startTime = System.currentTimeMillis();
 
-        try {
-            PrintWriter writer = response.getWriter();
+        // 1. 创建问答记录骨架（流结束后填充完整回答）
+        QaHistory history = new QaHistory();
+        history.setQuestionCode("QA" + UUID.randomUUID().toString().substring(0, 8));
+        history.setQuestionType(dto.getQuestionType() != null ? dto.getQuestionType() : "GENERAL");
+        history.setQuestionText(dto.getQuestion());
+        history.setSessionId(dto.getSessionId());
+        history.setAiModelVersion(aiProperties.getChatModel());
+        history.setUserId(getCurrentUserId());
+        history.setCreateTime(LocalDateTime.now());
+        history.setUpdateTime(LocalDateTime.now());
+        history.setStatus(1);
 
-            // 1. 创建问答记录（先创建骨架，流结束后更新完整回答）
-            QaHistory history = new QaHistory();
-            history.setQuestionCode("QA" + UUID.randomUUID().toString().substring(0, 8));
-            history.setQuestionType(dto.getQuestionType() != null ? dto.getQuestionType() : "GENERAL");
-            history.setQuestionText(dto.getQuestion());
-            history.setSessionId(dto.getSessionId());
-            history.setAiModelVersion(aiProperties.getChatModel());
-            history.setUserId(getCurrentUserId());
-            history.setCreateTime(LocalDateTime.now());
-            history.setUpdateTime(LocalDateTime.now());
-            history.setStatus(1);
+        // 2. 构建流式 Flux —— 不在此处 subscribe，由 Controller 通过 SseEmitter 订阅
+        StringBuilder fullAnswer = new StringBuilder();
 
-            // 2. 使用 qwen-plus 对话模型进行流式调用
-            //    .stream().content() 直接返回 Flux<String>
-            StringBuilder fullAnswer = new StringBuilder();
-
-            ChatClient.create(chatModel).prompt()
-                    .system(CHAT_SYSTEM_PROMPT)
-                    .user(dto.getQuestion())
-                    .stream()
-                    .content()
-                    .doOnNext(chunk -> {
-                        try {
-                            if (chunk != null && !chunk.isEmpty()) {
-                                fullAnswer.append(chunk);
-                                writer.write("data: " + chunk + "\n\n");
-                                writer.flush();
-                            }
-                        } catch (Exception e) {
-                            log.error("写入 SSE 流失败", e);
-                        }
-                    })
-                    .doOnComplete(() -> {
-                        try {
-                            writer.write("data: [DONE]\n\n");
-                            writer.flush();
-
-                            // 保存完整回答和耗时
-                            history.setAnswerText(fullAnswer.toString());
-                            history.setProcessingTimeMs(
-                                    (int) (System.currentTimeMillis() - startTime));
-                            qaHistoryMapper.insert(history);
-
-                            // 发布问答完成事件到 Redis Stream（任务 1.4）
-                            publishChatEvent(history);
-
-                            log.info("智能问答完成: code={}, 耗时={}ms, 回答长度={}",
-                                    history.getQuestionCode(),
-                                    history.getProcessingTimeMs(),
-                                    fullAnswer.length());
-                        } catch (Exception e) {
-                            log.error("完成 SSE 流时异常", e);
-                        }
-                    })
-                    .doOnError(e -> {
-                        log.error("AI 流式调用异常", e);
-                        try {
-                            writer.write("data: [ERROR] AI 服务暂时不可用，请稍后重试\n\n");
-                            writer.write("data: [DONE]\n\n");
-                            writer.flush();
-                        } catch (Exception ex) {
-                            log.error("写入错误响应失败", ex);
-                        }
-                    })
-                    .subscribe();
-
-        } catch (Exception e) {
-            log.error("SSE 流式响应初始化异常: ", e);
-            // 尝试返回错误响应，避免客户端收到空 200 OK
-            try {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                PrintWriter writer = response.getWriter();
-                writer.write("data: [ERROR] 服务异常，请稍后重试\n\n");
-                writer.write("data: [DONE]\n\n");
-                writer.flush();
-            } catch (Exception ex) {
-                log.error("写入降级错误响应失败", ex);
-            }
-        }
+        return ChatClient.create(chatModel).prompt()
+                .system(CHAT_SYSTEM_PROMPT)
+                .user(dto.getQuestion())
+                .stream()
+                .content()
+                .filter(chunk -> chunk != null && !chunk.isEmpty())
+                .doOnNext(fullAnswer::append)
+                .doOnComplete(() -> {
+                    // 流结束：保存完整回答到数据库
+                    history.setAnswerText(fullAnswer.toString());
+                    history.setProcessingTimeMs((int) (System.currentTimeMillis() - startTime));
+                    try {
+                        qaHistoryMapper.insert(history);
+                        publishChatEvent(history);
+                        log.info("智能问答完成: code={}, 耗时={}ms, 回答长度={}",
+                                history.getQuestionCode(),
+                                history.getProcessingTimeMs(),
+                                fullAnswer.length());
+                    } catch (Exception e) {
+                        log.error("保存问答记录失败（不影响流式响应）", e);
+                    }
+                })
+                .doOnError(e -> log.error("AI 流式调用异常", e));
     }
 
     // ==================== 历史记录查询 ====================
@@ -272,6 +231,9 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public void feedback(Long id, Integer feedback) {
+        if (feedback == null || (feedback != 0 && feedback != 1)) {
+            throw new IllegalArgumentException("反馈参数无效，仅支持 0（不满意）或 1（满意）");
+        }
         QaHistory history = qaHistoryMapper.selectById(id);
         if (history != null) {
             history.setFeedback(feedback);

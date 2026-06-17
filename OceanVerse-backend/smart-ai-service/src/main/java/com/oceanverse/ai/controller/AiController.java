@@ -3,10 +3,10 @@ package com.oceanverse.ai.controller;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.ai.service.AiService;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * AI 智能服务接口 — 成员B/E
@@ -31,12 +31,43 @@ public class AiController {
 
     /**
      * 智能问答 — SSE 流式返回
+     * <p>
+     * 使用 SseEmitter 管理 SSE 连接生命周期，避免 HttpServletResponse 被提前回收。
+     * Service 层返回 Flux<String>，Controller 负责订阅并将事件推送到客户端。
      */
     @PostMapping("/chat")
-    public void chat(@RequestBody ChatDTO dto, HttpServletResponse response) {
-        response.setContentType("text/event-stream;charset=UTF-8");
-        response.setCharacterEncoding("UTF-8");
-        aiService.chatStream(dto, response);
+    public SseEmitter chat(@RequestBody ChatDTO dto) {
+        // 超时设为 120 秒，覆盖长对话场景
+        SseEmitter emitter = new SseEmitter(120_000L);
+
+        aiService.chatStream(dto)
+                .subscribe(
+                        chunk -> {
+                            try {
+                                emitter.send(SseEmitter.event().data(chunk));
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        },
+                        error -> {
+                            try {
+                                emitter.send(SseEmitter.event().data("[ERROR] AI 服务暂时不可用，请稍后重试"));
+                                emitter.complete();
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        },
+                        () -> {
+                            try {
+                                emitter.send(SseEmitter.event().data("[DONE]"));
+                                emitter.complete();
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        }
+                );
+
+        return emitter;
     }
 
     /**
@@ -61,9 +92,13 @@ public class AiController {
 
     /**
      * 问答反馈
+     * @param feedback 1=满意，0=不满意
      */
     @PostMapping("/chat/feedback/{id}")
     public Result<Void> feedback(@PathVariable Long id, @RequestParam Integer feedback) {
+        if (feedback == null || (feedback != 0 && feedback != 1)) {
+            return Result.error("反馈参数无效，仅支持 0（不满意）或 1（满意）");
+        }
         aiService.feedback(id, feedback);
         return Result.success();
     }

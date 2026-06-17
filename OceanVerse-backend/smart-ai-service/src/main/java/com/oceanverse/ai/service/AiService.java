@@ -1,8 +1,8 @@
 package com.oceanverse.ai.service;
 
 import com.oceanverse.pojo.dto.ChatDTO;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
 
 public interface AiService {
     /**
@@ -11,9 +11,9 @@ public interface AiService {
     Object recognizeImage(MultipartFile file, Double latitude, Double longitude);
 
     /**
-     * 智能问答（SSE 流式）
+     * 智能问答（SSE 流式）— 返回 Flux<String>，由 Controller 通过 SseEmitter 推送
      */
-    void chatStream(ChatDTO dto, HttpServletResponse response);
+    Flux<String> chatStream(ChatDTO dto);
 
     /**
      * 识别历史
