@@ -9,7 +9,12 @@ public final class CommonConstants {
 
     // ==================== Redis Key 前缀 ====================
     public static final String REDIS_USER_TOKEN = "user:token:";
+    public static final String REDIS_USER_REFRESH_TOKEN = "user:refresh:";
     public static final String REDIS_USER_INFO = "user:info:";
+    public static final String REDIS_USER_PERMS = "user:perms:";
+    public static final String REDIS_USER_ROLES = "user:roles:";
+    public static final String REDIS_TOKEN_BLACKLIST = "token:blacklist:";
+    public static final String REDIS_LOGIN_FAIL = "login:fail:";
     public static final String REDIS_SPECIES_CACHE = "species:cache:";
     public static final String REDIS_SPECIES_HOT = "species:hot";
     public static final String REDIS_LEADERBOARD = "leaderboard:points";
@@ -30,6 +35,17 @@ public final class CommonConstants {
     public static final int USER_STATUS_NORMAL = 1;
     public static final int USER_STATUS_DISABLED = 0;
     public static final int USER_STATUS_LOCKED = 2;
+
+    // ==================== 数据权限范围 ====================
+    public static final int DATA_SCOPE_SELF = 1;
+    public static final int DATA_SCOPE_ALL = 2;
+
+    // ==================== 登录安全 ====================
+    public static final int LOGIN_FAIL_MAX_ATTEMPTS = 5;
+    public static final long LOGIN_LOCK_SECONDS = 15 * 60L;
+
+    // ==================== 超级管理员角色标识 ====================
+    public static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 
     // ==================== 删除标记 ====================
     public static final int NOT_DELETED = 0;

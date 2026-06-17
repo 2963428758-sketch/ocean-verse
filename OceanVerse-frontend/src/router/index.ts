@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import MainLayout from '@/layouts/MainLayout.vue'
+import { useUserStore } from '@/stores/user'
 
 const routes: RouteRecordRaw[] = [
   { path: '/login', name: 'Login', component: () => import('@/views/Login.vue'), meta: { requiresAuth: false } },
@@ -25,10 +26,16 @@ const routes: RouteRecordRaw[] = [
         { path: 'chat', name: 'AIChat', component: () => import('@/views/ai/Chat.vue'), meta: { title: '智能问答' } }
       ]},
       { path: 'community', name: 'Community', redirect: '/community/feed', meta: { title: '社区', icon: 'ChatDotRound' }, children: [
-        { path: 'feed', name: 'CommunityFeed', component: () => import('@/views/community/Feed.vue'), meta: { title: '动态广场' } }
+        { path: 'feed', name: 'CommunityFeed', component: () => import('@/views/community/Feed.vue'), meta: { title: '动态广场' } },
+        { path: 'post/:id', name: 'PostDetail', component: () => import('@/views/community/PostDetail.vue'), meta: { title: '帖子详情', hidden: true } },
+        { path: 'notifications', name: 'Notifications', component: () => import('@/views/community/Notifications.vue'), meta: { title: '消息通知', hidden: true } },
+        { path: 'user/:id', name: 'UserProfile', component: () => import('@/views/community/UserProfile.vue'), meta: { title: '用户主页', hidden: true } },
+        { path: 'favorites', name: 'Favorites', component: () => import('@/views/community/Favorites.vue'), meta: { title: '我的收藏', hidden: true } },
+        { path: 'liked', name: 'LikedPosts', component: () => import('@/views/community/LikedPosts.vue'), meta: { title: '点赞记录', hidden: true } }
       ]},
-      { path: 'admin', name: 'Admin', redirect: '/admin/users', meta: { title: '系统管理', icon: 'Setting' }, children: [
-        { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理' } }
+      { path: 'admin', name: 'Admin', redirect: '/admin/users', meta: { title: '系统管理', icon: 'Setting', roles: ['SUPER_ADMIN', 'ADMIN'] }, children: [
+        { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理', roles: ['SUPER_ADMIN', 'ADMIN'] } },
+        { path: 'roles', name: 'RoleManagement', component: () => import('@/views/admin/RoleManagement.vue'), meta: { title: '角色管理', roles: ['SUPER_ADMIN', 'ADMIN'] } }
       ]},
       { path: 'profile', name: 'Profile', component: () => import('@/views/Profile.vue'), meta: { title: '个人中心', hidden: true } }
     ]
@@ -38,13 +45,39 @@ const routes: RouteRecordRaw[] = [
 
 const router = createRouter({ history: createWebHistory(), routes })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   document.title = `${(to.meta as any).title || ''} - OceanVerse 智慧海洋探索平台`
+
   const token = localStorage.getItem('token')
   const requiresAuth = to.matched.some(r => r.meta.requiresAuth !== false)
-  if (requiresAuth && !token) next('/login')
-  else if (to.path === '/login' && token) next('/dashboard')
-  else next()
+
+  if (requiresAuth && !token) {
+    next('/login')
+    return
+  }
+
+  if (to.path === '/login' && token) {
+    next('/dashboard')
+    return
+  }
+
+  if (token && requiresAuth) {
+    const userStore = useUserStore()
+    if (!userStore.infoLoaded) {
+      await userStore.fetchUserInfo()
+    }
+
+    const requiredRoles = to.matched
+      .map(r => r.meta.roles as string[] | undefined)
+      .find(r => r !== undefined)
+
+    if (requiredRoles && !requiredRoles.includes(userStore.role)) {
+      next('/dashboard')
+      return
+    }
+  }
+
+  next()
 })
 
 export default router

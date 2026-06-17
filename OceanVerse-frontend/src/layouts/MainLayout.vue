@@ -47,6 +47,11 @@
           </el-breadcrumb>
         </div>
         <div class="topbar-right">
+          <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
+            <el-icon class="notification-bell" @click="router.push('/community/notifications')">
+              <Bell />
+            </el-icon>
+          </el-badge>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
               <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
@@ -73,15 +78,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
+import { getUnreadCount } from '@/api/community'
+import { Bell } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const isCollapse = ref(false)
+const unreadCount = ref(0)
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+async function fetchUnreadCount() {
+  try {
+    const res: any = await getUnreadCount()
+    unreadCount.value = res.data ?? res ?? 0
+  } catch {}
+}
+
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    fetchUnreadCount()
+    pollTimer = setInterval(fetchUnreadCount, 30000)
+  }
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 
 const menuItems = [
   { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
@@ -100,10 +127,13 @@ const menuItems = [
     { path: '/ai/chat', title: '智能问答', icon: 'ChatLineSquare' }
   ]},
   { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
-    { path: '/community/feed', title: '动态广场', icon: 'Postcard' }
+    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
+    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' }
   ]},
   { path: '/admin', title: '系统管理', icon: 'Setting', children: [
-    { path: '/admin/users', title: '用户管理', icon: 'User' }
+    { path: '/admin/users', title: '用户管理', icon: 'User' },
+    { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' }
   ]}
 ]
 
@@ -220,6 +250,31 @@ async function doLogout() {
 }
 
 .topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .notification-badge {
+    :deep(.el-badge__content) {
+      top: 4px;
+      right: 14px;
+    }
+  }
+
+  .notification-bell {
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--neutral-500);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--primary-main);
+      background: var(--primary-soft);
+    }
+  }
+
   .user-info {
     display: flex;
     align-items: center;
