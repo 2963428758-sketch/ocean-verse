@@ -33,11 +33,13 @@
         <el-table-column prop="lastLoginTime" label="最后登录" width="170">
           <template #default="{ row }">{{ row.lastLoginTime || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
+            <el-button type="primary" size="small" link @click="openRoleDialog(row)">分配角色</el-button>
             <el-button v-if="row.status !== 1" type="success" size="small" link @click="handleStatus(row, 1)">启用</el-button>
             <el-button v-if="row.status === 1" type="warning" size="small" link @click="handleStatus(row, 0)">禁用</el-button>
             <el-button v-if="row.status !== 2" type="danger" size="small" link @click="handleStatus(row, 2)">锁定</el-button>
+            <el-button type="danger" size="small" link @click="handleForceLogout(row)">下线</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -54,12 +56,31 @@
         />
       </div>
     </el-card>
+
+    <!-- 分配角色对话框 -->
+    <el-dialog v-model="roleDialogVisible" title="分配角色" width="500px">
+      <div v-if="currentUser">
+        <p>用户: <strong>{{ currentUser.username }}</strong></p>
+        <p>当前角色: <el-tag :type="roleTagType(currentUser.role)">{{ roleLabel(currentUser.role) }}</el-tag></p>
+      </div>
+      <el-divider />
+      <el-checkbox-group v-model="selectedRoleIds">
+        <el-checkbox v-for="role in allRoles" :key="role.id" :label="role.id">
+          {{ role.roleName }} ({{ role.roleCode }})
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="roleDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleAssignRoles" :loading="assigning">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { listUsers, updateUserStatus } from '@/api/admin'
+import { listUsers, updateUserStatus, assignRoles, forceLogout } from '@/api/admin'
+import { listRoles } from '@/api/role'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const keyword = ref('')
@@ -68,6 +89,13 @@ const pageSize = ref(10)
 const total = ref(0)
 const tableData = ref<any[]>([])
 const loading = ref(false)
+
+// 角色分配相关
+const roleDialogVisible = ref(false)
+const currentUser = ref<any>(null)
+const allRoles = ref<any[]>([])
+const selectedRoleIds = ref<number[]>([])
+const assigning = ref(false)
 
 const roleMap: Record<string, string> = {
   SUPER_ADMIN: '超级管理员', ADMIN: '管理员', RESEARCHER: '研究员', OBSERVER: '观测员', VIEWER: '访客'
@@ -96,6 +124,17 @@ async function loadData() {
   }
 }
 
+async function loadRoles() {
+  try {
+    const res: any = await listRoles({ page: 1, size: 100 })
+    if (res.code === 200 && res.data) {
+      allRoles.value = res.data.records || []
+    }
+  } catch (e) {
+    console.error('加载角色列表失败', e)
+  }
+}
+
 async function handleStatus(row: any, status: number) {
   const action = statusLabel(status)
   await ElMessageBox.confirm(`确定要${action}用户 "${row.username}" 吗？`, '确认操作', { type: 'warning' })
@@ -104,7 +143,44 @@ async function handleStatus(row: any, status: number) {
   await loadData()
 }
 
-onMounted(() => { loadData() })
+function openRoleDialog(row: any) {
+  currentUser.value = row
+  // 根据当前角色找到对应的roleId
+  const currentRole = allRoles.value.find(r => r.roleCode === row.role)
+  selectedRoleIds.value = currentRole ? [currentRole.id] : []
+  roleDialogVisible.value = true
+}
+
+async function handleAssignRoles() {
+  if (!currentUser.value || selectedRoleIds.value.length === 0) {
+    ElMessage.warning('请选择至少一个角色')
+    return
+  }
+  assigning.value = true
+  try {
+    await assignRoles(currentUser.value.id, selectedRoleIds.value)
+    ElMessage.success('角色分配成功')
+    roleDialogVisible.value = false
+    await loadData()
+  } finally {
+    assigning.value = false
+  }
+}
+
+async function handleForceLogout(row: any) {
+  await ElMessageBox.confirm(`确定要强制下线用户 "${row.username}" 吗？`, '确认操作', { type: 'warning' })
+  try {
+    await forceLogout(row.id)
+    ElMessage.success('已强制下线')
+  } catch (e) {
+    // 错误已由拦截器处理
+  }
+}
+
+onMounted(() => {
+  loadData()
+  loadRoles()
+})
 </script>
 
 <style scoped lang="scss">

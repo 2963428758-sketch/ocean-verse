@@ -103,7 +103,8 @@ const menuItems = [
     { path: '/community/feed', title: '动态广场', icon: 'Postcard' }
   ]},
   { path: '/admin', title: '系统管理', icon: 'Setting', children: [
-    { path: '/admin/users', title: '用户管理', icon: 'User' }
+    { path: '/admin/users', title: '用户管理', icon: 'User' },
+    { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' }
   ]}
 ]
 
