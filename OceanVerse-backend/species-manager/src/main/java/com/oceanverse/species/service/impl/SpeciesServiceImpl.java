@@ -87,6 +87,22 @@ public class SpeciesServiceImpl implements SpeciesService {
         species.setUpdateTime(LocalDateTime.now());
         speciesMapper.insert(species);
         log.info("新增物种: {}", species.getChineseName());
+
+        // 如果前端传入了经纬度，自动创建初始分布记录
+        if (species.getLongitude() != null && species.getLatitude() != null) {
+            SpeciesDistribution distribution = new SpeciesDistribution();
+            distribution.setSpeciesId(species.getId());
+            distribution.setDistributionType("NATIVE");
+            distribution.setLongitude(species.getLongitude());
+            distribution.setLatitude(species.getLatitude());
+            distribution.setIsPrimary(1);
+            distribution.setDistributionStatus("COMMON");
+            distribution.setCreateTime(LocalDateTime.now());
+            distribution.setUpdateTime(LocalDateTime.now());
+            speciesDistributionMapper.insert(distribution);
+            log.info("自动创建物种分布记录: speciesId={}, 经度={}, 纬度={}",
+                    species.getId(), species.getLongitude(), species.getLatitude());
+        }
     }
 
     @Override

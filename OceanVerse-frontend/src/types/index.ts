@@ -46,6 +46,8 @@ export interface Species {
   isInvasive?: number
   dataQuality?: string
   source?: string
+  longitude?: number
+  latitude?: number
   createTime?: string
   updateTime?: string
   createBy?: number
@@ -115,4 +117,80 @@ export interface CommunityPost {
   likeCount: number
   commentCount: number
   createTime: string
+}
+
+export interface Observation {
+  id?: number
+  observationCode: string
+  observationType: string
+  observationDate: string
+  observationTime?: string
+  durationMinutes?: number
+  locationId?: number
+  ecosystemId?: number
+  latitude?: number
+  longitude?: number
+  depth?: number
+  waterTemperature?: number
+  salinity?: number
+  ph?: number
+  weatherCondition?: string
+  seaCondition?: string
+  observerId?: number
+  observerName?: string
+  organization?: string
+  equipmentUsed?: string
+  notes?: string
+  createTime?: string
+  updateTime?: string
+}
+
+export interface ObservationQueryDTO {
+  keyword?: string
+  observationType?: string
+  startDate?: string
+  endDate?: string
+  ecosystemId?: number
+  locationId?: number
+  observerName?: string
+  sort?: string
+  page?: number
+  size?: number
+}
+
+export interface ObservationStatistics {
+  totalCount: number
+  byType: Record<string, number>
+  byEcosystem: Record<string, number>
+  thisMonthCount: number
+  thisYearCount: number
+  avgWaterTemperature: number
+  avgSalinity: number
+}
+
+export interface ObservationLocation {
+  id: number
+  locationCode: string
+  locationName: string
+  locationType: string
+  latitude: number
+  longitude: number
+  country?: string
+  province?: string
+  city?: string
+  ecosystemId?: number
+}
+
+export interface Ecosystem {
+  id: number
+  ecosystemCode: string
+  ecosystemName: string
+  ecosystemType: string
+  description?: string
+  areaEstimate?: number
+  depthMin?: number
+  depthMax?: number
+  temperatureRange?: string
+  threatFactors?: string
+  conservationStatus?: string
 }

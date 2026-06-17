@@ -2,6 +2,7 @@ package com.oceanverse.pojo.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -37,6 +38,12 @@ public class Species {
     private Integer isInvasive;
     private String dataQuality;
     private String source;
+    /** 经度（非持久化字段，创建物种时用于生成初始分布记录） */
+    @TableField(exist = false)
+    private BigDecimal longitude;
+    /** 纬度（非持久化字段，创建物种时用于生成初始分布记录） */
+    @TableField(exist = false)
+    private BigDecimal latitude;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private Long createBy;

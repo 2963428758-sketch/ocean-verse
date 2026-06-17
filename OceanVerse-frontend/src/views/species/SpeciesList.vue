@@ -359,6 +359,39 @@
           <el-input v-model="formData.source" />
         </el-form-item>
 
+        <!-- 地理分布信息 -->
+        <el-divider content-position="left">分布信息</el-divider>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="经度">
+              <el-input-number
+                v-model="formData.longitude"
+                :min="-180"
+                :max="180"
+                :precision="6"
+                :step="1"
+                controls-position="right"
+                placeholder="如 120.345678"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="纬度">
+              <el-input-number
+                v-model="formData.latitude"
+                :min="-90"
+                :max="90"
+                :precision="6"
+                :step="1"
+                controls-position="right"
+                placeholder="如 30.123456"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 图片上传区域 -->
         <el-divider content-position="left">物种图片</el-divider>
         <el-form-item label="上传图片">
@@ -490,7 +523,8 @@ const formData = reactive<Species>({
   protectionLevel: '', iucnStatus: '', kingdom: '', phylum: '', className: '',
   orderName: '', family: '', genus: '', species: '',
   description: '', morphology: '', ecology: '',
-  isEndemic: 0, isInvasive: 0, source: ''
+  isEndemic: 0, isInvasive: 0, source: '',
+  longitude: undefined, latitude: undefined
 })
 
 const formRules: FormRules = {
@@ -640,7 +674,8 @@ function openAddDialog() {
     protectionLevel: '', iucnStatus: '', kingdom: '', phylum: '', className: '',
     orderName: '', family: '', genus: '', species: '',
     description: '', morphology: '', ecology: '',
-    isEndemic: 0, isInvasive: 0, source: ''
+    isEndemic: 0, isInvasive: 0, source: '',
+    longitude: undefined, latitude: undefined
   })
   uploadFileList.value = []
   pendingUploadFiles.value = []
