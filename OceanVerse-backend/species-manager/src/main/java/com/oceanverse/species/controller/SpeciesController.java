@@ -6,6 +6,7 @@ import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.SpeciesQueryDTO;
 import com.oceanverse.pojo.entity.Species;
+import com.oceanverse.pojo.entity.SpeciesDistribution;
 import com.oceanverse.species.service.SpeciesService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -13,10 +14,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 海洋物种管理接口 — 成员B
  * <p>
- * 公开接口（无需登录）：list、detail
+ * 公开接口（无需登录）：list、detail、distributions
  * 管理接口（需登录 + 权限）：create、update、delete、statistics
  * <p>
  * Swagger Tag: Species（物种管理）
@@ -40,6 +43,13 @@ public class SpeciesController {
     public Result<Species> detail(
             @Parameter(description = "物种ID") @PathVariable Long id) {
         return Result.success(speciesService.getSpeciesDetail(id));
+    }
+
+    @Operation(summary = "物种分布信息", description = "获取物种的地理分布数据（公开接口）")
+    @GetMapping("/{id}/distributions")
+    public Result<List<SpeciesDistribution>> distributions(
+            @Parameter(description = "物种ID") @PathVariable Long id) {
+        return Result.success(speciesService.getDistributions(id));
     }
 
     @Operation(summary = "创建物种", description = "新增物种记录（需要 species:create 权限）")

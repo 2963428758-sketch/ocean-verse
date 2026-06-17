@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.exception.BusinessException;
 import com.oceanverse.pojo.dto.SpeciesQueryDTO;
 import com.oceanverse.pojo.entity.Species;
+import com.oceanverse.pojo.entity.SpeciesDistribution;
+import com.oceanverse.species.mapper.SpeciesDistributionMapper;
 import com.oceanverse.species.mapper.SpeciesMapper;
 import com.oceanverse.species.service.SpeciesService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -22,6 +25,7 @@ import java.util.Map;
 public class SpeciesServiceImpl implements SpeciesService {
 
     private final SpeciesMapper speciesMapper;
+    private final SpeciesDistributionMapper speciesDistributionMapper;
 
     @Override
     public Page<Species> listSpecies(SpeciesQueryDTO query) {
@@ -80,5 +84,14 @@ public class SpeciesServiceImpl implements SpeciesService {
         stats.put("totalCount", speciesMapper.selectCount(null));
         // TODO: 按保护等级统计、按科统计等
         return stats;
+    }
+
+    @Override
+    public List<SpeciesDistribution> getDistributions(Long speciesId) {
+        return speciesDistributionMapper.selectList(
+                new LambdaQueryWrapper<SpeciesDistribution>()
+                        .eq(SpeciesDistribution::getSpeciesId, speciesId)
+                        .orderByDesc(SpeciesDistribution::getIsPrimary)
+        );
     }
 }
