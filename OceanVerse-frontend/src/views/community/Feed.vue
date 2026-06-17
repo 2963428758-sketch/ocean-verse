@@ -31,7 +31,7 @@
         <!-- 用户信息 -->
         <div class="post-header">
           <div class="user-info">
-            <el-avatar :size="40" class="user-avatar">
+            <el-avatar :size="34" class="user-avatar">
               {{ post.username?.charAt(0)?.toUpperCase() || 'U' }}
             </el-avatar>
             <div class="user-meta">
@@ -407,11 +407,11 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .page-title {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--neutral-800);
   letter-spacing: -0.02em;
@@ -419,22 +419,22 @@ onMounted(() => {
 
 .page-desc {
   color: var(--neutral-400);
-  font-size: 14px;
-  margin-top: 4px;
+  font-size: 13px;
+  margin-top: 2px;
 }
 
 /* ══════ 筛选 ══════ */
 .feed-filters {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 /* ══════ 帖子卡片 ══════ */
 .post-card {
   background: var(--surface-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   border: 1px solid var(--neutral-100);
-  padding: 20px;
-  margin-bottom: 14px;
+  padding: 14px;
+  margin-bottom: 8px;
   transition: box-shadow 0.25s var(--ease-out), transform 0.25s var(--ease-out);
   animation: fadeSlideUp 0.5s var(--ease-out) both;
 
@@ -448,13 +448,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .post-header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .post-delete-btn {
@@ -463,8 +463,8 @@ onMounted(() => {
   cursor: pointer;
   font-size: 12px;
   color: var(--neutral-400);
-  padding: 3px 10px;
-  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
   transition: all 0.2s;
 
   &:hover {
@@ -477,24 +477,24 @@ onMounted(() => {
 .user-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .user-avatar {
   background: var(--gradient-ocean);
   color: #fff;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .user-meta {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .username {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--neutral-700);
   cursor: pointer;
@@ -506,18 +506,18 @@ onMounted(() => {
 }
 
 .post-time {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--neutral-400);
 }
 
 /* ══════ 内容 ══════ */
 .post-content {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   cursor: pointer;
 
   p {
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 14px;
+    line-height: 1.55;
     color: var(--neutral-700);
     white-space: pre-wrap;
     word-break: break-word;
@@ -528,21 +528,21 @@ onMounted(() => {
 .post-images {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-bottom: 12px;
-  border-radius: var(--radius-md);
+  gap: 4px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 
   .single-image & {
     grid-template-columns: 1fr;
-    max-width: 360px;
+    max-width: 300px;
   }
 }
 
 .post-image {
   width: 100%;
   aspect-ratio: 1;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   cursor: pointer;
   transition: transform 0.2s;
 
@@ -558,22 +558,22 @@ onMounted(() => {
 /* ══════ 操作栏 ══════ */
 .post-actions {
   display: flex;
-  gap: 24px;
-  padding-top: 12px;
+  gap: 16px;
+  padding-top: 8px;
   border-top: 1px solid var(--neutral-75);
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--neutral-400);
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  border-radius: var(--radius-xs);
   transition: all 0.2s;
 
   &:hover {
@@ -590,19 +590,19 @@ onMounted(() => {
 .pagination-wrap {
   display: flex;
   justify-content: center;
-  padding: 20px 0;
+  padding: 12px 0;
 }
 
 /* ══════ 空状态 ══════ */
 .empty-state {
-  padding: 60px 0;
+  padding: 30px 0;
 }
 
 /* ══════ 上传提示 ══════ */
 .upload-tip {
   font-size: 12px;
   color: var(--neutral-400);
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 /* ══════ 响应式 ══════ */
