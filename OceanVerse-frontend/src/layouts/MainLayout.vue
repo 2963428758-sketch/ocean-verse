@@ -132,7 +132,8 @@ const menuItems = [
     { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' }
   ]},
   { path: '/admin', title: '系统管理', icon: 'Setting', children: [
-    { path: '/admin/users', title: '用户管理', icon: 'User' }
+    { path: '/admin/users', title: '用户管理', icon: 'User' },
+    { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' }
   ]}
 ]
 
