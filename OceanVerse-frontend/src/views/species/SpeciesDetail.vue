@@ -172,7 +172,7 @@
         <h3 class="section-title">分布信息</h3>
 
         <div v-if="distributions.length > 0" class="map-wrapper">
-          <div ref="mapContainer" class="leaf-map"></div>
+          <div ref="mapContainer" class="amap-container"></div>
           <div class="map-legend">
             <div v-for="item in distributionSummary" :key="item.type" class="legend-item">
               <span class="legend-dot" :style="{ background: item.color }"></span>
@@ -366,8 +366,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
 import {
   getSpeciesDetail,
   getSpeciesDistributions,
@@ -554,6 +552,21 @@ async function handleEditSetPrimary(mediaId: number) {
   }
 }
 
+// ===== 高德地图动态加载 =====
+function loadAMap(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).AMap) { resolve(); return }
+    ;(window as any)._AMapSecurityConfig = {
+      securityJsCode: '9cbd4e854789581ae43ffea839fa4cc3'
+    }
+    const script = document.createElement('script')
+    script.src = 'https://webapi.amap.com/maps?v=2.0&key=e07413fbaef5c330b8034a514a9b0537'
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('高德地图加载失败'))
+    document.head.appendChild(script)
+  })
+}
+
 // ===== 数据加载 =====
 async function loadData() {
   loading.value = true
@@ -570,13 +583,13 @@ async function loadData() {
     mediaList.value = mediaRes.data || []
 
     await nextTick()
-    initMap()
+    await initMap()
   } finally {
     loading.value = false
   }
 }
 
-function initMap() {
+async function initMap() {
   if (!mapContainer.value || distributions.value.length === 0) return
 
   const points = distributions.value
@@ -584,46 +597,54 @@ function initMap() {
 
   if (points.length === 0) return
 
-  const map = L.map(mapContainer.value, {
-    scrollWheelZoom: false,
-    zoomControl: true
+  await loadAMap()
+  const AMap = (window as any).AMap
+
+  const map = new AMap.Map(mapContainer.value, {
+    zoom: 5,
+    center: [112, 25],
+    viewMode: '2D',
+    scrollWheel: false
   })
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    maxZoom: 18
-  }).addTo(map)
-
-  const bounds = L.latLngBounds([])
+  const markers: any[] = []
 
   points.forEach(d => {
     const color = distTypeColors[d.distributionType] || '#6b7280'
-    const marker = L.circleMarker([d.latitude!, d.longitude!], {
+    const circleMarker = new AMap.CircleMarker({
+      center: [d.longitude!, d.latitude!],
       radius: 8,
       fillColor: color,
-      color: '#fff',
-      weight: 2,
-      fillOpacity: 0.85
-    }).addTo(map)
+      fillOpacity: 0.85,
+      strokeColor: '#ffffff',
+      strokeWeight: 2,
+      strokeOpacity: 1,
+      cursor: 'pointer'
+    })
 
     const typeLabel = distTypeLabel(d.distributionType)
-    marker.bindPopup(`
-      <div style="min-width:160px;line-height:1.6">
-        <strong>${d.regionName || '未知区域'}</strong><br/>
-        <span style="color:#666">${d.country || ''} ${d.province || ''}</span><br/>
-        类型: ${typeLabel}<br/>
-        ${d.depthMin != null && d.depthMax != null ? `深度: ${d.depthMin}~${d.depthMax}m` : ''}
-        ${d.habitatType ? `<br/>栖息地: ${d.habitatType}` : ''}
-      </div>
-    `)
+    const infoWindow = new AMap.InfoWindow({
+      content:
+        `<div style="min-width:160px;line-height:1.6;padding:4px 8px;font-size:13px">` +
+        `<strong>${d.regionName || '未知区域'}</strong><br/>` +
+        `<span style="color:#666">${d.country || ''} ${d.province || ''}</span><br/>` +
+        `类型: <span style="color:${color};font-weight:600">${typeLabel}</span><br/>` +
+        (d.depthMin != null && d.depthMax != null ? `深度: ${d.depthMin}~${d.depthMax}m<br/>` : '') +
+        (d.habitatType ? `栖息地: ${d.habitatType}` : '') +
+        `</div>`,
+      offset: new AMap.Pixel(0, -10)
+    })
 
-    bounds.extend([d.latitude!, d.longitude!])
+    circleMarker.on('click', () => {
+      infoWindow.open(map, circleMarker.getCenter())
+    })
+
+    map.add(circleMarker)
+    markers.push(circleMarker)
   })
 
-  if (points.length === 1) {
-    map.setView([points[0].latitude!, points[0].longitude!], 8)
-  } else {
-    map.fitBounds(bounds, { padding: [40, 40] })
+  if (markers.length > 0) {
+    map.setFitView(markers, false, [60, 60, 60, 60])
   }
 }
 
@@ -1129,7 +1150,7 @@ onMounted(loadData)
   position: relative;
 }
 
-.leaf-map {
+.amap-container {
   height: 400px;
   border-radius: var(--radius-md);
   overflow: hidden;
