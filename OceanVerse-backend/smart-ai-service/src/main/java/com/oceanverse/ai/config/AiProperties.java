@@ -53,7 +53,7 @@ public class AiProperties {
     /**
      * RAG 语义检索相似度阈值（0-1），低于此值的文档将被过滤
      */
-    private Double similarityThreshold = 0.5;
+    private Double similarityThreshold = 0.7;
 
     /**
      * 向量索引持久化文件路径（SimpleVectorStore save/load），

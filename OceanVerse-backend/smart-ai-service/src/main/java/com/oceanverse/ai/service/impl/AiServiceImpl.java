@@ -314,9 +314,7 @@ public class AiServiceImpl implements AiService {
         try {
             List<Document> relevantDocs = knowledgeBaseService.search(question, 3);
             String context = knowledgeBaseService.formatContext(relevantDocs);
-            if (!relevantDocs.isEmpty()) {
-                log.debug("RAG 检索到 {} 个相关文档", relevantDocs.size());
-            }
+            log.info("RAG 检索完成: 命中 {} 个文档, 上下文长度={}", relevantDocs.size(), context.length());
             return context;
         } catch (Exception e) {
             log.warn("RAG 检索异常，降级为裸模型: {}", e.getMessage());

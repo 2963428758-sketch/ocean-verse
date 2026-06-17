@@ -71,7 +71,7 @@ oceanverse:
     embedding-model: text-embedding-v3
     max-tokens: 2048
     temperature: 0.7
-    similarity-threshold: 0.5
+    similarity-threshold: 0.7
     session-ttl-minutes: 30
     vector-store-path: data/ai/vector-store.json
   oss:
