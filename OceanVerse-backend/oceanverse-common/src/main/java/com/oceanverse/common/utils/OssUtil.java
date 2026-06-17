@@ -11,8 +11,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.UUID;
 
 /**
@@ -160,6 +162,22 @@ public class OssUtil {
      */
     public String getUrl(String key) {
         return buildUrl(key);
+    }
+
+    /**
+     * 生成带签名的临时访问 URL
+     * <p>
+     * 适用于需要第三方服务（如 DashScope 视觉模型）临时访问 OSS 资源的场景。
+     * 签名 URL 不依赖 Bucket 公开读权限，且响应头更规范。
+     *
+     * @param key               对象 key
+     * @param expirationMinutes 过期时间（分钟）
+     * @return 签名 URL
+     */
+    public String generateSignedUrl(String key, int expirationMinutes) {
+        Date expiration = new Date(System.currentTimeMillis() + (long) expirationMinutes * 60 * 1000);
+        URL signedUrl = getClient().generatePresignedUrl(ossProperties.getBucketName(), key, expiration);
+        return signedUrl.toString();
     }
 
     /**

@@ -20,6 +20,11 @@
             <groupId>com.oceanverse</groupId>
             <artifactId>oceanverse-common</artifactId>
         </dependency>
+        <!-- RAG: 需要 SpeciesMapper 加载物种知识文档 -->
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>species-manager</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -32,6 +37,10 @@
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>

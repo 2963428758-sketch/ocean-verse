@@ -2,11 +2,17 @@ package com.oceanverse.ai.controller;
 
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.ChatDTO;
+import com.oceanverse.ai.rag.KnowledgeBaseService;
 import com.oceanverse.ai.service.AiService;
-import jakarta.servlet.http.HttpServletResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import reactor.core.Disposable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AI 智能服务接口 — 成员B/E
@@ -18,6 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class AiController {
 
     private final AiService aiService;
+    private final KnowledgeBaseService knowledgeBaseService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 图像识别 — 上传照片识别海洋生物
@@ -31,12 +39,56 @@ public class AiController {
 
     /**
      * 智能问答 — SSE 流式返回
+     * <p>
+     * 使用 SseEmitter 管理 SSE 连接生命周期，避免 HttpServletResponse 被提前回收。
+     * 每个 chunk 通过 JSON 编码发送，确保内容中的 \n 被转义为 \\n，
+     * 避免被 SSE 协议当作事件分隔符吃掉。前端用 JSON.parse 还原原始文本。
+     * <p>
+     * SseEmitter 超时/完成时取消 Flux 订阅，避免模型继续生成无用内容。
      */
     @PostMapping("/chat")
-    public void chat(@RequestBody ChatDTO dto, HttpServletResponse response) {
-        response.setContentType("text/event-stream;charset=UTF-8");
-        response.setCharacterEncoding("UTF-8");
-        aiService.chatStream(dto, response);
+    public SseEmitter chat(@Valid @RequestBody ChatDTO dto) {
+        SseEmitter emitter = new SseEmitter(120_000L);
+        AtomicReference<Long> savedIdRef = new AtomicReference<>();
+
+        Disposable subscription = aiService.chatStream(dto, savedIdRef)
+                .subscribe(
+                        chunk -> {
+                            try {
+                                // JSON 编码：\n → \\n，" → \"，保证数据行内无真实换行
+                                String json = objectMapper.writeValueAsString(chunk);
+                                emitter.send(SseEmitter.event().data(json));
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        },
+                        error -> {
+                            try {
+                                emitter.send(SseEmitter.event().data("[ERROR]"));
+                                emitter.complete();
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        },
+                        () -> {
+                            try {
+                                emitter.send(SseEmitter.event().data("[DONE]"));
+                                emitter.complete();
+                            } catch (Exception e) {
+                                emitter.completeWithError(e);
+                            }
+                        }
+                );
+
+        // 客户端断开或超时时取消 Flux 订阅，停止模型生成
+        emitter.onTimeout(() -> {
+            subscription.dispose();
+        });
+        emitter.onCompletion(() -> {
+            subscription.dispose();
+        });
+
+        return emitter;
     }
 
     /**
@@ -61,10 +113,38 @@ public class AiController {
 
     /**
      * 问答反馈
+     * @param feedback 1=满意，0=不满意
      */
     @PostMapping("/chat/feedback/{id}")
     public Result<Void> feedback(@PathVariable Long id, @RequestParam Integer feedback) {
+        if (feedback == null || (feedback != 0 && feedback != 1)) {
+            return Result.error("反馈参数无效，仅支持 0（不满意）或 1（满意）");
+        }
         aiService.feedback(id, feedback);
+        return Result.success();
+    }
+
+    /**
+     * 清空对话会话历史（任务 2.4）
+     * <p>
+     * 删除 Redis 中指定 sessionId 的对话历史，
+     * 前端"新对话"按钮调用此接口后，AI 不再引用之前的对话内容。
+     */
+    @DeleteMapping("/chat/session/{sessionId}")
+    public Result<Void> clearSession(@PathVariable String sessionId) {
+        aiService.clearSession(sessionId);
+        return Result.success();
+    }
+
+    /**
+     * 重建知识库索引
+     * <p>
+     * 从数据库重新加载物种数据并向量化，保存到磁盘。
+     * 新增或删除物种后调用此接口即可刷新 RAG 知识库，无需重启应用。
+     */
+    @PostMapping("/knowledge/rebuild")
+    public Result<Void> rebuildKnowledgeBase() {
+        knowledgeBaseService.rebuildIndex();
         return Result.success();
     }
 }

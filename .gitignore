@@ -81,3 +81,9 @@ CLAUDE.md
 # 本地敏感配置（API Key 等）
 application-local.yml
 application-local.properties
+# 文档目录（本地笔记，不提交）
+docs/
+
+# AI 向量存储（运行时生成）
+data/ai/vector-store.json
+data/ai/vector-store.json.meta
