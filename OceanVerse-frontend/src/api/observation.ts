@@ -14,3 +14,12 @@ export const updateObservation = (id: number, data: any) => http.put(`/observati
 
 // 删除观测
 export const deleteObservation = (id: number) => http.delete(`/observation/${id}`)
+
+// 观测统计
+export const getObservationStats = () => http.get('/observation/statistics')
+
+// 观测地点列表（下拉用）
+export const getObservationLocations = () => http.get('/observation/locations')
+
+// 生态系统列表（下拉用）
+export const getObservationEcosystems = () => http.get('/observation/ecosystems')
