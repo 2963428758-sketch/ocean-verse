@@ -260,7 +260,6 @@ async function doRecognize() {
   display: grid;
   grid-template-columns: 380px 1fr;
   gap: 20px;
-  align-items: start;
 }
 
 /* ── 左栏：图片区 ── */
@@ -268,6 +267,7 @@ async function doRecognize() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 400px;
 }
 
 .upload-zone {
@@ -276,6 +276,10 @@ async function doRecognize() {
   padding: 48px 24px;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   &:hover { border-color: var(--primary-main); background: color-mix(in srgb, var(--primary-main) 4%, transparent); }
 }
 
@@ -307,6 +311,9 @@ async function doRecognize() {
   border-radius: 12px;
   overflow: hidden;
   background: var(--neutral-75);
+  flex: 1;
+  min-height: 0;
+  display: flex;
 
   .preview-img {
     width: 100%;
