@@ -267,7 +267,6 @@ async function doRecognize() {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 400px;
 }
 
 .upload-zone {
@@ -383,11 +382,11 @@ async function doRecognize() {
 
 /* ── 右栏：结果区 ── */
 .result-panel {
-  min-height: 400px;
   background: white;
   border: 1px solid var(--neutral-100);
   border-radius: 12px;
   padding: 24px;
+  min-height: 200px;
 }
 
 /* 空状态 */
@@ -396,7 +395,7 @@ async function doRecognize() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 360px;
+  min-height: 160px;
   text-align: center;
 }
 
@@ -425,7 +424,7 @@ async function doRecognize() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 360px;
+  min-height: 160px;
   gap: 16px;
   p { color: var(--neutral-500); font-size: 14px; margin: 0; }
 }
