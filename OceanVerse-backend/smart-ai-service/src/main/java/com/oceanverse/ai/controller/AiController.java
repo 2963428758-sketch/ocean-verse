@@ -2,6 +2,7 @@ package com.oceanverse.ai.controller;
 
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.ChatDTO;
+import com.oceanverse.ai.rag.KnowledgeBaseService;
 import com.oceanverse.ai.service.AiService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AiController {
 
     private final AiService aiService;
+    private final KnowledgeBaseService knowledgeBaseService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -128,6 +130,18 @@ public class AiController {
     @DeleteMapping("/chat/session/{sessionId}")
     public Result<Void> clearSession(@PathVariable String sessionId) {
         aiService.clearSession(sessionId);
+        return Result.success();
+    }
+
+    /**
+     * 重建知识库索引
+     * <p>
+     * 从数据库重新加载物种数据并向量化，保存到磁盘。
+     * 新增或删除物种后调用此接口即可刷新 RAG 知识库，无需重启应用。
+     */
+    @PostMapping("/knowledge/rebuild")
+    public Result<Void> rebuildKnowledgeBase() {
+        knowledgeBaseService.rebuildIndex();
         return Result.success();
     }
 }

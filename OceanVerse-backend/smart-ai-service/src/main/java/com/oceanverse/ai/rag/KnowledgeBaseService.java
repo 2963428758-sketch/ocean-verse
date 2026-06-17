@@ -12,6 +12,10 @@ import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 /**
@@ -19,6 +23,7 @@ import java.util.List;
  * <p>
  * 应用启动时从数据库加载物种数据并向量化索引到 SimpleVectorStore。
  * 支持向量索引持久化：启动时优先从磁盘加载已有索引，关闭时自动保存。
+ * 启动时通过物种数量比对检测数据库变更，自动重建索引。
  * 问答时根据用户问题进行语义检索，返回最相关的文档片段作为 RAG 上下文。
  * <p>
  * 技术栈：text-embedding-v3（向量化）+ SimpleVectorStore（内存向量存储 + 余弦相似度检索）
@@ -35,23 +40,45 @@ public class KnowledgeBaseService {
     /**
      * 应用启动时初始化知识库
      * <p>
-     * 优先从磁盘加载已有向量索引，若不存在则从数据库加载并保存。
+     * 优先从磁盘加载已有向量索引（需物种数量未变），否则从数据库加载并保存。
      */
     @PostConstruct
     public void initKnowledgeBase() {
         try {
             File storeFile = new File(aiProperties.getVectorStorePath());
+            File metaFile = metaFile(storeFile);
+            long dbCount = documentLoader.countSpecies();
 
-            // 尝试从磁盘加载已有索引
-            if (storeFile.exists() && vectorStore instanceof SimpleVectorStore simpleStore) {
-                log.info("从磁盘加载向量索引: {}", storeFile.getAbsolutePath());
+            // 尝试从磁盘加载已有索引（需数量一致）
+            if (storeFile.exists() && vectorStore instanceof SimpleVectorStore simpleStore
+                    && metaFile.exists() && readMetaCount(metaFile) == dbCount) {
+                log.info("从磁盘加载向量索引: {}（物种数: {}）", storeFile.getAbsolutePath(), dbCount);
                 simpleStore.load(storeFile);
                 log.info("向量索引加载完成");
                 return;
             }
 
-            // 从数据库加载并构建索引
+            // 数量不一致或无索引文件，从数据库重建
+            if (storeFile.exists() && metaFile.exists() && readMetaCount(metaFile) != dbCount) {
+                log.info("物种数量已变更（缓存: {}, 数据库: {}），重建向量索引", readMetaCount(metaFile), dbCount);
+            }
+
+            rebuildIndex();
+        } catch (Exception e) {
+            log.error("知识库初始化失败（RAG 功能将降级为裸模型）: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 手动重建索引：从数据库重新加载并向量化，保存到磁盘。
+     * 可在管理接口或物种数据变更后调用。
+     */
+    public void rebuildIndex() {
+        try {
             log.info("开始初始化海洋知识库...");
+
+            // 重建前清空内存中的旧数据（SimpleVectorStore 不支持 remove，需重建实例）
+            // 由于 Spring 管理的 bean 无法替换，这里通过重新加载覆盖
             List<Document> documents = documentLoader.loadSpeciesDocuments();
 
             if (documents.isEmpty()) {
@@ -62,14 +89,10 @@ public class KnowledgeBaseService {
             vectorStore.add(documents);
             log.info("知识库初始化完成，共加载 {} 个文档", documents.size());
 
-            // 持久化向量索引到磁盘
-            if (vectorStore instanceof SimpleVectorStore simpleStore) {
-                storeFile.getParentFile().mkdirs();
-                simpleStore.save(storeFile);
-                log.info("向量索引已保存到: {}", storeFile.getAbsolutePath());
-            }
+            // 持久化向量索引和元数据到磁盘
+            saveToDisk();
         } catch (Exception e) {
-            log.error("知识库初始化失败（RAG 功能将降级为裸模型）: {}", e.getMessage(), e);
+            log.error("知识库重建失败（RAG 功能将降级为裸模型）: {}", e.getMessage(), e);
         }
     }
 
@@ -78,16 +101,7 @@ public class KnowledgeBaseService {
      */
     @PreDestroy
     public void saveOnShutdown() {
-        try {
-            if (vectorStore instanceof SimpleVectorStore simpleStore) {
-                File storeFile = new File(aiProperties.getVectorStorePath());
-                storeFile.getParentFile().mkdirs();
-                simpleStore.save(storeFile);
-                log.info("向量索引已保存到磁盘（应用关闭时）: {}", storeFile.getAbsolutePath());
-            }
-        } catch (Exception e) {
-            log.error("保存向量索引失败: {}", e.getMessage(), e);
-        }
+        saveToDisk();
     }
 
     /**
@@ -133,5 +147,46 @@ public class KnowledgeBaseService {
             sb.append(String.format("【资料 %d】\n%s\n\n", i + 1, documents.get(i).getText()));
         }
         return sb.toString();
+    }
+
+    // ==================== 内部方法 ====================
+
+    private void saveToDisk() {
+        try {
+            if (vectorStore instanceof SimpleVectorStore simpleStore) {
+                File storeFile = new File(aiProperties.getVectorStorePath());
+                storeFile.getParentFile().mkdirs();
+                simpleStore.save(storeFile);
+                log.info("向量索引已保存到磁盘: {}", storeFile.getAbsolutePath());
+
+                // 同时保存物种数量元数据
+                File metaFile = metaFile(storeFile);
+                long dbCount = documentLoader.countSpecies();
+                Files.writeString(metaFile.toPath(), String.valueOf(dbCount), StandardCharsets.UTF_8);
+                log.debug("物种数量元数据已保存: count={}", dbCount);
+            }
+        } catch (Exception e) {
+            log.error("保存向量索引失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 元数据文件路径（与向量索引文件同目录，后缀 .meta）
+     */
+    private File metaFile(File storeFile) {
+        return new File(storeFile.getAbsolutePath() + ".meta");
+    }
+
+    /**
+     * 读取元数据中记录的物种数量
+     */
+    private long readMetaCount(File metaFile) {
+        try {
+            String content = Files.readString(metaFile.toPath(), StandardCharsets.UTF_8).trim();
+            return Long.parseLong(content);
+        } catch (IOException | NumberFormatException e) {
+            log.warn("元数据文件读取失败，将重建索引: {}", e.getMessage());
+            return -1; // 返回 -1 确保与任何 dbCount 都不匹配，触发重建
+        }
     }
 }

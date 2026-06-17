@@ -99,6 +99,14 @@ public class DocumentLoader {
         return new Document(content.toString().trim());
     }
 
+    /**
+     * 返回 species 表中的记录总数，用于增量更新检测
+     */
+    public long countSpecies() {
+        Long count = speciesMapper.selectCount(null);
+        return count != null ? count : 0L;
+    }
+
     private String nullSafe(String value) {
         return value != null ? value : "未知";
     }
