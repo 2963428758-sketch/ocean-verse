@@ -24,7 +24,12 @@ const routes: RouteRecordRaw[] = [
         { path: 'chat', name: 'AIChat', component: () => import('@/views/ai/Chat.vue'), meta: { title: '智能问答' } }
       ]},
       { path: 'community', name: 'Community', redirect: '/community/feed', meta: { title: '社区', icon: 'ChatDotRound' }, children: [
-        { path: 'feed', name: 'CommunityFeed', component: () => import('@/views/community/Feed.vue'), meta: { title: '动态广场' } }
+        { path: 'feed', name: 'CommunityFeed', component: () => import('@/views/community/Feed.vue'), meta: { title: '动态广场' } },
+        { path: 'post/:id', name: 'PostDetail', component: () => import('@/views/community/PostDetail.vue'), meta: { title: '帖子详情', hidden: true } },
+        { path: 'notifications', name: 'Notifications', component: () => import('@/views/community/Notifications.vue'), meta: { title: '消息通知', hidden: true } },
+        { path: 'user/:id', name: 'UserProfile', component: () => import('@/views/community/UserProfile.vue'), meta: { title: '用户主页', hidden: true } },
+        { path: 'favorites', name: 'Favorites', component: () => import('@/views/community/Favorites.vue'), meta: { title: '我的收藏', hidden: true } },
+        { path: 'liked', name: 'LikedPosts', component: () => import('@/views/community/LikedPosts.vue'), meta: { title: '点赞记录', hidden: true } }
       ]},
       { path: 'admin', name: 'Admin', redirect: '/admin/users', meta: { title: '系统管理', icon: 'Setting' }, children: [
         { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理' } }

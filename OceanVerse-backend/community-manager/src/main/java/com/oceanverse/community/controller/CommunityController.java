@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 社区互动接口 — 成员D
- * 包含：动态发布、评论、点赞、收藏
+ * 包含：动态发布、评论、点赞、收藏、关注、通知
  */
 @RestController
 @RequestMapping("/api/community")
@@ -62,6 +62,13 @@ public class CommunityController {
         return Result.success(communityService.listComments(postId, page, size));
     }
 
+    @DeleteMapping("/comment/{id}")
+    public Result<Void> deleteComment(@PathVariable Long id,
+                                       @RequestHeader("Authorization") String token) {
+        communityService.deleteComment(id, token);
+        return Result.success();
+    }
+
     // ==================== 点赞 ====================
 
     @PostMapping("/like/{targetType}/{targetId}")
@@ -86,6 +93,61 @@ public class CommunityController {
                                          @RequestParam(defaultValue = "10") Integer size,
                                          @RequestHeader("Authorization") String token) {
         return Result.success(communityService.listFavorites(targetType, page, size, token));
+    }
+
+    @GetMapping("/like/list")
+    public Result<Object> listLikedPosts(@RequestParam(defaultValue = "1") Integer page,
+                                          @RequestParam(defaultValue = "10") Integer size,
+                                          @RequestHeader("Authorization") String token) {
+        return Result.success(communityService.listLikedPosts(page, size, token));
+    }
+
+    // ==================== 关注 ====================
+
+    @PostMapping("/follow/{userId}")
+    public Result<Object> toggleFollow(@PathVariable Long userId,
+                                        @RequestHeader("Authorization") String token) {
+        return Result.success(communityService.toggleFollow(userId, token));
+    }
+
+    @GetMapping("/user/{userId}")
+    public Result<Object> getUserProfile(@PathVariable Long userId) {
+        return Result.success(communityService.getUserProfile(userId));
+    }
+
+    // ==================== 通知 ====================
+
+    @GetMapping("/notification/list")
+    public Result<Object> listNotifications(@RequestParam(defaultValue = "1") Integer page,
+                                             @RequestParam(defaultValue = "10") Integer size,
+                                             @RequestHeader("Authorization") String token) {
+        return Result.success(communityService.listNotifications(page, size, token));
+    }
+
+    @GetMapping("/notification/unread")
+    public Result<Object> getUnreadCount(@RequestHeader("Authorization") String token) {
+        return Result.success(communityService.getUnreadCount(token));
+    }
+
+    @PutMapping("/notification/{id}/read")
+    public Result<Void> markNotificationRead(@PathVariable Long id,
+                                              @RequestHeader("Authorization") String token) {
+        communityService.markNotificationRead(id, token);
+        return Result.success();
+    }
+
+    @PutMapping("/notification/read-all")
+    public Result<Void> markAllRead(@RequestHeader("Authorization") String token) {
+        communityService.markAllRead(token);
+        return Result.success();
+    }
+
+    // ==================== 头像 ====================
+
+    @PutMapping("/avatar")
+    public Result<String> uploadAvatar(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+                                        @RequestHeader("Authorization") String token) {
+        return Result.success("头像更新成功", communityService.uploadAvatar(file, token));
     }
 
     // ==================== 排行榜 ====================

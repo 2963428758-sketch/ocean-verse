@@ -107,10 +107,71 @@ export interface SpeciesQueryDTO {
 export interface CommunityPost {
   id: number
   userId: number
+  username?: string
   content: string
   postType: string
+  relatedSpeciesId?: number
+  relatedObservationId?: number
   imageUrls?: string
   likeCount: number
   commentCount: number
+  favoriteCount: number
+  status: number
   createTime: string
+  updateTime?: string
+}
+
+export interface CommunityComment {
+  id: number
+  postId: number
+  userId: number
+  username?: string
+  parentId?: number
+  content: string
+  likeCount: number
+  status: number
+  createTime: string
+}
+
+export interface CommunityNotification {
+  id: number
+  userId: number
+  title: string
+  content: string
+  type: string
+  isRead: number
+  relatedId?: number
+  createTime: string
+}
+
+export interface UserProfile {
+  userId: number
+  username: string
+  avatarUrl?: string
+  postCount: number
+  followerCount: number
+  followCount: number
+}
+
+export interface PostCreateDTO {
+  content: string
+  postType?: string
+  relatedSpeciesId?: number
+  relatedObservationId?: number
+  imageUrls?: string
+}
+
+export interface PostQueryDTO {
+  postType?: string
+  userId?: number
+  speciesId?: number
+  orderBy?: string
+  page?: number
+  size?: number
+}
+
+export interface CommentCreateDTO {
+  postId: number
+  parentId?: number
+  content: string
 }
