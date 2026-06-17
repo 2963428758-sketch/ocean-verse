@@ -386,7 +386,10 @@ async function doRecognize() {
   border: 1px solid var(--neutral-100);
   border-radius: 12px;
   padding: 24px;
-  min-height: 200px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 /* 空状态 */
@@ -395,8 +398,8 @@ async function doRecognize() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
   text-align: center;
+  flex: 1;
 }
 
 .empty-illustration {
@@ -424,8 +427,8 @@ async function doRecognize() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
   gap: 16px;
+  flex: 1;
   p { color: var(--neutral-500); font-size: 14px; margin: 0; }
 }
 
@@ -455,6 +458,7 @@ async function doRecognize() {
 /* ── 识别结果 ── */
 .result-content {
   animation: fadeUp 0.4s ease;
+  flex: 1;
 }
 
 @keyframes fadeUp {
