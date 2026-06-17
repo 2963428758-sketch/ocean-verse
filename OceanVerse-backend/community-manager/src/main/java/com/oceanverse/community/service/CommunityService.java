@@ -14,5 +14,14 @@ public interface CommunityService {
     Object toggleLike(String targetType, Long targetId, String token);
     Object toggleFavorite(String targetType, Long targetId, String token);
     Object listFavorites(String targetType, Integer page, Integer size, String token);
+    Object listLikedPosts(Integer page, Integer size, String token);
     Object getLeaderboard(String type);
+    Object toggleFollow(Long followUserId, String token);
+    Object getUserProfile(Long userId);
+    Object listNotifications(Integer page, Integer size, String token);
+    Object getUnreadCount(String token);
+    void markNotificationRead(Long notificationId, String token);
+    void markAllRead(String token);
+    String uploadAvatar(org.springframework.web.multipart.MultipartFile file, String token);
+    void deleteComment(Long commentId, String token);
 }

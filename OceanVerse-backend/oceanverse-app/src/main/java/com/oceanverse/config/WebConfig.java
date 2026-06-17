@@ -29,6 +29,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/species/{id}/distributions",
                         "/api/community/post/list",
                         "/api/community/post/{id}",
+                        "/api/community/user/{userId}",
+                        "/api/upload/image",
                         "/api/visual/**"
                 );
     }

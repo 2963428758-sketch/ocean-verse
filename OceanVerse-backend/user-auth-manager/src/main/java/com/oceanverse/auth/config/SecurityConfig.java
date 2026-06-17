@@ -11,9 +11,8 @@ import org.springframework.security.web.SecurityFilterChain;
 /**
  * Spring Security 配置
  * <p>
- * 设计说明：Security 仅作为被动壳，所有鉴权由 Interceptor 层实现。
- * .anyRequest().permitAll() 是有意设计，请勿修改为 .authenticated()。
- * 实际权限控制由 JwtInterceptor + PermissionInterceptor 在 MVC 层完成。
+ * 本项目使用 JWT 拦截器 (JwtInterceptor) 做 API 认证，
+ * Security 仅负责放行 Swagger 文档、静态资源等公开路径。
  */
 @Configuration
 @EnableWebSecurity
@@ -22,10 +21,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // 禁用 CSRF（REST API 不需要）
                 .csrf(AbstractHttpConfigurer::disable)
+                // 禁用 Session（使用 JWT 无状态认证）
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // 配置请求授权规则
                 .authorizeHttpRequests(auth -> auth
+                        // Swagger / SpringDoc
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -33,12 +36,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/webjars/**"
                         ).permitAll()
+                        // 公开 API 接口
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/register",
-                                "/api/auth/refresh"
+                                "/api/auth/register"
                         ).permitAll()
-                        // 注意：以下为有意设计 — Security 层全放行，鉴权由 Interceptor 层负责
+                        // 其余请求全部放行（由 JwtInterceptor 控制 API 权限）
                         .anyRequest().permitAll()
                 );
 

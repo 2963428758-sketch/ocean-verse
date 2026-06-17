@@ -46,8 +46,6 @@ export interface Species {
   isInvasive?: number
   dataQuality?: string
   source?: string
-  longitude?: number
-  latitude?: number
   createTime?: string
   updateTime?: string
   createBy?: number
@@ -86,7 +84,6 @@ export interface SpeciesMedia {
   isPrimary?: number
   status?: number
   createTime?: string
-  updateTime?: string
 }
 
 export interface SpeciesStatistics {
@@ -103,7 +100,6 @@ export interface SpeciesQueryDTO {
   family?: string
   iucnStatus?: string
   protectionLevel?: string
-  sort?: string
   page?: number
   size?: number
 }
@@ -111,86 +107,71 @@ export interface SpeciesQueryDTO {
 export interface CommunityPost {
   id: number
   userId: number
+  username?: string
   content: string
   postType: string
+  relatedSpeciesId?: number
+  relatedObservationId?: number
   imageUrls?: string
   likeCount: number
   commentCount: number
+  favoriteCount: number
+  status: number
   createTime: string
-}
-
-export interface Observation {
-  id?: number
-  observationCode: string
-  observationType: string
-  observationDate: string
-  observationTime?: string
-  durationMinutes?: number
-  locationId?: number
-  ecosystemId?: number
-  latitude?: number
-  longitude?: number
-  depth?: number
-  waterTemperature?: number
-  salinity?: number
-  ph?: number
-  weatherCondition?: string
-  seaCondition?: string
-  observerId?: number
-  observerName?: string
-  organization?: string
-  equipmentUsed?: string
-  notes?: string
-  createTime?: string
   updateTime?: string
 }
 
-export interface ObservationQueryDTO {
-  keyword?: string
-  observationType?: string
-  startDate?: string
-  endDate?: string
-  ecosystemId?: number
-  locationId?: number
-  observerName?: string
-  sort?: string
+export interface CommunityComment {
+  id: number
+  postId: number
+  userId: number
+  username?: string
+  parentId?: number
+  content: string
+  likeCount: number
+  status: number
+  createTime: string
+}
+
+export interface CommunityNotification {
+  id: number
+  userId: number
+  title: string
+  content: string
+  type: string
+  isRead: number
+  relatedId?: number
+  createTime: string
+}
+
+export interface UserProfile {
+  userId: number
+  username: string
+  avatarUrl?: string
+  postCount: number
+  followerCount: number
+  followCount: number
+}
+
+export interface PostCreateDTO {
+  content: string
+  postType?: string
+  relatedSpeciesId?: number
+  relatedObservationId?: number
+  imageUrls?: string
+}
+
+export interface PostQueryDTO {
+  postType?: string
+  userId?: number
+  speciesId?: number
+  orderBy?: string
   page?: number
   size?: number
 }
 
-export interface ObservationStatistics {
-  totalCount: number
-  byType: Record<string, number>
-  byEcosystem: Record<string, number>
-  thisMonthCount: number
-  thisYearCount: number
-  avgWaterTemperature: number
-  avgSalinity: number
-}
-
-export interface ObservationLocation {
-  id: number
-  locationCode: string
-  locationName: string
-  locationType: string
-  latitude: number
-  longitude: number
-  country?: string
-  province?: string
-  city?: string
-  ecosystemId?: number
-}
-
-export interface Ecosystem {
-  id: number
-  ecosystemCode: string
-  ecosystemName: string
-  ecosystemType: string
-  description?: string
-  areaEstimate?: number
-  depthMin?: number
-  depthMax?: number
-  temperatureRange?: string
-  threatFactors?: string
-  conservationStatus?: string
+export interface CommentCreateDTO {
+  postId: number
+  parentId?: number
+  content: string
 }

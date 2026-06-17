@@ -24,4 +24,8 @@ public class CommunityComment {
     private LocalDateTime createTime;
     @TableLogic
     private Integer deleted;
+
+    /** 非数据库字段，由 service 填充 */
+    @TableField(exist = false)
+    private String username;
 }
