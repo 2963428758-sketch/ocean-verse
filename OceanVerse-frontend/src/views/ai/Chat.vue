@@ -11,7 +11,8 @@
           </div>
         </div>
         <div v-for="(msg, i) in messages" :key="i" class="message" :class="msg.role">
-          <div class="bubble">{{ msg.content }}</div>
+          <div v-if="msg.role === 'assistant'" class="bubble markdown-body" v-html="renderMarkdown(msg.content)"></div>
+          <div v-else class="bubble">{{ msg.content }}</div>
         </div>
       </div>
       <div class="chat-input">
@@ -24,7 +25,19 @@
 
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
+import { marked } from 'marked'
 import { chatWithAIStream } from '@/api/ai'
+
+// 配置 marked：同步解析，GFM 支持
+marked.setOptions({
+  breaks: true,
+  gfm: true
+})
+
+const renderMarkdown = (text: string): string => {
+  if (!text) return ''
+  return marked.parse(text) as string
+}
 
 const messagesRef = ref<HTMLElement>()
 const input = ref('')
@@ -65,6 +78,85 @@ function scrollToBottom() {
 .message { margin-bottom:16px; display:flex; &.user{justify-content:flex-end;} &.assistant{justify-content:flex-start;} }
 .bubble { max-width:70%; padding:10px 16px; border-radius:12px; font-size:14px; line-height:1.6; }
 .message.user .bubble { background:var(--primary-main); color:white; }
-.message.assistant .bubble { background:var(--neutral-100); color:var(--neutral-800); }
+.message.assistant .bubble { background:var(--neutral-100); color:var(--neutral-800); max-width:80%; }
 .chat-input { display:flex; gap:8px; padding:12px 20px; border-top:1px solid var(--neutral-100); }
+
+/* ── Markdown 排版（v-html 内容需要 :deep 穿透）── */
+.markdown-body {
+  :deep(p) {
+    margin-bottom: 8px;
+    &:last-child { margin-bottom: 0; }
+  }
+  :deep(ul), :deep(ol) {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+  :deep(li) {
+    margin-bottom: 4px;
+    line-height: 1.7;
+  }
+  :deep(strong) {
+    font-weight: 600;
+    color: var(--neutral-900);
+  }
+  :deep(em) {
+    font-style: italic;
+    color: var(--neutral-600);
+  }
+  :deep(code) {
+    background: var(--neutral-75);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+  :deep(pre) {
+    background: var(--neutral-75);
+    padding: 12px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 8px 0;
+    code {
+      background: none;
+      padding: 0;
+    }
+  }
+  :deep(h1), :deep(h2), :deep(h3), :deep(h4) {
+    margin: 12px 0 6px;
+    font-weight: 600;
+    &:first-child { margin-top: 0; }
+  }
+  :deep(h3) { font-size: 15px; }
+  :deep(h4) { font-size: 14px; }
+  :deep(blockquote) {
+    border-left: 3px solid var(--primary-lighter);
+    padding-left: 12px;
+    margin: 8px 0;
+    color: var(--neutral-500);
+  }
+  :deep(a) {
+    color: var(--primary-main);
+    text-decoration: underline;
+  }
+  :deep(table) {
+    border-collapse: collapse;
+    margin: 8px 0;
+    width: 100%;
+    font-size: 13px;
+  }
+  :deep(th), :deep(td) {
+    border: 1px solid var(--neutral-200);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  :deep(th) {
+    background: var(--neutral-75);
+    font-weight: 600;
+  }
+  :deep(hr) {
+    border: none;
+    border-top: 1px solid var(--neutral-200);
+    margin: 12px 0;
+  }
+}
 </style>

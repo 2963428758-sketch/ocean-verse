@@ -3,6 +3,7 @@ package com.oceanverse.ai.controller;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.ai.service.AiService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,6 +19,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AiController {
 
     private final AiService aiService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 图像识别 — 上传照片识别海洋生物
@@ -33,25 +35,27 @@ public class AiController {
      * 智能问答 — SSE 流式返回
      * <p>
      * 使用 SseEmitter 管理 SSE 连接生命周期，避免 HttpServletResponse 被提前回收。
-     * Service 层返回 Flux<String>，Controller 负责订阅并将事件推送到客户端。
+     * 每个 chunk 通过 JSON 编码发送，确保内容中的 \n 被转义为 \\n，
+     * 避免被 SSE 协议当作事件分隔符吃掉。前端用 JSON.parse 还原原始文本。
      */
     @PostMapping("/chat")
     public SseEmitter chat(@RequestBody ChatDTO dto) {
-        // 超时设为 120 秒，覆盖长对话场景
         SseEmitter emitter = new SseEmitter(120_000L);
 
         aiService.chatStream(dto)
                 .subscribe(
                         chunk -> {
                             try {
-                                emitter.send(SseEmitter.event().data(chunk));
+                                // JSON 编码：\n → \\n，" → \"，保证数据行内无真实换行
+                                String json = objectMapper.writeValueAsString(chunk);
+                                emitter.send(SseEmitter.event().data(json));
                             } catch (Exception e) {
                                 emitter.completeWithError(e);
                             }
                         },
                         error -> {
                             try {
-                                emitter.send(SseEmitter.event().data("[ERROR] AI 服务暂时不可用，请稍后重试"));
+                                emitter.send(SseEmitter.event().data("[ERROR]"));
                                 emitter.complete();
                             } catch (Exception e) {
                                 emitter.completeWithError(e);
