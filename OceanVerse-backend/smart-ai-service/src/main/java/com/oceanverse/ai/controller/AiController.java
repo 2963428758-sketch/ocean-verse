@@ -4,7 +4,9 @@ import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.ai.service.AiService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import reactor.core.Disposable;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -37,12 +39,14 @@ public class AiController {
      * 使用 SseEmitter 管理 SSE 连接生命周期，避免 HttpServletResponse 被提前回收。
      * 每个 chunk 通过 JSON 编码发送，确保内容中的 \n 被转义为 \\n，
      * 避免被 SSE 协议当作事件分隔符吃掉。前端用 JSON.parse 还原原始文本。
+     * <p>
+     * SseEmitter 超时/完成时取消 Flux 订阅，避免模型继续生成无用内容。
      */
     @PostMapping("/chat")
-    public SseEmitter chat(@RequestBody ChatDTO dto) {
+    public SseEmitter chat(@Valid @RequestBody ChatDTO dto) {
         SseEmitter emitter = new SseEmitter(120_000L);
 
-        aiService.chatStream(dto)
+        Disposable subscription = aiService.chatStream(dto)
                 .subscribe(
                         chunk -> {
                             try {
@@ -70,6 +74,14 @@ public class AiController {
                             }
                         }
                 );
+
+        // 客户端断开或超时时取消 Flux 订阅，停止模型生成
+        emitter.onTimeout(() -> {
+            subscription.dispose();
+        });
+        emitter.onCompletion(() -> {
+            subscription.dispose();
+        });
 
         return emitter;
     }
@@ -104,6 +116,18 @@ public class AiController {
             return Result.error("反馈参数无效，仅支持 0（不满意）或 1（满意）");
         }
         aiService.feedback(id, feedback);
+        return Result.success();
+    }
+
+    /**
+     * 清空对话会话历史（任务 2.4）
+     * <p>
+     * 删除 Redis 中指定 sessionId 的对话历史，
+     * 前端"新对话"按钮调用此接口后，AI 不再引用之前的对话内容。
+     */
+    @DeleteMapping("/chat/session/{sessionId}")
+    public Result<Void> clearSession(@PathVariable String sessionId) {
+        aiService.clearSession(sessionId);
         return Result.success();
     }
 }

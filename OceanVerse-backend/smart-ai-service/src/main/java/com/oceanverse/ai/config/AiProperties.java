@@ -44,4 +44,20 @@ public class AiProperties {
      * 多轮对话保留的历史轮数
      */
     private Integer historyRounds = 10;
+
+    /**
+     * 会话 TTL（分钟），超过此时间无活动后会话自动过期
+     */
+    private Long sessionTtlMinutes = 30L;
+
+    /**
+     * RAG 语义检索相似度阈值（0-1），低于此值的文档将被过滤
+     */
+    private Double similarityThreshold = 0.5;
+
+    /**
+     * 向量索引持久化文件路径（SimpleVectorStore save/load），
+     * 为空时不持久化，每次重启重新向量化
+     */
+    private String vectorStorePath = "data/ai/vector-store.json";
 }

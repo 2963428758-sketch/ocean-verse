@@ -7,7 +7,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oceanverse.ai.config.AiProperties;
 import com.oceanverse.ai.mapper.ImageRecognitionMapper;
 import com.oceanverse.ai.mapper.QaHistoryMapper;
+import com.oceanverse.ai.prompt.PromptTemplateManager;
+import com.oceanverse.ai.rag.KnowledgeBaseService;
 import com.oceanverse.ai.service.AiService;
+import com.oceanverse.ai.session.ChatSessionManager;
 import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.utils.OssUtil;
 import com.oceanverse.common.utils.RedisUtil;
@@ -18,7 +21,11 @@ import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.document.Document;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,6 +37,8 @@ import java.math.BigDecimal;
 import reactor.core.publisher.Flux;
 import java.net.URL;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,12 +47,17 @@ import java.util.UUID;
  * <p>
  * 核心能力：
  * 1. 图像识别 — 使用 qwen-vl-max 多模态视觉模型识别海洋生物
- * 2. 智能问答 — 使用 qwen-plus 对话模型 + SSE 流式响应
+ * 2. 智能问答 — 使用 qwen-plus 对话模型 + SSE 流式响应 + RAG 检索增强 + 多轮对话
  * 3. 事件发布 — 通过 Redis Stream 发布 AI 事件到通知管道
  * <p>
  * 架构说明：
  * 注入 ChatModel（由 DashScope Starter 自动配置），按需构建 ChatClient。
- * 普通问答使用默认 qwen-plus，图像识别通过 DashScopeChatOptions 切换到 qwen-vl-max。
+ * 普通问答使用 qwen-plus，图像识别通过 DashScopeChatOptions 切换到 qwen-vl-max。
+ * <p>
+ * 第二层能力（技术深度）：
+ * - PromptTemplateManager: 按 questionType 分发差异化 System Prompt
+ * - KnowledgeBaseService: RAG 检索增强，从 species 知识库中检索相关上下文
+ * - ChatSessionManager: Redis 多轮对话上下文管理
  */
 @Slf4j
 @Service
@@ -58,18 +72,14 @@ public class AiServiceImpl implements AiService {
     private final ChatModel chatModel;
     private final ObjectMapper objectMapper;
 
+    // 第二层新增依赖
+    private final PromptTemplateManager promptTemplateManager;
+    private final KnowledgeBaseService knowledgeBaseService;
+    private final ChatSessionManager chatSessionManager;
+
     // ==================== System Prompt ====================
 
-    private static final String CHAT_SYSTEM_PROMPT = """
-            你是一位资深的海洋生物学家，拥有 20 年的海洋生态研究经验。
-            你的专长包括：海洋生物分类学、珊瑚礁生态、海洋保护、深海生物学。
-
-            回答要求：
-            1. 专业准确，引用可靠知识
-            2. 语言通俗易懂，适合大众理解
-            3. 如果不确定，明确告知"这个问题我暂时没有确切答案"
-            4. 回答控制在 300 字以内
-            """;
+    // CHAT_SYSTEM_PROMPT 已迁移至 PromptTemplateManager，按 questionType 分发差异化 Prompt
 
     private static final String RECOGNITION_PROMPT = """
             请识别这张图片中的海洋生物，返回以下 JSON 格式（只返回 JSON，不要其他文字）：
@@ -161,7 +171,7 @@ public class AiServiceImpl implements AiService {
         return record;
     }
 
-    // ==================== 智能问答 SSE 流式（任务 1.3）====================
+    // ==================== 智能问答 SSE 流式（第二层：Prompt模板 + RAG + 多轮对话）====================
 
     @Override
     public Flux<String> chatStream(ChatDTO dto) {
@@ -179,27 +189,66 @@ public class AiServiceImpl implements AiService {
         history.setUpdateTime(LocalDateTime.now());
         history.setStatus(1);
 
-        // 2. 构建流式 Flux —— 不在此处 subscribe，由 Controller 通过 SseEmitter 订阅
+        // 2. RAG 检索：从知识库中查找相关文档（任务 2.2）
+        final String ragContext = searchRagContext(dto.getQuestion());
+
+        // 3. 获取 Prompt 模板（任务 2.1）
+        String baseSystemPrompt = promptTemplateManager.getSystemPrompt(dto.getQuestionType());
+
+        // 4. 将 RAG 上下文注入 System Prompt
+        final String finalSystemPrompt;
+        if (!ragContext.isEmpty()) {
+            finalSystemPrompt = baseSystemPrompt + "\n\n" + ragContext
+                    + "\n请基于以上参考资料回答用户问题。如果参考资料不足以回答，可以结合你的知识补充，但需说明哪些是基于资料、哪些是你的推断。";
+        } else {
+            finalSystemPrompt = baseSystemPrompt;
+        }
+
+        // 5. 获取多轮对话历史（任务 2.3）
+        List<Message> historyMessages = chatSessionManager.getHistoryMessages(dto.getSessionId());
+
+        // 6. 构造完整消息列表：System + History + Current
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(finalSystemPrompt));
+        messages.addAll(historyMessages);
+        messages.add(new UserMessage(dto.getQuestion()));
+
+        // 7. 构建流式 Flux —— 不在此处 subscribe，由 Controller 通过 SseEmitter 订阅
         StringBuilder fullAnswer = new StringBuilder();
 
         return ChatClient.create(chatModel).prompt()
-                .system(CHAT_SYSTEM_PROMPT)
-                .user(dto.getQuestion())
+                .options(DashScopeChatOptions.builder()
+                        .withModel(aiProperties.getChatModel())
+                        .withMaxToken(aiProperties.getMaxTokens())
+                        .withTemperature(aiProperties.getTemperature())
+                        .build())
+                .messages(messages)
                 .stream()
                 .content()
                 .filter(chunk -> chunk != null && !chunk.isEmpty())
                 .doOnNext(fullAnswer::append)
                 .doOnComplete(() -> {
-                    // 流结束：保存完整回答到数据库
-                    history.setAnswerText(fullAnswer.toString());
+                    String answer = fullAnswer.toString();
+
+                    // 保存会话历史到 Redis（任务 2.3）
+                    chatSessionManager.saveMessage(
+                            dto.getSessionId(), dto.getQuestion(), answer);
+
+                    // 保存完整回答到数据库
+                    history.setAnswerText(answer);
                     history.setProcessingTimeMs((int) (System.currentTimeMillis() - startTime));
+                    if (!ragContext.isEmpty()) {
+                        history.setSourceReferences("RAG");
+                    }
                     try {
                         qaHistoryMapper.insert(history);
                         publishChatEvent(history);
-                        log.info("智能问答完成: code={}, 耗时={}ms, 回答长度={}",
+                        log.info("智能问答完成: code={}, 耗时={}ms, 回答长度={}, RAG={}, 历史轮数={}",
                                 history.getQuestionCode(),
                                 history.getProcessingTimeMs(),
-                                fullAnswer.length());
+                                fullAnswer.length(),
+                                !ragContext.isEmpty(),
+                                historyMessages.size() / 2);
                     } catch (Exception e) {
                         log.error("保存问答记录失败（不影响流式响应）", e);
                     }
@@ -246,7 +295,34 @@ public class AiServiceImpl implements AiService {
         }
     }
 
+    // ==================== 会话管理（任务 2.4）====================
+
+    @Override
+    public void clearSession(String sessionId) {
+        chatSessionManager.clearSession(sessionId);
+        log.info("已清空会话历史: {}", sessionId);
+    }
+
     // ==================== 辅助方法 ====================
+
+    /**
+     * 从知识库中检索 RAG 上下文
+     * <p>
+     * 检索失败时返回空字符串，降级为裸模型回答。
+     */
+    private String searchRagContext(String question) {
+        try {
+            List<Document> relevantDocs = knowledgeBaseService.search(question, 3);
+            String context = knowledgeBaseService.formatContext(relevantDocs);
+            if (!relevantDocs.isEmpty()) {
+                log.debug("RAG 检索到 {} 个相关文档", relevantDocs.size());
+            }
+            return context;
+        } catch (Exception e) {
+            log.warn("RAG 检索异常，降级为裸模型: {}", e.getMessage());
+            return "";
+        }
+    }
 
     /**
      * 获取当前登录用户 ID（从 Spring Security 上下文提取）

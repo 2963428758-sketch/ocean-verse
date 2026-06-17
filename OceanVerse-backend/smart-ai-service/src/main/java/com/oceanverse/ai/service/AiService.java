@@ -29,4 +29,9 @@ public interface AiService {
      * 问答反馈
      */
     void feedback(Long id, Integer feedback);
+
+    /**
+     * 清空对话会话历史（任务 2.4）
+     */
+    void clearSession(String sessionId);
 }
