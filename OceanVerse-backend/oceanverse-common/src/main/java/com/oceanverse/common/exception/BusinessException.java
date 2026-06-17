@@ -31,4 +31,8 @@ public class BusinessException extends RuntimeException {
     public static BusinessException forbidden() {
         return new BusinessException(403, "没有权限执行此操作");
     }
+
+    public static BusinessException fail(String message) {
+        return new BusinessException(400, message);
+    }
 }

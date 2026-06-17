@@ -583,6 +583,8 @@ async function loadData() {
     mediaList.value = mediaRes.data || []
 
     await nextTick()
+    // 延迟一帧确保浏览器完成布局计算，避免 AMap 读到容器尺寸为 0 导致瓦片白屏
+    await new Promise<void>(resolve => setTimeout(resolve, 0))
     await initMap()
   } finally {
     loading.value = false
@@ -606,6 +608,10 @@ async function initMap() {
     viewMode: '2D',
     scrollWheel: false
   })
+
+  // 强制重新计算容器尺寸，修复瓦片不渲染的白屏问题
+  await new Promise<void>(resolve => setTimeout(resolve, 100))
+  map.resize()
 
   const markers: any[] = []
 

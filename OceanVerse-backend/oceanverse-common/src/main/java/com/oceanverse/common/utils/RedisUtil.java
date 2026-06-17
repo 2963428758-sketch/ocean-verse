@@ -1,5 +1,7 @@
 package com.oceanverse.common.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -15,6 +17,9 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 public class RedisUtil {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
 
     private final StringRedisTemplate redisTemplate;
 
@@ -55,12 +60,25 @@ public class RedisUtil {
      */
     public void setObject(String key, Object obj, long seconds) {
         try {
-            String json = com.fasterxml.jackson.databind.ObjectMapper.class
-                    .getDeclaredConstructor().newInstance()
-                    .writeValueAsString(obj);
+            String json = OBJECT_MAPPER.writeValueAsString(obj);
             set(key, json, seconds);
         } catch (Exception e) {
             throw new RuntimeException("Redis 序列化失败", e);
+        }
+    }
+
+    /**
+     * 从 Redis 读取并反序列化 JSON 对象
+     */
+    public <T> T getObject(String key, Class<T> clazz) {
+        String json = get(key);
+        if (json == null) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.readValue(json, clazz);
+        } catch (Exception e) {
+            return null;
         }
     }
 

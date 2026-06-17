@@ -14,6 +14,7 @@ public class User {
     @TableId(type = IdType.AUTO)
     private Long id;
     private String username;
+    private String nickname;
     private String password;
     private String email;
     private String phone;
@@ -21,6 +22,8 @@ public class User {
     private String avatarUrl;
     /** 状态: 0-禁用, 1-正常, 2-锁定 */
     private Integer status;
+    /** 数据权限范围: 1-仅本人, 2-全部 */
+    private Integer dataScope;
     private LocalDateTime lastLoginTime;
     private String lastLoginIp;
     private LocalDateTime createTime;
