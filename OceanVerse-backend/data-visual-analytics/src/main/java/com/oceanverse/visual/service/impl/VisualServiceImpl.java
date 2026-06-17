@@ -30,25 +30,28 @@ public class VisualServiceImpl implements VisualService {
 
     @Override
     public List<Map<String, Object>> getSpeciesDistribution(Long speciesId) {
-        // TODO: 查询 species_distribution 表
-        return new ArrayList<>();
+        if (speciesId != null) {
+            return visualMapper.getSpeciesDistributionBySpeciesId(speciesId);
+        }
+        return visualMapper.getSpeciesDistributionAll();
     }
 
     @Override
     public List<Map<String, Object>> getObservationTrend(String period) {
-        // TODO: 按时间分组查询 observation 表
-        return new ArrayList<>();
+        return switch (period) {
+            case "weekly" -> visualMapper.getObservationTrendWeekly();
+            case "daily" -> visualMapper.getObservationTrendDaily();
+            default -> visualMapper.getObservationTrendMonthly();
+        };
     }
 
     @Override
     public List<Map<String, Object>> getSpeciesByFamily() {
-        // TODO: GROUP BY family 统计
-        return new ArrayList<>();
+        return visualMapper.countSpeciesByFamily();
     }
 
     @Override
     public List<Map<String, Object>> getSpeciesByIucn() {
-        // TODO: GROUP BY iucn_status 统计
-        return new ArrayList<>();
+        return visualMapper.countSpeciesByIucn();
     }
 }

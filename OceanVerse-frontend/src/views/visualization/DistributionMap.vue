@@ -9,27 +9,68 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import L from 'leaflet'
+import { getSpeciesDistribution } from '@/api/visual'
 
 const mapContainer = ref<HTMLElement>()
 
-onMounted(() => {
-  if (!mapContainer.value) return
-  const map = L.map(mapContainer.value).setView([20, 110], 3)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map)
-
-  // 示例标记点
-  const markers = [
-    { lat: 18.25, lng: 109.5, name: '海南珊瑚礁', species: '珊瑚礁生态系统' },
-    { lat: 22.27, lng: 114.16, name: '香港水域', species: '中华白海豚' },
-    { lat: 30.5, lng: 114.3, name: '长江流域', species: '长江江豚' }
-  ]
-  markers.forEach(m => {
-    L.marker([m.lat, m.lng])
-      .addTo(map)
-      .bindPopup(`<b>${m.name}</b><br>${m.species}`)
+/** 动态加载高德地图 JS API */
+function loadAMap(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).AMap) { resolve(); return }
+    ;(window as any)._AMapSecurityConfig = {
+      securityJsCode: '9cbd4e854789581ae43ffea839fa4cc3'
+    }
+    const script = document.createElement('script')
+    script.src = 'https://webapi.amap.com/maps?v=2.0&key=e07413fbaef5c330b8034a514a9b0537'
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('高德地图加载失败'))
+    document.head.appendChild(script)
   })
+}
+
+onMounted(async () => {
+  if (!mapContainer.value) return
+
+  // 1. 加载高德地图 SDK
+  await loadAMap()
+  const AMap = (window as any).AMap
+
+  // 2. 初始化地图，默认中心点为中国南海区域
+  const map = new AMap.Map(mapContainer.value, {
+    zoom: 5,
+    center: [112, 25],
+    viewMode: '2D'
+  })
+
+  // 3. 调用后端获取真实分布数据
+  const res = await getSpeciesDistribution()
+
+  // 4. 添加标记点
+  const markers: any[] = []
+  res.data.forEach((item: any) => {
+    if (item.latitude && item.longitude) {
+      const marker = new AMap.Marker({
+        position: [item.longitude, item.latitude],
+        title: item.chinese_name
+      })
+      const info = new AMap.InfoWindow({
+        content:
+          `<div style="padding:4px 8px;font-size:13px">` +
+          `<b>${item.chinese_name || '未知物种'}</b><br/>` +
+          `${item.region_name || ''}<br/>` +
+          `类型: ${item.distribution_type || '-'} · 生境: ${item.habitat_type || '-'}` +
+          `</div>`,
+        offset: new AMap.Pixel(0, -30)
+      })
+      marker.on('click', () => info.open(map, marker.getPosition()))
+      map.add(marker)
+      markers.push(marker)
+    }
+  })
+
+  // 5. 自动调整视野到数据范围
+  if (markers.length > 0) {
+    map.setFitView(markers, false, [60, 60, 60, 60])
+  }
 })
 </script>
