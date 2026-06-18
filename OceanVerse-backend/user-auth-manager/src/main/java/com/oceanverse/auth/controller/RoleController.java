@@ -4,6 +4,7 @@ import com.oceanverse.common.annotation.OperateLog;
 import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.auth.service.RoleService;
+import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.result.PageResult;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.AssignPermissionsDTO;
@@ -42,6 +43,7 @@ public class RoleController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "搜索关键字") @RequestParam(required = false) String keyword) {
+        size = Math.min(size, CommonConstants.MAX_PAGE_SIZE);
         return Result.success(roleService.listRoles(page, size, keyword));
     }
 

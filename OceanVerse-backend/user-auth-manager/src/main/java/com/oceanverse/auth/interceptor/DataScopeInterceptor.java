@@ -1,5 +1,6 @@
 package com.oceanverse.auth.interceptor;
 
+import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import com.oceanverse.auth.context.UserContext;
 import com.oceanverse.common.constants.CommonConstants;
@@ -102,14 +103,9 @@ public class DataScopeInterceptor implements InnerInterceptor {
             }
         }
 
-        // 通过反射修改 BoundSql 中的 SQL
-        try {
-            var sqlField = BoundSql.class.getDeclaredField("sql");
-            sqlField.setAccessible(true);
-            sqlField.set(boundSql, newSql.toString());
-        } catch (ReflectiveOperationException e) {
-            log.error("数据权限SQL改写失败", e);
-        }
+        // 通过 MyBatis-Plus PluginUtils 修改 BoundSql 中的 SQL
+        PluginUtils.MPBoundSql mpBoundSql = PluginUtils.mpBoundSql(boundSql);
+        mpBoundSql.sql(newSql.toString());
 
         log.debug("数据权限拦截生效: userId={}, dataScope={}", userInfo.getUserId(), dataScope);
     }

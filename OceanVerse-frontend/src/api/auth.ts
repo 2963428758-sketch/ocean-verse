@@ -1,9 +1,18 @@
 import http from '@/utils/http'
 
-export const login = (data: { username: string; password: string }) =>
+export interface CaptchaVO {
+  captchaKey: string
+  expression: string
+  expireSeconds: number
+}
+
+export const getCaptcha = () =>
+  http.get<CaptchaVO>('/captcha')
+
+export const login = (data: { username: string; password: string; captchaKey: string; captchaCode: string }) =>
   http.post('/auth/login', data)
 
-export const register = (data: { username: string; password: string; email: string }) =>
+export const register = (data: { username: string; password: string; captchaKey: string; captchaCode: string }) =>
   http.post('/auth/register', data)
 
 export const getUserInfo = () => http.get('/auth/info')

@@ -39,7 +39,8 @@ public class SecurityConfig {
                         // 公开 API 接口
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/register"
+                                "/api/auth/register",
+                                "/api/captcha"
                         ).permitAll()
                         // 其余请求全部放行（由 JwtInterceptor 控制 API 权限）
                         .anyRequest().permitAll()

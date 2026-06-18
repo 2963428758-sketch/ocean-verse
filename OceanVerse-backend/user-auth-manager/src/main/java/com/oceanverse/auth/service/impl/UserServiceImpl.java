@@ -7,6 +7,7 @@ import com.oceanverse.auth.mapper.PermissionMapper;
 import com.oceanverse.auth.mapper.RoleMapper;
 import com.oceanverse.auth.mapper.UserMapper;
 import com.oceanverse.auth.mapper.UserRoleMapper;
+import com.oceanverse.auth.service.CaptchaService;
 import com.oceanverse.auth.service.UserService;
 import com.oceanverse.auth.validator.PasswordStrengthValidator;
 import com.oceanverse.auth.validator.ValidationResult;
@@ -57,6 +58,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordStrengthValidator passwordValidator;
     private final RedisUtil redisUtil;
     private final AuthEventPublisher authEventPublisher;
+    private final CaptchaService captchaService;
 
     /**
      * 手动创建 REQUIRES_NEW 事务模板，确保锁定/日志写入不被外层回滚
@@ -75,6 +77,9 @@ public class UserServiceImpl implements UserService {
 
         // 1. 检查是否已被爆破锁定（登录前先查 IP 无关的全局锁）
         checkLockStatus(dto.getUsername(), failKey);
+
+        // 2. 验证码校验
+        captchaService.verify(dto.getCaptchaKey(), dto.getCaptchaCode());
 
         User user = userMapper.selectOne(
                 new LambdaQueryWrapper<User>()
@@ -154,6 +159,9 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void register(RegisterDTO dto) {
+        // 验证码校验
+        captchaService.verify(dto.getCaptchaKey(), dto.getCaptchaCode());
+
         // 密码强度校验
         ValidationResult vr = passwordValidator.validate(dto.getPassword(), dto.getUsername());
         if (!vr.isValid()) {
@@ -167,17 +175,9 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException("用户名已存在");
         }
 
-        count = userMapper.selectCount(
-                new LambdaQueryWrapper<User>().eq(User::getEmail, dto.getEmail())
-        );
-        if (count > 0) {
-            throw new BusinessException("邮箱已被注册");
-        }
-
         User user = new User();
         user.setUsername(dto.getUsername());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setEmail(dto.getEmail());
         user.setPhone(dto.getPhone());
         user.setStatus(CommonConstants.USER_STATUS_NORMAL);
         user.setDataScope(CommonConstants.DATA_SCOPE_SELF);

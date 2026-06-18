@@ -8,6 +8,7 @@ import com.oceanverse.common.annotation.OperateLog;
 import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.auth.service.UserService;
+import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.result.PageResult;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.AssignRolesDTO;
@@ -46,6 +47,7 @@ public class AdminController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "搜索关键字") @RequestParam(required = false) String keyword) {
+        size = Math.min(size, CommonConstants.MAX_PAGE_SIZE);
         return Result.success(userService.listUsers(page, size, keyword));
     }
 
@@ -92,6 +94,7 @@ public class AdminController {
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "用户名") @RequestParam(required = false) String username,
             @Parameter(description = "登录状态：1=成功, 0=失败") @RequestParam(required = false) Integer status) {
+        size = Math.min(size, CommonConstants.MAX_PAGE_SIZE);
         Page<SysLoginLog> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<SysLoginLog> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(username)) {
@@ -113,6 +116,7 @@ public class AdminController {
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "模块名") @RequestParam(required = false) String module,
             @Parameter(description = "操作人") @RequestParam(required = false) String operatorName) {
+        size = Math.min(size, CommonConstants.MAX_PAGE_SIZE);
         Page<SysOperateLog> pageParam = new Page<>(page, size);
         LambdaQueryWrapper<SysOperateLog> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(module)) {

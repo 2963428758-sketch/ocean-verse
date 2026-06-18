@@ -33,9 +33,9 @@ public class OperateLogAspect {
         try {
             result = pjp.proceed();
             return result;
-        } catch (Throwable t) {
-            errorMessage = t.getMessage();
-            throw t;
+        } catch (Exception e) {
+            errorMessage = e.getMessage();
+            throw e;
         } finally {
             long elapsed = System.currentTimeMillis() - start;
             saveLog(pjp, operateLog, elapsed, errorMessage);
