@@ -172,7 +172,7 @@
         <h3 class="section-title">分布信息</h3>
 
         <div v-if="distributions.length > 0" class="map-wrapper">
-          <div ref="mapContainer" class="amap-container"></div>
+          <div ref="mapContainer" class="detail-map"></div>
           <div class="map-legend">
             <div v-for="item in distributionSummary" :key="item.type" class="legend-item">
               <span class="legend-dot" :style="{ background: item.color }"></span>
@@ -394,7 +394,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
@@ -419,6 +419,7 @@ const distributions = ref<SpeciesDistribution[]>([])
 const mediaList = ref<SpeciesMedia[]>([])
 const activeThumbIdx = ref(0)
 const mapContainer = ref<HTMLElement>()
+const mapInstance = ref<any>(null)
 
 const editDialogVisible = ref(false)
 const editSubmitting = ref(false)
@@ -618,15 +619,22 @@ async function loadData() {
     mediaList.value = mediaRes.data || []
 
     await nextTick()
-    // 延迟一帧确保浏览器完成布局计算，避免 AMap 读到容器尺寸为 0 导致瓦片白屏
-    await new Promise<void>(resolve => setTimeout(resolve, 0))
     await initMap()
   } finally {
     loading.value = false
   }
 }
 
+/** 销毁旧地图实例，释放 WebGL 资源和 DOM 引用 */
+function destroyMap() {
+  if (mapInstance.value) {
+    mapInstance.value.destroy()
+    mapInstance.value = null
+  }
+}
+
 async function initMap() {
+  destroyMap()
   if (!mapContainer.value || distributions.value.length === 0) return
 
   const points = distributions.value
@@ -640,13 +648,9 @@ async function initMap() {
   const map = new AMap.Map(mapContainer.value, {
     zoom: 5,
     center: [112, 25],
-    viewMode: '2D',
-    scrollWheel: false
+    viewMode: '2D'
   })
-
-  // 强制重新计算容器尺寸，修复瓦片不渲染的白屏问题
-  await new Promise<void>(resolve => setTimeout(resolve, 100))
-  map.resize()
+  mapInstance.value = map
 
   const markers: any[] = []
 
@@ -685,9 +689,20 @@ async function initMap() {
   })
 
   if (markers.length > 0) {
-    map.setFitView(markers, false, [60, 60, 60, 60])
+    map.setFitView(markers, false, [60, 60, 60, 60], 10)
   }
 }
+
+// 路由参数变化时重新加载数据（处理同组件不同路由的复用场景）
+watch(() => route.params.id, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    loadData()
+  }
+})
+
+onBeforeUnmount(() => {
+  destroyMap()
+})
 
 // ===== 编辑/删除 =====
 async function openEditDialog() {
@@ -1184,17 +1199,16 @@ onMounted(loadData)
 
 /* ===== 分布地图 ===== */
 .distribution-card {
-  animation-delay: 0.25s;
+  animation: fadeSlideUp 0.4s ease;
 }
 
 .map-wrapper {
   position: relative;
 }
 
-.amap-container {
+.detail-map {
   height: 400px;
   border-radius: var(--radius-md);
-  overflow: hidden;
   border: 1px solid var(--neutral-100);
 }
 
