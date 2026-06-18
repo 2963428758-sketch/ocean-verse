@@ -61,7 +61,7 @@ public class CommunityServiceImpl implements CommunityService {
         post.setLikeCount(0);
         post.setCommentCount(0);
         post.setFavoriteCount(0);
-        post.setStatus(1);
+        post.setStatus(3); // 待审核
         post.setCreateTime(LocalDateTime.now());
         post.setUpdateTime(LocalDateTime.now());
         postMapper.insert(post);
@@ -88,10 +88,68 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Object listPosts(PostQueryDTO query) {
+    public Object listPendingPosts(Integer page, Integer size) {
+        Page<CommunityPost> pageParam = new Page<>(page, size);
+        Page<CommunityPost> result = postMapper.selectPage(pageParam,
+                new LambdaQueryWrapper<CommunityPost>()
+                        .eq(CommunityPost::getStatus, 3)
+                        .orderByDesc(CommunityPost::getCreateTime));
+        fillUsernames(result.getRecords());
+        fillRealCommentCounts(result.getRecords());
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void approvePost(Long id) {
+        CommunityPost post = postMapper.selectById(id);
+        if (post == null) {
+            throw BusinessException.notFound("动态");
+        }
+        post.setStatus(1);
+        postMapper.updateById(post);
+        // 通知发布者
+        sendNotification(post.getUserId(), "SYSTEM", "帖子审核通过",
+                "你的动态已通过审核，已发布到广场", post.getId());
+    }
+
+    @Override
+    @Transactional
+    public void rejectPost(Long id) {
+        CommunityPost post = postMapper.selectById(id);
+        if (post == null) {
+            throw BusinessException.notFound("动态");
+        }
+        post.setStatus(0);
+        postMapper.updateById(post);
+        // 通知发布者
+        sendNotification(post.getUserId(), "SYSTEM", "帖子审核未通过",
+                "你的动态未通过审核，如有疑问请联系管理员", post.getId());
+    }
+
+    @Override
+    public Object listPosts(PostQueryDTO query, String token) {
+        Long currentUserId = null;
+        if (token != null && token.startsWith("Bearer ")) {
+            try {
+                currentUserId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+            } catch (Exception ignored) {}
+        }
+
         Page<CommunityPost> page = new Page<>(query.getPage(), query.getSize());
-        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
-                .eq(CommunityPost::getStatus, 1);
+        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>();
+
+        if (Boolean.TRUE.equals(query.getMyPending())) {
+            // 查看自己的待审核帖子
+            if (currentUserId == null) {
+                throw BusinessException.fail("请先登录");
+            }
+            wrapper.eq(CommunityPost::getUserId, currentUserId)
+                    .eq(CommunityPost::getStatus, 3);
+        } else {
+            // 正常广场只显示已审核的帖子
+            wrapper.eq(CommunityPost::getStatus, 1);
+        }
 
         if (query.getUserId() != null) {
             wrapper.eq(CommunityPost::getUserId, query.getUserId());
@@ -106,16 +164,33 @@ public class CommunityServiceImpl implements CommunityService {
         }
         Page<CommunityPost> result = postMapper.selectPage(page, wrapper);
         fillUsernames(result.getRecords());
+        fillLikeFavoriteStatus(result.getRecords(), currentUserId);
+        fillRealCommentCounts(result.getRecords());
         return result;
     }
 
     @Override
-    public Object getPostDetail(Long id) {
+    public Object getPostDetail(Long id, String token) {
+        Long currentUserId = null;
+        if (token != null && token.startsWith("Bearer ")) {
+            try {
+                currentUserId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+            } catch (Exception ignored) {}
+        }
+
         CommunityPost post = postMapper.selectById(id);
         if (post == null) {
             throw BusinessException.notFound("动态");
         }
         fillPostUsername(post);
+        post.setCommentCount(getRealCommentCount(id));
+        if (currentUserId != null) {
+            post.setIsLiked(hasLiked(currentUserId, id, "POST"));
+            post.setIsFavorited(hasFavorited(currentUserId, id, "POST"));
+        } else {
+            post.setIsLiked(false);
+            post.setIsFavorited(false);
+        }
         return post;
     }
 
@@ -434,6 +509,42 @@ public class CommunityServiceImpl implements CommunityService {
     private void fillPostUsername(CommunityPost post) {
         User user = userMapper.selectById(post.getUserId());
         post.setUsername(user != null ? user.getUsername() : "用户");
+    }
+
+    private boolean hasLiked(Long userId, Long targetId, String targetType) {
+        return likeMapper.selectCount(new LambdaQueryWrapper<CommunityLike>()
+                .eq(CommunityLike::getUserId, userId)
+                .eq(CommunityLike::getTargetId, targetId)
+                .eq(CommunityLike::getTargetType, targetType)) > 0;
+    }
+
+    private boolean hasFavorited(Long userId, Long targetId, String targetType) {
+        return favoriteMapper.selectCount(new LambdaQueryWrapper<CommunityFavorite>()
+                .eq(CommunityFavorite::getUserId, userId)
+                .eq(CommunityFavorite::getTargetId, targetId)
+                .eq(CommunityFavorite::getTargetType, targetType)) > 0;
+    }
+
+    private void fillLikeFavoriteStatus(List<CommunityPost> posts, Long currentUserId) {
+        if (currentUserId == null || posts == null || posts.isEmpty()) return;
+        for (CommunityPost post : posts) {
+            post.setIsLiked(hasLiked(currentUserId, post.getId(), "POST"));
+            post.setIsFavorited(hasFavorited(currentUserId, post.getId(), "POST"));
+        }
+    }
+
+    private int getRealCommentCount(Long postId) {
+        return Math.toIntExact(commentMapper.selectCount(
+                new LambdaQueryWrapper<CommunityComment>()
+                        .eq(CommunityComment::getPostId, postId)
+                        .eq(CommunityComment::getStatus, 1)));
+    }
+
+    private void fillRealCommentCounts(List<CommunityPost> posts) {
+        if (posts == null || posts.isEmpty()) return;
+        for (CommunityPost post : posts) {
+            post.setCommentCount(getRealCommentCount(post.getId()));
+        }
     }
 
     private void fillUsernames(List<CommunityPost> posts) {

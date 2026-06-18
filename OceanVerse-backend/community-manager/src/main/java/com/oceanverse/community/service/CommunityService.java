@@ -6,9 +6,12 @@ import com.oceanverse.pojo.dto.PostQueryDTO;
 
 public interface CommunityService {
     void createPost(PostCreateDTO dto, String token);
-    Object listPosts(PostQueryDTO query);
-    Object getPostDetail(Long id);
+    Object listPosts(PostQueryDTO query, String token);
+    Object getPostDetail(Long id, String token);
     void deletePost(Long id, String token);
+    Object listPendingPosts(Integer page, Integer size);
+    void approvePost(Long id);
+    void rejectPost(Long id);
     void createComment(CommentCreateDTO dto, String token);
     Object listComments(Long postId, Integer page, Integer size);
     Object toggleLike(String targetType, Long targetId, String token);

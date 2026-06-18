@@ -127,11 +127,14 @@ const menuItems = computed(() => {
       { path: '/ai/recognize', title: '图像识别', icon: 'Camera' },
       { path: '/ai/chat', title: '智能问答', icon: 'ChatLineSquare' }
     ]},
-    { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
-      { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
-      { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
-      { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' }
-    ]},
+  { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
+    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
+    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
+    ...(userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+      ? [{ path: '/community/approval', title: '帖子审核', icon: 'Stamp' }]
+      : [])
+  ]},
   ]
 
   // 仅管理员可见系统管理菜单

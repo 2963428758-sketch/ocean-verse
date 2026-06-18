@@ -10,6 +10,14 @@ export const getPostDetail = (id: number) => http.get(`/community/post/${id}`)
 
 export const deletePost = (id: number) => http.delete(`/community/post/${id}`)
 
+// ==================== 帖子审核 ====================
+
+export const getPendingPosts = (params?: any) => http.get('/community/post/pending', { params })
+
+export const approvePost = (id: number) => http.put(`/community/post/${id}/approve`)
+
+export const rejectPost = (id: number) => http.put(`/community/post/${id}/reject`)
+
 // ==================== 评论 ====================
 
 export const createComment = (data: any) => http.post('/community/comment', data)

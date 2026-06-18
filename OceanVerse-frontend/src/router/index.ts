@@ -31,7 +31,8 @@ const routes: RouteRecordRaw[] = [
         { path: 'notifications', name: 'Notifications', component: () => import('@/views/community/Notifications.vue'), meta: { title: '消息通知', hidden: true } },
         { path: 'user/:id', name: 'UserProfile', component: () => import('@/views/community/UserProfile.vue'), meta: { title: '用户主页', hidden: true } },
         { path: 'favorites', name: 'Favorites', component: () => import('@/views/community/Favorites.vue'), meta: { title: '我的收藏', hidden: true } },
-        { path: 'liked', name: 'LikedPosts', component: () => import('@/views/community/LikedPosts.vue'), meta: { title: '点赞记录', hidden: true } }
+        { path: 'liked', name: 'LikedPosts', component: () => import('@/views/community/LikedPosts.vue'), meta: { title: '点赞记录', hidden: true } },
+        { path: 'approval', name: 'PostApproval', component: () => import('@/views/community/PostApproval.vue'), meta: { title: '帖子审核', roles: ['SUPER_ADMIN', 'ADMIN'] } }
       ]},
       { path: 'admin', name: 'Admin', redirect: '/admin/users', meta: { title: '系统管理', icon: 'Setting', roles: ['SUPER_ADMIN', 'ADMIN'] }, children: [
         { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理', roles: ['SUPER_ADMIN', 'ADMIN'] } },

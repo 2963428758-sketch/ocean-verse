@@ -121,6 +121,8 @@ export interface CommunityPost {
   status: number
   createTime: string
   updateTime?: string
+  isLiked?: boolean
+  isFavorited?: boolean
 }
 
 export interface CommunityComment {

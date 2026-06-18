@@ -30,19 +30,42 @@ public class    CommunityController {
     }
 
     @GetMapping("/post/list")
-    public Result<Object> listPosts(PostQueryDTO query) {
-        return Result.success(communityService.listPosts(query));
+    public Result<Object> listPosts(PostQueryDTO query,
+                                    @RequestHeader(value = "Authorization", required = false) String token) {
+        return Result.success(communityService.listPosts(query, token));
     }
 
     @GetMapping("/post/{id}")
-    public Result<Object> getPost(@PathVariable Long id) {
-        return Result.success(communityService.getPostDetail(id));
+    public Result<Object> getPost(@PathVariable Long id,
+                                  @RequestHeader(value = "Authorization", required = false) String token) {
+        return Result.success(communityService.getPostDetail(id, token));
     }
 
     @DeleteMapping("/post/{id}")
     public Result<Void> deletePost(@PathVariable Long id,
                                     @RequestHeader("Authorization") String token) {
         communityService.deletePost(id, token);
+        return Result.success();
+    }
+
+    // ==================== 帖子审核 ====================
+
+    @GetMapping("/post/pending")
+    public Result<Object> listPendingPosts(
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size) {
+        return Result.success(communityService.listPendingPosts(page, size));
+    }
+
+    @PutMapping("/post/{id}/approve")
+    public Result<Void> approvePost(@PathVariable Long id) {
+        communityService.approvePost(id);
+        return Result.success();
+    }
+
+    @PutMapping("/post/{id}/reject")
+    public Result<Void> rejectPost(@PathVariable Long id) {
+        communityService.rejectPost(id);
         return Result.success();
     }
 
