@@ -185,10 +185,15 @@
           <el-empty description="暂无分布数据" :image-size="80" />
         </div>
 
-        <!-- 分布数据表格 (折叠) -->
-        <el-collapse class="dist-table-collapse">
-          <el-collapse-item title="查看详细分布数据">
-            <el-table :data="distributions" stripe size="small">
+        <!-- 分布数据表格 (按钮展开) -->
+        <div class="dist-table-section">
+          <button class="dist-toggle-btn" @click="showDistTable = !showDistTable">
+            <el-icon class="dist-toggle-icon" :class="{ expanded: showDistTable }">
+              <ArrowDown />
+            </el-icon>
+            {{ showDistTable ? '收起分布数据' : '查看详细分布数据' }}
+          </button>
+          <el-table v-show="showDistTable" :data="distributions" stripe size="small" class="dist-table">
               <el-table-column prop="distributionType" label="类型" width="90">
                 <template #default="{ row }">
                   <el-tag size="small">{{ distTypeLabel(row.distributionType) }}</el-tag>
@@ -209,9 +214,8 @@
               </el-table-column>
               <el-table-column prop="habitatType" label="栖息地" />
               <el-table-column prop="populationEstimate" label="种群估计" width="100" />
-            </el-table>
-          </el-collapse-item>
-        </el-collapse>
+          </el-table>
+        </div>
       </div>
     </div>
 
@@ -398,7 +402,7 @@ import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } 
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowDown } from '@element-plus/icons-vue'
 import {
   getSpeciesDetail,
   getSpeciesDistributions,
@@ -416,6 +420,7 @@ const router = useRouter()
 const loading = ref(true)
 const species = ref<Species | null>(null)
 const distributions = ref<SpeciesDistribution[]>([])
+const showDistTable = ref(false)
 const mediaList = ref<SpeciesMedia[]>([])
 const activeThumbIdx = ref(0)
 const mapContainer = ref<HTMLElement>()
@@ -1238,19 +1243,48 @@ onMounted(loadData)
   padding: 20px 0;
 }
 
-.dist-table-collapse {
+.dist-table-section {
   margin-top: 16px;
+}
 
-  :deep(.el-collapse-item__header) {
-    font-size: 13px;
-    color: var(--neutral-500);
-    font-weight: 500;
-    border-bottom: none;
+.dist-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary-600, #2563eb), var(--primary-700, #1d4ed8));
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+
+  &:hover {
+    background: linear-gradient(135deg, var(--primary-700, #1d4ed8), var(--primary-800, #1e40af));
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
   }
 
-  :deep(.el-collapse-item__content) {
-    padding-top: 8px;
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.2);
   }
+}
+
+.dist-toggle-icon {
+  font-size: 14px;
+  transition: transform 0.25s ease;
+
+  &.expanded {
+    transform: rotate(180deg);
+  }
+}
+
+.dist-table {
+  margin-top: 12px;
 }
 
 /* ===== 图片上传区域 ===== */
