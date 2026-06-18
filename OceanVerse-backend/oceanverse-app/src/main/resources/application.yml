@@ -86,7 +86,7 @@ mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
   global-config:
     db-config:
       id-type: auto
@@ -102,6 +102,11 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+
+# ==================== 服务器 ====================
+server:
+  tomcat:
+    max-keep-alive-requests: 100
 
 # ==================== 日志 ====================
 logging:

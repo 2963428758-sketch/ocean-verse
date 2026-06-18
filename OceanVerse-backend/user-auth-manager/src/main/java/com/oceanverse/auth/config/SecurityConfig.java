@@ -26,7 +26,7 @@ public class SecurityConfig {
                 // 禁用 Session（使用 JWT 无状态认证）
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // 配置请求授权规则
+                // 配置请求授权规则（纵深防御层 — 与 JwtInterceptor 双重保护）
                 .authorizeHttpRequests(auth -> auth
                         // Swagger / SpringDoc
                         .requestMatchers(
@@ -36,13 +36,24 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/webjars/**"
                         ).permitAll()
-                        // 公开 API 接口
+                        // 公开 API 接口（无需认证）
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/register"
                         ).permitAll()
-                        // 其余请求全部放行（由 JwtInterceptor 控制 API 权限）
-                        .anyRequest().permitAll()
+                        // 公开查询接口（无需认证）
+                        .requestMatchers(
+                                "/api/species/list",
+                                "/api/species/*",
+                                "/api/species/statistics",
+                                "/api/community/post/list",
+                                "/api/community/post/*",
+                                "/api/visual/**"
+                        ).permitAll()
+                        // WebSocket 端点
+                        .requestMatchers("/ws/**").permitAll()
+                        // 其余所有请求需要认证（JWT Header 必须存在）
+                        .anyRequest().authenticated()
                 );
 
         return http.build();
