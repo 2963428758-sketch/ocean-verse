@@ -196,7 +196,13 @@ public class ObservationServiceImpl implements ObservationService {
         Observation latest = observationMapper.selectOne(wrapper);
         if (latest == null) return "OBS001";
         String lastCode = latest.getObservationCode();
-        int num = Integer.parseInt(lastCode.replace("OBS", "")) + 1;
+        if (lastCode == null) return "OBS001";
+        // 用正则提取末尾数字，兼容各种编号格式
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d+)$").matcher(lastCode);
+        int num = 1;
+        if (m.find()) {
+            num = Integer.parseInt(m.group(1)) + 1;
+        }
         return String.format("OBS%03d", num);
     }
 }
