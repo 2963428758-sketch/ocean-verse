@@ -1,6 +1,7 @@
 package com.oceanverse.species.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.exception.BusinessException;
 import com.oceanverse.pojo.dto.SpeciesQueryDTO;
@@ -202,43 +203,43 @@ public class SpeciesServiceImpl implements SpeciesService {
 
         // 按保护等级统计（数据库 GROUP BY）
         List<Map<String, Object>> protectionLevelResult = speciesMapper.selectMaps(
-                new LambdaQueryWrapper<Species>()
-                        .select(Species::getProtectionLevel)
-                        .isNotNull(Species::getProtectionLevel)
-                        .ne(Species::getProtectionLevel, "")
-                        .groupBy(Species::getProtectionLevel));
+                new QueryWrapper<Species>()
+                        .select("protection_level", "count(*) as count")
+                        .isNotNull("protection_level")
+                        .ne("protection_level", "")
+                        .groupBy("protection_level"));
         Map<String, Long> byProtectionLevel = protectionLevelResult.stream()
                 .collect(Collectors.toMap(
                         m -> String.valueOf(m.get("protection_level")),
-                        m -> ((Number) m.get("count(*)")).longValue(),
+                        m -> ((Number) m.get("count")).longValue(),
                         (a, b) -> a));
         stats.put("byProtectionLevel", byProtectionLevel);
 
         // 按IUCN等级统计（数据库 GROUP BY）
         List<Map<String, Object>> iucnResult = speciesMapper.selectMaps(
-                new LambdaQueryWrapper<Species>()
-                        .select(Species::getIucnStatus)
-                        .isNotNull(Species::getIucnStatus)
-                        .ne(Species::getIucnStatus, "")
-                        .groupBy(Species::getIucnStatus));
+                new QueryWrapper<Species>()
+                        .select("iucn_status", "count(*) as count")
+                        .isNotNull("iucn_status")
+                        .ne("iucn_status", "")
+                        .groupBy("iucn_status"));
         Map<String, Long> byIucnStatus = iucnResult.stream()
                 .collect(Collectors.toMap(
                         m -> String.valueOf(m.get("iucn_status")),
-                        m -> ((Number) m.get("count(*)")).longValue(),
+                        m -> ((Number) m.get("count")).longValue(),
                         (a, b) -> a));
         stats.put("byIucnStatus", byIucnStatus);
 
         // 按科统计（数据库 GROUP BY）
         List<Map<String, Object>> familyResult = speciesMapper.selectMaps(
-                new LambdaQueryWrapper<Species>()
-                        .select(Species::getFamily)
-                        .isNotNull(Species::getFamily)
-                        .ne(Species::getFamily, "")
-                        .groupBy(Species::getFamily));
+                new QueryWrapper<Species>()
+                        .select("family", "count(*) as count")
+                        .isNotNull("family")
+                        .ne("family", "")
+                        .groupBy("family"));
         Map<String, Long> byFamily = familyResult.stream()
                 .collect(Collectors.toMap(
                         m -> String.valueOf(m.get("family")),
-                        m -> ((Number) m.get("count(*)")).longValue(),
+                        m -> ((Number) m.get("count")).longValue(),
                         (a, b) -> a));
         stats.put("byFamily", byFamily);
 
