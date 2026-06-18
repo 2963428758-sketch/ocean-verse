@@ -172,7 +172,7 @@
         <h3 class="section-title">分布信息</h3>
 
         <div v-if="distributions.length > 0" class="map-wrapper">
-          <div ref="mapContainer" class="amap-container"></div>
+          <div ref="mapContainer" class="detail-map"></div>
           <div class="map-legend">
             <div v-for="item in distributionSummary" :key="item.type" class="legend-item">
               <span class="legend-dot" :style="{ background: item.color }"></span>
@@ -185,10 +185,15 @@
           <el-empty description="暂无分布数据" :image-size="80" />
         </div>
 
-        <!-- 分布数据表格 (折叠) -->
-        <el-collapse class="dist-table-collapse">
-          <el-collapse-item title="查看详细分布数据">
-            <el-table :data="distributions" stripe size="small">
+        <!-- 分布数据表格 (按钮展开) -->
+        <div class="dist-table-section">
+          <button class="dist-toggle-btn" @click="showDistTable = !showDistTable">
+            <el-icon class="dist-toggle-icon" :class="{ expanded: showDistTable }">
+              <ArrowDown />
+            </el-icon>
+            {{ showDistTable ? '收起分布数据' : '查看详细分布数据' }}
+          </button>
+          <el-table v-show="showDistTable" :data="distributions" stripe size="small" class="dist-table">
               <el-table-column prop="distributionType" label="类型" width="90">
                 <template #default="{ row }">
                   <el-tag size="small">{{ distTypeLabel(row.distributionType) }}</el-tag>
@@ -209,9 +214,8 @@
               </el-table-column>
               <el-table-column prop="habitatType" label="栖息地" />
               <el-table-column prop="populationEstimate" label="种群估计" width="100" />
-            </el-table>
-          </el-collapse-item>
-        </el-collapse>
+          </el-table>
+        </div>
       </div>
     </div>
 
@@ -308,6 +312,39 @@
           <el-input v-model="editForm.source" />
         </el-form-item>
 
+        <!-- 地理分布信息 -->
+        <el-divider content-position="left">分布信息</el-divider>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="经度">
+              <el-input-number
+                v-model="editForm.longitude"
+                :min="-180"
+                :max="180"
+                :precision="6"
+                :step="1"
+                controls-position="right"
+                placeholder="如 120.345678"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="纬度">
+              <el-input-number
+                v-model="editForm.latitude"
+                :min="-90"
+                :max="90"
+                :precision="6"
+                :step="1"
+                controls-position="right"
+                placeholder="如 30.123456"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
         <!-- 图片上传区域 -->
         <el-divider content-position="left">物种图片</el-divider>
         <el-form-item label="上传图片">
@@ -361,11 +398,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowDown } from '@element-plus/icons-vue'
 import {
   getSpeciesDetail,
   getSpeciesDistributions,
@@ -383,9 +420,11 @@ const router = useRouter()
 const loading = ref(true)
 const species = ref<Species | null>(null)
 const distributions = ref<SpeciesDistribution[]>([])
+const showDistTable = ref(false)
 const mediaList = ref<SpeciesMedia[]>([])
 const activeThumbIdx = ref(0)
 const mapContainer = ref<HTMLElement>()
+const mapInstance = ref<any>(null)
 
 const editDialogVisible = ref(false)
 const editSubmitting = ref(false)
@@ -403,7 +442,9 @@ const editForm = reactive<Species>({
   iucnStatus: '',
   family: '',
   isEndemic: 0,
-  isInvasive: 0
+  isInvasive: 0,
+  longitude: undefined,
+  latitude: undefined
 })
 const editRules: FormRules = {
   speciesCode: [{ required: true, message: '请输入物种编码', trigger: 'blur' }],
@@ -583,15 +624,22 @@ async function loadData() {
     mediaList.value = mediaRes.data || []
 
     await nextTick()
-    // 延迟一帧确保浏览器完成布局计算，避免 AMap 读到容器尺寸为 0 导致瓦片白屏
-    await new Promise<void>(resolve => setTimeout(resolve, 0))
     await initMap()
   } finally {
     loading.value = false
   }
 }
 
+/** 销毁旧地图实例，释放 WebGL 资源和 DOM 引用 */
+function destroyMap() {
+  if (mapInstance.value) {
+    mapInstance.value.destroy()
+    mapInstance.value = null
+  }
+}
+
 async function initMap() {
+  destroyMap()
   if (!mapContainer.value || distributions.value.length === 0) return
 
   const points = distributions.value
@@ -605,13 +653,9 @@ async function initMap() {
   const map = new AMap.Map(mapContainer.value, {
     zoom: 5,
     center: [112, 25],
-    viewMode: '2D',
-    scrollWheel: false
+    viewMode: '2D'
   })
-
-  // 强制重新计算容器尺寸，修复瓦片不渲染的白屏问题
-  await new Promise<void>(resolve => setTimeout(resolve, 100))
-  map.resize()
+  mapInstance.value = map
 
   const markers: any[] = []
 
@@ -650,9 +694,20 @@ async function initMap() {
   })
 
   if (markers.length > 0) {
-    map.setFitView(markers, false, [60, 60, 60, 60])
+    map.setFitView(markers, false, [60, 60, 60, 60], 10)
   }
 }
+
+// 路由参数变化时重新加载数据（处理同组件不同路由的复用场景）
+watch(() => route.params.id, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    loadData()
+  }
+})
+
+onBeforeUnmount(() => {
+  destroyMap()
+})
 
 // ===== 编辑/删除 =====
 async function openEditDialog() {
@@ -1149,17 +1204,16 @@ onMounted(loadData)
 
 /* ===== 分布地图 ===== */
 .distribution-card {
-  animation-delay: 0.25s;
+  animation: fadeSlideUp 0.4s ease;
 }
 
 .map-wrapper {
   position: relative;
 }
 
-.amap-container {
+.detail-map {
   height: 400px;
   border-radius: var(--radius-md);
-  overflow: hidden;
   border: 1px solid var(--neutral-100);
 }
 
@@ -1189,19 +1243,48 @@ onMounted(loadData)
   padding: 20px 0;
 }
 
-.dist-table-collapse {
+.dist-table-section {
   margin-top: 16px;
+}
 
-  :deep(.el-collapse-item__header) {
-    font-size: 13px;
-    color: var(--neutral-500);
-    font-weight: 500;
-    border-bottom: none;
+.dist-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary-600, #2563eb), var(--primary-700, #1d4ed8));
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+
+  &:hover {
+    background: linear-gradient(135deg, var(--primary-700, #1d4ed8), var(--primary-800, #1e40af));
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
   }
 
-  :deep(.el-collapse-item__content) {
-    padding-top: 8px;
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.2);
   }
+}
+
+.dist-toggle-icon {
+  font-size: 14px;
+  transition: transform 0.25s ease;
+
+  &.expanded {
+    transform: rotate(180deg);
+  }
+}
+
+.dist-table {
+  margin-top: 12px;
 }
 
 /* ===== 图片上传区域 ===== */
