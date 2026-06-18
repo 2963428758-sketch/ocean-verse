@@ -15,11 +15,14 @@ import com.oceanverse.ai.session.ChatSessionManager;
 import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.utils.OssUtil;
 import com.oceanverse.common.utils.RedisUtil;
+import com.oceanverse.pojo.dto.AiObservationDTO;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
+import com.oceanverse.pojo.entity.Observation;
 import com.oceanverse.pojo.entity.QaHistory;
 import com.oceanverse.pojo.entity.Species;
 import com.oceanverse.species.mapper.SpeciesMapper;
+import com.oceanverse.eco.mapper.ObservationMapper;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +43,9 @@ import java.math.BigDecimal;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.net.URL;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -85,6 +90,7 @@ public class AiServiceImpl implements AiService {
     // 第三层新增依赖
     private final SemanticCacheService semanticCacheService;
     private final SpeciesMapper speciesMapper;
+    private final ObservationMapper observationMapper;
 
     // ==================== System Prompt ====================
 
@@ -93,14 +99,14 @@ public class AiServiceImpl implements AiService {
     private static final String RECOGNITION_PROMPT = """
             请识别这张图片中的海洋生物，返回以下 JSON 格式（只返回 JSON，不要其他文字）：
             {
-              "speciesName": "中文物种名",
+              "speciesName": "中文物种名（无法识别时写\"未知\"）",
               "scientificName": "拉丁学名",
-              "confidence": 0.95,
+              "confidence": "识别的置信度（0.0~1.0 之间，图片清晰且特征明显时偏高，模糊或特征不明时偏低）",
               "description": "简要描述（50字以内）",
               "habitat": "主要栖息地",
               "conservationStatus": "保护等级"
             }
-            """;
+            """;;
 
     /** 默认置信度（模型未返回置信度时的回退值） */
     private static final double DEFAULT_CONFIDENCE = 0.50;
@@ -190,6 +196,8 @@ public class AiServiceImpl implements AiService {
                             .eq(Species::getCommonName, record.getPredictedSpeciesName())
                             .or()
                             .eq(Species::getScientificName, record.getPredictedSpeciesName())
+                            .or()
+                            .eq(Species::getChineseName, record.getPredictedSpeciesName())
                             .last("LIMIT 1")
             );
 
@@ -217,8 +225,7 @@ public class AiServiceImpl implements AiService {
 
         // 7.6 高置信度识别建议创建观测记录（任务 3.5）
         if (record.getConfidenceScore() != null
-                && record.getConfidenceScore().compareTo(BigDecimal.valueOf(HIGH_CONFIDENCE_THRESHOLD)) >= 0
-                && latitude != null && longitude != null) {
+                && record.getConfidenceScore().compareTo(BigDecimal.valueOf(HIGH_CONFIDENCE_THRESHOLD)) >= 0) {
             if (result == null) {
                 result = new java.util.HashMap<>();
                 result.put("recognition", record);
@@ -227,8 +234,8 @@ public class AiServiceImpl implements AiService {
             result.put("observationData", Map.of(
                     "speciesId", record.getPredictedSpeciesId() != null ? record.getPredictedSpeciesId() : 0L,
                     "speciesName", record.getPredictedSpeciesName() != null ? record.getPredictedSpeciesName() : "未知",
-                    "latitude", latitude,
-                    "longitude", longitude,
+                    "latitude", latitude != null ? latitude : 0.0,
+                    "longitude", longitude != null ? longitude : 0.0,
                     "observationTime", LocalDateTime.now(),
                     "confidence", record.getConfidenceScore()
             ));
@@ -418,7 +425,90 @@ public class AiServiceImpl implements AiService {
         log.info("已清空会话历史: {}", sessionId);
     }
 
+    // ==================== AI 观测记录创建（任务 3.5）====================
+
+    @Override
+    public Map<String, Object> createObservationFromAi(AiObservationDTO dto) {
+        // 1. 查询识别记录
+        ImageRecognition record = recognitionMapper.selectById(dto.getRecognitionId());
+        if (record == null) {
+            throw new com.oceanverse.common.exception.BusinessException(404, "识别记录不存在");
+        }
+        if ("识别失败".equals(record.getPredictedSpeciesName())) {
+            throw new com.oceanverse.common.exception.BusinessException(400, "该识别记录未成功识别物种，无法创建观测");
+        }
+
+        // 2. 查询物种详情（用于填充观测备注）
+        String speciesInfo = "";
+        if (record.getPredictedSpeciesId() != null) {
+            Species species = speciesMapper.selectById(record.getPredictedSpeciesId());
+            if (species != null) {
+                speciesInfo = String.format("物种：%s（%s），IUCN：%s，保护等级：%s",
+                        species.getChineseName() != null ? species.getChineseName() : species.getCommonName(),
+                        species.getScientificName(),
+                        species.getIucnStatus() != null ? species.getIucnStatus() : "未知",
+                        species.getProtectionLevel() != null ? species.getProtectionLevel() : "未知");
+            }
+        }
+
+        // 3. 构建观测记录
+        Observation observation = new Observation();
+        observation.setObservationType("SIGHTING");
+        observation.setObservationDate(LocalDate.now());
+        observation.setObservationTime(LocalTime.now());
+        observation.setLatitude(BigDecimal.valueOf(dto.getLatitude()));
+        observation.setLongitude(BigDecimal.valueOf(dto.getLongitude()));
+        observation.setObserverId(getCurrentUserId());
+        observation.setNotes(String.format("【AI 识别生成】识别编号：%s，物种：%s，置信度：%.0f%%。%s",
+                record.getRecognitionCode(),
+                record.getPredictedSpeciesName(),
+                record.getConfidenceScore() != null ? record.getConfidenceScore().doubleValue() * 100 : 0,
+                speciesInfo));
+        observation.setCreateTime(LocalDateTime.now());
+        observation.setUpdateTime(LocalDateTime.now());
+
+        // 4. 自动生成观测编号并插入
+        observation.setObservationCode(generateObservationCode());
+        observationMapper.insert(observation);
+
+        log.info("从 AI 识别创建观测记录: recognitionCode={}, observationId={}, species={}",
+                record.getRecognitionCode(), observation.getId(), record.getPredictedSpeciesName());
+
+        // 5. 返回结果
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("observationId", observation.getId());
+        result.put("observationCode", observation.getObservationCode());
+        result.put("speciesName", record.getPredictedSpeciesName());
+        result.put("confidence", record.getConfidenceScore());
+        result.put("latitude", dto.getLatitude());
+        result.put("longitude", dto.getLongitude());
+        return result;
+    }
+
     // ==================== 辅助方法 ====================
+
+    /**
+     * 生成观测编号（OBS001, OBS002, ...），与 ObservationServiceImpl 保持一致
+     */
+    private String generateObservationCode() {
+        Observation latest = observationMapper.selectOne(
+                new LambdaQueryWrapper<Observation>()
+                        .orderByDesc(Observation::getId)
+                        .last("LIMIT 1"));
+        if (latest == null) {
+            return "OBS001";
+        }
+        String code = latest.getObservationCode();
+        if (code == null || !code.startsWith("OBS")) {
+            return "OBS001";
+        }
+        try {
+            int num = Integer.parseInt(code.substring(3));
+            return String.format("OBS%03d", num + 1);
+        } catch (NumberFormatException e) {
+            return "OBS001";
+        }
+    }
 
     /**
      * 从知识库中检索 RAG 上下文

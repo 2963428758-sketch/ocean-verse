@@ -632,6 +632,15 @@ onMounted(() => {
   Promise.all([loadLocations(), loadEcosystems()]).then(() => {
     search()
     loadStats()
+
+    // 检测 AI 识别页面跳转的预填数据（任务 3.5）
+    const aiPrefill = history.state?.aiPrefill
+    if (aiPrefill) {
+      Object.assign(formData, { ...defaultFormData, ...aiPrefill })
+      dialogVisible.value = true
+      // 清除 state，避免刷新后重复触发
+      history.replaceState({ ...history.state, aiPrefill: undefined }, '')
+    }
   })
 })
 </script>

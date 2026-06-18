@@ -1,6 +1,7 @@
 package com.oceanverse.ai.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.oceanverse.pojo.dto.AiObservationDTO;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
 import com.oceanverse.pojo.entity.QaHistory;
@@ -43,4 +44,9 @@ public interface AiService {
      * 清空对话会话历史（任务 2.4）
      */
     void clearSession(String sessionId);
+
+    /**
+     * 从 AI 识别结果创建观测记录（任务 3.5）
+     */
+    Map<String, Object> createObservationFromAi(AiObservationDTO dto);
 }

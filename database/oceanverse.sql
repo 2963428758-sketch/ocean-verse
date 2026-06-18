@@ -6,11 +6,38 @@
 --         test-observation-data.sql, community_data.sql
 -- 生成时间: 2026-06-17
 -- =====================================================
+DROP TABLE IF EXISTS `sys_operation_log`;
+
+CREATE TABLE `sys_operation_log` (
+                                     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                                     `module` VARCHAR(50) DEFAULT NULL COMMENT '模块名',
+                                     `operation_type` VARCHAR(30) DEFAULT NULL COMMENT '操作类型: CREATE/UPDATE/DELETE/QUERY/EXPORT',
+                                     `request_url` VARCHAR(500) DEFAULT NULL COMMENT '请求URL',
+                                     `request_method` VARCHAR(10) DEFAULT NULL COMMENT '请求方法: GET/POST/PUT/DELETE',
+                                     `request_params` TEXT COMMENT '请求参数JSON',
+                                     `operator_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '操作人ID',
+                                     `operator_name` VARCHAR(100) DEFAULT NULL COMMENT '操作人姓名',
+                                     `ip_address` VARCHAR(50) DEFAULT NULL COMMENT '操作IP',
+                                     `execution_time` INT UNSIGNED DEFAULT NULL COMMENT '执行耗时(ms)',
+                                     `operation_result` TINYINT DEFAULT 1 COMMENT '操作结果: 1-成功, 0-失败',
+                                     `error_message` TEXT COMMENT '错误信息',
+                                     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                     PRIMARY KEY (`id`),
+                                     KEY `idx_operator` (`operator_id`),
+                                     KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+ALTER TABLE observation MODIFY COLUMN location_id BIGINT UNSIGNED DEFAULT NULL;
 
 CREATE DATABASE IF NOT EXISTS `oceanverse` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `oceanverse`;
 
 SET FOREIGN_KEY_CHECKS = 0;
+
+UPDATE observation SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
+UPDATE species SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
+UPDATE ecosystem SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
+UPDATE observation_location SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
 
 -- =====================================================
 -- 一、建表语句
@@ -236,7 +263,7 @@ CREATE TABLE `observation` (
     `observation_date` DATE NOT NULL,
     `observation_time` TIME DEFAULT NULL,
     `duration_minutes` INT UNSIGNED DEFAULT NULL,
-    `location_id` BIGINT UNSIGNED NOT NULL,
+    `location_id` BIGINT UNSIGNED DEFAULT NULL,
     `ecosystem_id` BIGINT UNSIGNED DEFAULT NULL,
     `latitude` DECIMAL(10, 6) DEFAULT NULL,
     `longitude` DECIMAL(10, 6) DEFAULT NULL,

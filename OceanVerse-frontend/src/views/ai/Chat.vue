@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick } from 'vue'
+import { ref, reactive, nextTick, onMounted } from 'vue'
 import { marked } from 'marked'
 import { chatWithAIStream, clearSession, submitFeedback, rebuildKnowledgeBase } from '@/api/ai'
 import { ElMessage } from 'element-plus'
@@ -173,12 +173,47 @@ const questionTypes = [
   { value: 'CONSERVATION', label: '保护', emoji: '🛡️' },
 ]
 
-const suggestionCards = [
+const suggestionPool = [
   { emoji: '🐢', label: '物种知识', text: '绿海龟的保护现状' },
   { emoji: '🪸', label: '生态现象', text: '珊瑚礁为什么会白化？' },
   { emoji: '🐙', label: '深海探索', text: '深海有哪些奇特生物？' },
   { emoji: '🌊', label: '环境问题', text: '海洋酸化有什么影响？' },
+  { emoji: '🦈', label: '物种知识', text: '大白鲨为什么需要不停游动？' },
+  { emoji: '🐋', label: '物种知识', text: '蓝鲸为什么能长到这么大？' },
+  { emoji: '🦑', label: '深海探索', text: '巨型乌贼有哪些特征？' },
+  { emoji: '🐡', label: '物种知识', text: '河豚为什么会膨胀？' },
+  { emoji: '🪸', label: '生态现象', text: '红树林对海岸有什么作用？' },
+  { emoji: '🐠', label: '生态现象', text: '小丑鱼和海葵是什么关系？' },
+  { emoji: '🐧', label: '物种知识', text: '企鹅为什么不会飞？' },
+  { emoji: '🦭', label: '物种知识', text: '海豹和海狮怎么区分？' },
+  { emoji: '🐚', label: '物种知识', text: '珍珠是怎么形成的？' },
+  { emoji: '🌡️', label: '环境问题', text: '海水温度升高有什么影响？' },
+  { emoji: '🗑️', label: '环境问题', text: '海洋塑料污染的现状如何？' },
+  { emoji: '🦀', label: '物种知识', text: '帝王蟹生活在多深的海域？' },
+  { emoji: '🐬', label: '物种知识', text: '海豚为什么被称为高智商动物？' },
+  { emoji: '🦑', label: '深海探索', text: '深海热液喷口有什么生物？' },
+  { emoji: '🌿', label: '生态现象', text: '海草床有什么生态价值？' },
+  { emoji: '🛡️', label: '保护', text: '如何保护濒危海洋物种？' },
 ]
+
+const suggestionCards = ref<typeof suggestionPool>([])
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function refreshSuggestions() {
+  suggestionCards.value = shuffleArray(suggestionPool).slice(0, 4)
+}
+
+onMounted(() => {
+  refreshSuggestions()
+})
 
 function generateSessionId(): string {
   return 'session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9)
@@ -195,6 +230,7 @@ async function handleNewConversation() {
   try { await clearSession(sessionId.value) } catch {}
   messages.splice(0, messages.length)
   sessionId.value = generateSessionId()
+  refreshSuggestions()
   ElMessage.success('已开始新对话')
 }
 

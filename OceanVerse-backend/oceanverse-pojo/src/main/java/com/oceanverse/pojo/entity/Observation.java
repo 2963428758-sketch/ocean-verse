@@ -35,6 +35,6 @@ public class Observation {
     private String notes;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    @TableLogic
+    @TableLogic(delval = "UNIX_TIMESTAMP()")
     private Long deleted;
 }

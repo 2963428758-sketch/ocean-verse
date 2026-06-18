@@ -110,3 +110,7 @@ export const submitFeedback = (id: number, feedback: number) =>
 // 重建知识库索引（管理员功能）
 export const rebuildKnowledgeBase = () =>
   http.post('/ai/knowledge/rebuild')
+
+// 从 AI 识别结果创建观测记录（任务 3.5）
+export const createAiObservation = (data: { recognitionId: number; latitude: number; longitude: number }) =>
+  http.post('/ai/observation', data)

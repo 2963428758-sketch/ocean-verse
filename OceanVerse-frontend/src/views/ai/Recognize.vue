@@ -29,9 +29,17 @@
             <div class="scan-line"></div>
             <span class="scan-text">AI 正在分析...</span>
           </div>
-          <button v-if="!loading && !result" class="change-btn" @click="triggerUpload">更换图片</button>
-          <button v-if="!loading && result" class="change-btn" @click="resetAll">重新识别</button>
+          <button v-if="!loading" class="change-btn" @click="triggerUpload">更换图片</button>
           <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="handleInputChange" />
+        </div>
+
+        <!-- 观测建议横幅（任务 3.5：高置信度识别建议创建观测记录） -->
+        <div v-if="result && hasObservationSuggestion && observationData" class="observation-banner">
+          <div class="observation-info">
+            <span class="observation-icon">📍</span>
+            <span>高置信度识别 — 可记录为生态观测</span>
+          </div>
+          <button class="observation-btn" @click="showObservationPrompt">记录观测</button>
         </div>
 
         <el-button v-if="file && !loading && !result" type="primary" class="recognize-btn" @click="doRecognize">
@@ -117,6 +125,30 @@
             <p class="detail-text">{{ parsedResult.habitat }}</p>
           </div>
 
+          <!-- 物种知识卡片（任务 3.4：识别结果关联 species 表） -->
+          <div v-if="speciesCard" class="species-card">
+            <h4 class="species-card-title">📖 物种知识</h4>
+            <div class="species-card-grid">
+              <div v-if="speciesCard.iucnStatus" class="species-card-item">
+                <span class="species-card-label">IUCN 状态</span>
+                <span class="species-card-value">{{ speciesCard.iucnStatus }}</span>
+              </div>
+              <div v-if="speciesCard.protectionLevel" class="species-card-item">
+                <span class="species-card-label">保护等级</span>
+                <span class="species-card-value">{{ speciesCard.protectionLevel }}</span>
+              </div>
+            </div>
+            <p v-if="speciesCard.morphology" class="species-card-text">
+              <span class="species-card-label">形态特征：</span>{{ speciesCard.morphology }}
+            </p>
+            <p v-if="speciesCard.ecology" class="species-card-text">
+              <span class="species-card-label">生态习性：</span>{{ speciesCard.ecology }}
+            </p>
+            <p v-if="speciesCard.description" class="species-card-text">
+              <span class="species-card-label">简介：</span>{{ speciesCard.description }}
+            </p>
+          </div>
+
           <!-- 技术元数据 -->
           <div class="meta-footer">
             <span class="meta-item">
@@ -145,15 +177,22 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AiRecognize' })
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { recognizeImage } from '@/api/ai'
 import { ElMessage } from 'element-plus'
+
+const router = useRouter()
 
 const fileInput = ref<HTMLInputElement>()
 const file = ref<File | null>(null)
 const loading = ref(false)
 const result = ref<any>(null)
 const previewUrl = ref<string | null>(null)
+const speciesCard = ref<any>(null)
+const observationData = ref<any>(null)
+const hasObservationSuggestion = ref(false)
 
 // 解析 recognitionResult（后端存储的 AI 原始 JSON 响应）
 const parsedResult = computed(() => {
@@ -219,6 +258,9 @@ function selectFile(f: File) {
   }
   file.value = f
   result.value = null
+  speciesCard.value = null
+  observationData.value = null
+  hasObservationSuggestion.value = false
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = URL.createObjectURL(f)
 }
@@ -226,6 +268,9 @@ function selectFile(f: File) {
 function resetAll() {
   file.value = null
   result.value = null
+  speciesCard.value = null
+  observationData.value = null
+  hasObservationSuggestion.value = false
   if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = null }
 }
 
@@ -234,13 +279,49 @@ async function doRecognize() {
   loading.value = true
   try {
     const res: any = await recognizeImage(file.value)
-    result.value = res.data
+    const data = res.data
+    // 第三层增强响应格式：{ recognition, speciesCard?, suggestObservation?, observationData? }
+    if (data && data.recognition) {
+      result.value = data.recognition
+      speciesCard.value = data.speciesCard || null
+      hasObservationSuggestion.value = !!data.suggestObservation
+      observationData.value = data.observationData || null
+    } else {
+      // 兼容旧格式：直接返回识别记录
+      result.value = data
+      speciesCard.value = null
+      hasObservationSuggestion.value = false
+      observationData.value = null
+    }
     ElMessage.success('识别完成')
+    // 高置信度识别时显示观测建议横幅，用户主动点击后才弹窗
   } catch {
     ElMessage.error('识别失败，请重试')
   } finally {
     loading.value = false
   }
+}
+
+function showObservationPrompt() {
+  const od = observationData.value
+  if (!od) return
+
+  const confidence = (Number(od.confidence) * 100).toFixed(0)
+  const now = new Date()
+
+  router.push({
+    path: '/observation/list',
+    state: {
+      aiPrefill: {
+        observationType: 'SIGHTING',
+        observationDate: now.toISOString().slice(0, 10),
+        observationTime: now.toTimeString().slice(0, 5),
+        latitude: od.latitude || undefined,
+        longitude: od.longitude || undefined,
+        notes: `【AI 识别生成】识别编号：${result.value?.recognitionCode || ''}，物种：${od.speciesName}，置信度：${confidence}%。`
+      }
+    }
+  })
 }
 </script>
 
@@ -395,7 +476,6 @@ async function doRecognize() {
   min-height: 120px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
 /* 空状态 */
@@ -465,6 +545,8 @@ async function doRecognize() {
 .result-content {
   animation: fadeUp 0.4s ease;
   flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 @keyframes fadeUp {
@@ -627,6 +709,91 @@ async function doRecognize() {
   padding: 60px 0;
   p { color: var(--neutral-500); margin: 0; }
   .error-detail { font-size: 12px; color: var(--neutral-400); margin-top: 8px; }
+}
+
+/* ── 物种知识卡片（任务 3.4） ── */
+.species-card {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--neutral-150, #e8e8e8);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary-main) 3%, white);
+}
+
+.species-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--neutral-700);
+  margin: 0 0 12px;
+}
+
+.species-card-grid {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.species-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.species-card-label {
+  font-size: 12px;
+  color: var(--neutral-400);
+  font-weight: 500;
+}
+
+.species-card-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--neutral-800);
+}
+
+.species-card-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--neutral-600);
+  margin: 6px 0 0;
+}
+
+/* ── 观测建议横幅（任务 3.5） ── */
+.observation-banner {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--el-color-success) 30%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--el-color-success) 6%, white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.observation-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--neutral-700);
+}
+
+.observation-icon {
+  font-size: 18px;
+}
+
+.observation-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--el-color-success, #67c23a);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  &:hover { opacity: 0.85; }
 }
 
 /* ── 响应式 ── */

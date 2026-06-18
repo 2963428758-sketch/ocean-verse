@@ -25,6 +25,11 @@
             <groupId>com.oceanverse</groupId>
             <artifactId>species-manager</artifactId>
         </dependency>
+        <!-- 观测记录: 需要 ObservationMapper 从 AI 识别结果创建观测记录 -->
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>eco-observation-manager</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

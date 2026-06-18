@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.ai.eval.AiEvalService;
 import com.oceanverse.ai.ratelimit.AiRateLimiter;
 import com.oceanverse.common.result.Result;
+import com.oceanverse.pojo.dto.AiObservationDTO;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
 import com.oceanverse.pojo.entity.QaHistory;
@@ -169,6 +170,17 @@ public class AiController {
     public Result<Void> clearSession(@PathVariable String sessionId) {
         aiService.clearSession(sessionId);
         return Result.success();
+    }
+
+    /**
+     * 从 AI 识别结果创建观测记录（任务 3.5）
+     * <p>
+     * 前端点击"记录观测"后调用，基于识别记录自动创建观测数据，
+     * 关联 eco-observation-manager 模块。
+     */
+    @PostMapping("/observation")
+    public Result<Map<String, Object>> createObservationFromAi(@Valid @RequestBody AiObservationDTO dto) {
+        return Result.success(aiService.createObservationFromAi(dto));
     }
 
     /**

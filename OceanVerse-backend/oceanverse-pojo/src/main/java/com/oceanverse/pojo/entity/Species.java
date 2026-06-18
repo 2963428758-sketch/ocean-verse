@@ -48,6 +48,6 @@ public class Species {
     private LocalDateTime updateTime;
     private Long createBy;
     private Long updateBy;
-    @TableLogic
+    @TableLogic(delval = "UNIX_TIMESTAMP()")
     private Long deleted;
 }

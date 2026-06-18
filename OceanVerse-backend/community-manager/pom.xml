@@ -37,6 +37,10 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>message-service</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

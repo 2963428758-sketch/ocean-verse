@@ -60,4 +60,34 @@ public class AiProperties {
      * 为空时不持久化，每次重启重新向量化
      */
     private String vectorStorePath = "data/ai/vector-store.json";
+
+    // ==================== 语义缓存配置（任务 3.1）====================
+
+    /**
+     * 语义缓存 TTL（小时），Redis 缓存过期时间
+     */
+    private Integer cacheTtlHours = 24;
+
+    /**
+     * 语义缓存向量相似度阈值（0-1），
+     * 实测语义等价但措辞不同的问题余弦相似度约 0.886-0.897，取 0.85 较合理
+     */
+    private Double cacheSemanticThreshold = 0.85;
+
+    /**
+     * 语义缓存向量存储持久化文件路径
+     */
+    private String cacheVectorStorePath = "data/ai/cache-vector-store.json";
+
+    // ==================== 限流配置（任务 3.2）====================
+
+    /**
+     * 每日问答调用上限
+     */
+    private Integer dailyChatLimit = 50;
+
+    /**
+     * 每日图像识别调用上限
+     */
+    private Integer dailyRecognitionLimit = 10;
 }
