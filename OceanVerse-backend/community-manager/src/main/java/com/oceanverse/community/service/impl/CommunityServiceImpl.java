@@ -4,13 +4,17 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.auth.mapper.UserMapper;
-import com.oceanverse.auth.context.UserContext;
 import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.exception.BusinessException;
+import com.oceanverse.common.utils.JwtUtil;
 import com.oceanverse.common.utils.OssUtil;
 import com.oceanverse.common.utils.RedisUtil;
-import com.oceanverse.community.mapper.*;
-import com.oceanverse.message.mapper.SysNotificationMapper;
+import com.oceanverse.community.mapper.CommunityCommentMapper;
+import com.oceanverse.community.mapper.CommunityFavoriteMapper;
+import com.oceanverse.community.mapper.CommunityFollowMapper;
+import com.oceanverse.community.mapper.CommunityLikeMapper;
+import com.oceanverse.community.mapper.CommunityNotificationMapper;
+import com.oceanverse.community.mapper.CommunityPostMapper;
 import com.oceanverse.community.service.CommunityService;
 import com.oceanverse.pojo.dto.CommentCreateDTO;
 import com.oceanverse.pojo.dto.PostCreateDTO;
@@ -38,16 +42,15 @@ public class CommunityServiceImpl implements CommunityService {
     private final CommunityLikeMapper likeMapper;
     private final CommunityFavoriteMapper favoriteMapper;
     private final CommunityFollowMapper followMapper;
-    private final SysNotificationMapper notificationMapper;
-    private final UserPointsMapper userPointsMapper;
+    private final CommunityNotificationMapper notificationMapper;
     private final UserMapper userMapper;
     private final RedisUtil redisUtil;
     private final OssUtil ossUtil;
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional
     public void createPost(PostCreateDTO dto, String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityPost post = new CommunityPost();
         post.setUserId(userId);
         post.setContent(dto.getContent());
@@ -58,7 +61,7 @@ public class CommunityServiceImpl implements CommunityService {
         post.setLikeCount(0);
         post.setCommentCount(0);
         post.setFavoriteCount(0);
-        post.setStatus(1);
+        post.setStatus(3); // 待审核
         post.setCreateTime(LocalDateTime.now());
         post.setUpdateTime(LocalDateTime.now());
         postMapper.insert(post);
@@ -66,9 +69,9 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional
     public void deletePost(Long id, String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityPost post = postMapper.selectById(id);
         if (post == null || !post.getUserId().equals(userId)) {
             throw BusinessException.forbidden();
@@ -85,10 +88,68 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Page<CommunityPost> listPosts(PostQueryDTO query) {
+    public Object listPendingPosts(Integer page, Integer size) {
+        Page<CommunityPost> pageParam = new Page<>(page, size);
+        Page<CommunityPost> result = postMapper.selectPage(pageParam,
+                new LambdaQueryWrapper<CommunityPost>()
+                        .eq(CommunityPost::getStatus, 3)
+                        .orderByDesc(CommunityPost::getCreateTime));
+        fillUsernames(result.getRecords());
+        fillRealCommentCounts(result.getRecords());
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public void approvePost(Long id) {
+        CommunityPost post = postMapper.selectById(id);
+        if (post == null) {
+            throw BusinessException.notFound("动态");
+        }
+        post.setStatus(1);
+        postMapper.updateById(post);
+        // 通知发布者
+        sendNotification(post.getUserId(), "SYSTEM", "帖子审核通过",
+                "你的动态已通过审核，已发布到广场", post.getId());
+    }
+
+    @Override
+    @Transactional
+    public void rejectPost(Long id) {
+        CommunityPost post = postMapper.selectById(id);
+        if (post == null) {
+            throw BusinessException.notFound("动态");
+        }
+        post.setStatus(0);
+        postMapper.updateById(post);
+        // 通知发布者
+        sendNotification(post.getUserId(), "SYSTEM", "帖子审核未通过",
+                "你的动态未通过审核，如有疑问请联系管理员", post.getId());
+    }
+
+    @Override
+    public Object listPosts(PostQueryDTO query, String token) {
+        Long currentUserId = null;
+        if (token != null && token.startsWith("Bearer ")) {
+            try {
+                currentUserId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+            } catch (Exception ignored) {}
+        }
+
         Page<CommunityPost> page = new Page<>(query.getPage(), query.getSize());
-        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>()
-                .eq(CommunityPost::getStatus, 1);
+        LambdaQueryWrapper<CommunityPost> wrapper = new LambdaQueryWrapper<CommunityPost>();
+
+        if (Boolean.TRUE.equals(query.getMyPending())) {
+            // 查看自己的待审核帖子
+            if (currentUserId == null) {
+                throw BusinessException.fail("请先登录");
+            }
+            wrapper.eq(CommunityPost::getUserId, currentUserId)
+                    .eq(CommunityPost::getStatus, 3);
+        } else {
+            // 正常广场只显示已审核的帖子
+            wrapper.eq(CommunityPost::getStatus, 1);
+        }
 
         if (query.getUserId() != null) {
             wrapper.eq(CommunityPost::getUserId, query.getUserId());
@@ -103,23 +164,40 @@ public class CommunityServiceImpl implements CommunityService {
         }
         Page<CommunityPost> result = postMapper.selectPage(page, wrapper);
         fillUsernames(result.getRecords());
+        fillLikeFavoriteStatus(result.getRecords(), currentUserId);
+        fillRealCommentCounts(result.getRecords());
         return result;
     }
 
     @Override
-    public CommunityPost getPostDetail(Long id) {
+    public Object getPostDetail(Long id, String token) {
+        Long currentUserId = null;
+        if (token != null && token.startsWith("Bearer ")) {
+            try {
+                currentUserId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+            } catch (Exception ignored) {}
+        }
+
         CommunityPost post = postMapper.selectById(id);
         if (post == null) {
             throw BusinessException.notFound("动态");
         }
         fillPostUsername(post);
+        post.setCommentCount(getRealCommentCount(id));
+        if (currentUserId != null) {
+            post.setIsLiked(hasLiked(currentUserId, id, "POST"));
+            post.setIsFavorited(hasFavorited(currentUserId, id, "POST"));
+        } else {
+            post.setIsLiked(false);
+            post.setIsFavorited(false);
+        }
         return post;
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional
     public void createComment(CommentCreateDTO dto, String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityComment comment = new CommunityComment();
         comment.setPostId(dto.getPostId());
         comment.setUserId(userId);
@@ -154,7 +232,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Page<CommunityComment> listComments(Long postId, Integer page, Integer size) {
+    public Object listComments(Long postId, Integer page, Integer size) {
         Page<CommunityComment> result = commentMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<CommunityComment>()
@@ -167,9 +245,9 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public String toggleLike(String targetType, Long targetId, String token) {
-        Long userId = UserContext.getUserId();
+    @Transactional
+    public Object toggleLike(String targetType, Long targetId, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityLike existing = likeMapper.selectOne(
                 new LambdaQueryWrapper<CommunityLike>()
                         .eq(CommunityLike::getUserId, userId)
@@ -209,9 +287,9 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public String toggleFavorite(String targetType, Long targetId, String token) {
-        Long userId = UserContext.getUserId();
+    @Transactional
+    public Object toggleFavorite(String targetType, Long targetId, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityFavorite existing = favoriteMapper.selectOne(
                 new LambdaQueryWrapper<CommunityFavorite>()
                         .eq(CommunityFavorite::getUserId, userId)
@@ -243,8 +321,8 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Page<CommunityPost> listFavorites(String targetType, Integer page, Integer size, String token) {
-        Long userId = UserContext.getUserId();
+    public Object listFavorites(String targetType, Integer page, Integer size, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         Page<CommunityFavorite> favoritePage = favoriteMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<CommunityFavorite>()
@@ -254,26 +332,19 @@ public class CommunityServiceImpl implements CommunityService {
         );
         List<Long> postIds = favoritePage.getRecords().stream()
                 .map(CommunityFavorite::getTargetId).collect(Collectors.toList());
-        Page<CommunityPost> resultPage = new Page<>(favoritePage.getCurrent(), favoritePage.getSize(), favoritePage.getTotal());
         if (postIds.isEmpty()) {
-            resultPage.setRecords(List.of());
-            return resultPage;
+            return favoritePage.convert(f -> null);
         }
         List<CommunityPost> posts = postMapper.selectBatchIds(postIds);
         fillUsernames(posts);
         Map<Long, CommunityPost> postMap = posts.stream()
                 .collect(Collectors.toMap(CommunityPost::getId, p -> p, (a, b) -> a));
-        List<CommunityPost> orderedPosts = favoritePage.getRecords().stream()
-                .map(f -> postMap.get(f.getTargetId()))
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toList());
-        resultPage.setRecords(orderedPosts);
-        return resultPage;
+        return favoritePage.convert(f -> postMap.get(f.getTargetId()));
     }
 
     @Override
-    public Page<CommunityPost> listLikedPosts(Integer page, Integer size, String token) {
-        Long userId = UserContext.getUserId();
+    public Object listLikedPosts(Integer page, Integer size, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         Page<CommunityLike> likePage = likeMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<CommunityLike>()
@@ -283,32 +354,26 @@ public class CommunityServiceImpl implements CommunityService {
         );
         List<Long> postIds = likePage.getRecords().stream()
                 .map(CommunityLike::getTargetId).collect(Collectors.toList());
-        Page<CommunityPost> resultPage = new Page<>(likePage.getCurrent(), likePage.getSize(), likePage.getTotal());
         if (postIds.isEmpty()) {
-            resultPage.setRecords(List.of());
-            return resultPage;
+            return likePage.convert(l -> null);
         }
         List<CommunityPost> posts = postMapper.selectBatchIds(postIds);
         fillUsernames(posts);
         Map<Long, CommunityPost> postMap = posts.stream()
                 .collect(Collectors.toMap(CommunityPost::getId, p -> p, (a, b) -> a));
-        List<CommunityPost> orderedPosts = likePage.getRecords().stream()
-                .map(l -> postMap.get(l.getTargetId()))
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toList());
-        resultPage.setRecords(orderedPosts);
-        return resultPage;
+        return likePage.convert(l -> postMap.get(l.getTargetId()));
     }
 
     @Override
-    public List<Map<String, Object>> getLeaderboard(String type) {
-        return userPointsMapper.selectLeaderboard(50);
+    public Object getLeaderboard(String type) {
+        // TODO: 从 Redis 读取排行榜数据
+        return "排行榜功能待实现";
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public String toggleFollow(Long followUserId, String token) {
-        Long userId = UserContext.getUserId();
+    @Transactional
+    public Object toggleFollow(Long followUserId, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         if (userId.equals(followUserId)) {
             throw BusinessException.fail("不能关注自己");
         }
@@ -348,7 +413,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Map<String, Object> getUserProfile(Long userId) {
+    public Object getUserProfile(Long userId) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw BusinessException.notFound("用户");
@@ -375,8 +440,8 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Page<SysNotification> listNotifications(Integer page, Integer size, String token) {
-        Long userId = UserContext.getUserId();
+    public Object listNotifications(Integer page, Integer size, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         return notificationMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<SysNotification>()
@@ -386,17 +451,18 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Long getUnreadCount(String token) {
-        Long userId = UserContext.getUserId();
-        return notificationMapper.selectCount(
+    public Object getUnreadCount(String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        long count = notificationMapper.selectCount(
                 new LambdaQueryWrapper<SysNotification>()
                         .eq(SysNotification::getUserId, userId)
                         .eq(SysNotification::getIsRead, 0));
+        return count;
     }
 
     @Override
     public void markNotificationRead(Long notificationId, String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         SysNotification notification = notificationMapper.selectById(notificationId);
         if (notification == null || !notification.getUserId().equals(userId)) {
             throw BusinessException.forbidden();
@@ -407,7 +473,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public void markAllRead(String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         notificationMapper.update(null,
                 new LambdaUpdateWrapper<SysNotification>()
                         .eq(SysNotification::getUserId, userId)
@@ -417,7 +483,7 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     public String uploadAvatar(org.springframework.web.multipart.MultipartFile file, String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         String url = ossUtil.upload(file);
         userMapper.update(null,
                 new LambdaUpdateWrapper<User>()
@@ -427,9 +493,9 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional
     public void deleteComment(Long commentId, String token) {
-        Long userId = UserContext.getUserId();
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityComment comment = commentMapper.selectById(commentId);
         if (comment == null || !comment.getUserId().equals(userId)) {
             throw BusinessException.forbidden();
@@ -443,6 +509,42 @@ public class CommunityServiceImpl implements CommunityService {
     private void fillPostUsername(CommunityPost post) {
         User user = userMapper.selectById(post.getUserId());
         post.setUsername(user != null ? user.getUsername() : "用户");
+    }
+
+    private boolean hasLiked(Long userId, Long targetId, String targetType) {
+        return likeMapper.selectCount(new LambdaQueryWrapper<CommunityLike>()
+                .eq(CommunityLike::getUserId, userId)
+                .eq(CommunityLike::getTargetId, targetId)
+                .eq(CommunityLike::getTargetType, targetType)) > 0;
+    }
+
+    private boolean hasFavorited(Long userId, Long targetId, String targetType) {
+        return favoriteMapper.selectCount(new LambdaQueryWrapper<CommunityFavorite>()
+                .eq(CommunityFavorite::getUserId, userId)
+                .eq(CommunityFavorite::getTargetId, targetId)
+                .eq(CommunityFavorite::getTargetType, targetType)) > 0;
+    }
+
+    private void fillLikeFavoriteStatus(List<CommunityPost> posts, Long currentUserId) {
+        if (currentUserId == null || posts == null || posts.isEmpty()) return;
+        for (CommunityPost post : posts) {
+            post.setIsLiked(hasLiked(currentUserId, post.getId(), "POST"));
+            post.setIsFavorited(hasFavorited(currentUserId, post.getId(), "POST"));
+        }
+    }
+
+    private int getRealCommentCount(Long postId) {
+        return Math.toIntExact(commentMapper.selectCount(
+                new LambdaQueryWrapper<CommunityComment>()
+                        .eq(CommunityComment::getPostId, postId)
+                        .eq(CommunityComment::getStatus, 1)));
+    }
+
+    private void fillRealCommentCounts(List<CommunityPost> posts) {
+        if (posts == null || posts.isEmpty()) return;
+        for (CommunityPost post : posts) {
+            post.setCommentCount(getRealCommentCount(post.getId()));
+        }
     }
 
     private void fillUsernames(List<CommunityPost> posts) {

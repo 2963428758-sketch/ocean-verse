@@ -1,13 +1,16 @@
 package com.oceanverse.auth.controller;
 
+import com.oceanverse.common.annotation.OperateLog;
 import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.auth.service.RoleService;
+import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.result.PageResult;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.AssignPermissionsDTO;
 import com.oceanverse.pojo.dto.RoleCreateDTO;
 import com.oceanverse.pojo.dto.RoleUpdateDTO;
+import com.oceanverse.pojo.dto.UpdateStatusDTO;
 import com.oceanverse.pojo.vo.RoleVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,8 +18,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 /**
  * 角色管理接口
@@ -42,6 +43,7 @@ public class RoleController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "搜索关键字") @RequestParam(required = false) String keyword) {
+        size = Math.min(size, CommonConstants.MAX_PAGE_SIZE);
         return Result.success(roleService.listRoles(page, size, keyword));
     }
 
@@ -53,6 +55,7 @@ public class RoleController {
         return Result.success(roleService.getRole(roleId));
     }
 
+    @OperateLog(module = "角色管理", type = OperateLog.OperateType.CREATE)
     @Operation(summary = "创建角色", description = "创建新角色，角色代码不可重复")
     @PostMapping
     @RequirePermission("role:create")
@@ -61,6 +64,7 @@ public class RoleController {
         return Result.success();
     }
 
+    @OperateLog(module = "角色管理", type = OperateLog.OperateType.UPDATE)
     @Operation(summary = "更新角色", description = "更新角色名称、描述、状态")
     @PutMapping("/{roleId}")
     @RequirePermission("role:update")
@@ -71,6 +75,7 @@ public class RoleController {
         return Result.success();
     }
 
+    @OperateLog(module = "角色管理", type = OperateLog.OperateType.DELETE)
     @Operation(summary = "删除角色", description = "逻辑删除角色，有用户关联时无法删除")
     @DeleteMapping("/{roleId}")
     @RequirePermission("role:delete")
@@ -80,20 +85,18 @@ public class RoleController {
         return Result.success();
     }
 
+    @OperateLog(module = "角色管理", type = OperateLog.OperateType.UPDATE)
     @Operation(summary = "启用/禁用角色", description = "切换角色状态，禁用后关联用户权限缓存被清除")
     @PutMapping("/{roleId}/status")
     @RequirePermission("role:update")
     public Result<Void> toggleStatus(
             @Parameter(description = "角色ID") @PathVariable Long roleId,
-            @RequestBody Map<String, Integer> body) {
-        Integer status = body.get("status");
-        if (status == null) {
-            return Result.fail("status 不能为空");
-        }
-        roleService.toggleStatus(roleId, status);
+            @Valid @RequestBody UpdateStatusDTO dto) {
+        roleService.toggleStatus(roleId, dto.getStatus());
         return Result.success();
     }
 
+    @OperateLog(module = "角色管理", type = OperateLog.OperateType.UPDATE)
     @Operation(summary = "分配角色权限", description = "为角色分配权限（全量替换），先删后插")
     @PostMapping("/assign-permissions")
     @RequirePermission("role:assign-perm")

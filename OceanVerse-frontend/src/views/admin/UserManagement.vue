@@ -25,21 +25,26 @@
             <el-tag size="small" :type="roleTagType(row.role)">{{ roleLabel(row.role) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="状态" width="150">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+            <span v-if="row.status === 2 && row.lockRemainingSeconds > 0" style="font-size: 12px; color: #e6a23c; margin-left: 4px;">
+              剩余 {{ row.lockRemainingSeconds }}s
+            </span>
           </template>
         </el-table-column>
         <el-table-column prop="lastLoginTime" label="最后登录" width="170">
           <template #default="{ row }">{{ row.lastLoginTime || '-' }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" link @click="openRoleDialog(row)">分配角色</el-button>
             <el-button v-if="row.status !== 1" type="success" size="small" link @click="handleStatus(row, 1)">启用</el-button>
-            <el-button v-if="row.status === 1" type="warning" size="small" link @click="handleStatus(row, 0)">禁用</el-button>
-            <el-button v-if="row.status !== 2" type="danger" size="small" link @click="handleStatus(row, 2)">锁定</el-button>
-            <el-button type="danger" size="small" link @click="handleForceLogout(row)">下线</el-button>
+            <template v-if="!isSelf(row)">
+              <el-button v-if="row.status === 1" type="warning" size="small" link @click="handleStatus(row, 0)">禁用</el-button>
+              <el-button v-if="row.status !== 2" type="danger" size="small" link @click="handleStatus(row, 2)">锁定</el-button>
+              <el-button type="danger" size="small" link @click="handleForceLogout(row)">下线</el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -78,10 +83,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { listUsers, updateUserStatus, assignRoles, forceLogout } from '@/api/admin'
 import { listRoles } from '@/api/role'
+import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const userStore = useUserStore()
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const keyword = ref('')
 const page = ref(1)
@@ -110,6 +120,8 @@ function roleTagType(role: string) {
 
 function statusLabel(s: number) { return { 0: '禁用', 1: '正常', 2: '锁定' }[s] || '未知' }
 function statusTagType(s: number) { return ({ 0: 'danger', 1: 'success', 2: 'warning' }[s] || 'info') as any }
+
+function isSelf(row: any) { return row.id === userStore.userId }
 
 async function loadData() {
   loading.value = true
@@ -180,6 +192,11 @@ async function handleForceLogout(row: any) {
 onMounted(() => {
   loadData()
   loadRoles()
+  pollTimer = setInterval(loadData, 30000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 </script>
 

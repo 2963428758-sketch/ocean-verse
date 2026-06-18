@@ -13,4 +13,10 @@ public class LoginDTO {
     @NotBlank(message = "密码不能为空")
     @Schema(description = "密码", example = "123456")
     private String password;
+    @NotBlank(message = "验证码标识不能为空")
+    @Schema(description = "验证码 Key（调用 /api/captcha 获取）")
+    private String captchaKey;
+    @NotBlank(message = "验证码不能为空")
+    @Schema(description = "验证码答案")
+    private String captchaCode;
 }

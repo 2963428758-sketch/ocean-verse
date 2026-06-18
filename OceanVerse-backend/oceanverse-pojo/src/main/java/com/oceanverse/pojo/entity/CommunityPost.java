@@ -34,4 +34,10 @@ public class CommunityPost {
     /** 非数据库字段，由 service 填充 */
     @TableField(exist = false)
     private String username;
+    /** 当前用户是否已点赞 */
+    @TableField(exist = false)
+    private Boolean isLiked;
+    /** 当前用户是否已收藏 */
+    @TableField(exist = false)
+    private Boolean isFavorited;
 }

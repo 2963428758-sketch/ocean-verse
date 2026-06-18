@@ -46,6 +46,12 @@ http.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 403 Forbidden — 权限不足，不触发登录重定向
+    if (error.response.status === 403) {
+      ElMessage.warning(error.response?.data?.message || '权限不足，无法执行此操作')
+      return Promise.reject(error)
+    }
+
     const originalRequest = error.config
     if (error.response.status === 401 && !originalRequest._retry) {
       const url = originalRequest.url || ''

@@ -43,6 +43,10 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.oceanverse</groupId>
+            <artifactId>community-manager</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

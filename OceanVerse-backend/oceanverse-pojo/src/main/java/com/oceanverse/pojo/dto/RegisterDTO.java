@@ -15,10 +15,12 @@ public class RegisterDTO {
     @Size(min = 6, max = 50, message = "密码长度6-50")
     @Schema(description = "密码（6-50字符）")
     private String password;
-    @NotBlank(message = "邮箱不能为空")
-    @Email(message = "邮箱格式不正确")
-    @Schema(description = "邮箱地址", example = "user@example.com")
-    private String email;
     @Schema(description = "手机号")
     private String phone;
+    @NotBlank(message = "验证码标识不能为空")
+    @Schema(description = "验证码 Key（调用 /api/captcha 获取）")
+    private String captchaKey;
+    @NotBlank(message = "验证码不能为空")
+    @Schema(description = "验证码答案")
+    private String captchaCode;
 }

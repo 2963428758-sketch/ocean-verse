@@ -40,6 +40,23 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captchaCode">
+          <div class="captcha-row">
+            <el-input
+              v-model="form.captchaCode"
+              prefix-icon="Key"
+              placeholder="验证码答案"
+              size="large"
+              class="captcha-input"
+              @keyup.enter="handleLogin"
+            />
+            <span class="captcha-expression">{{ captchaText }}</span>
+            <el-button class="captcha-refresh" size="large" @click="refreshCaptcha" :loading="captchaLoading">
+              <el-icon><Refresh /></el-icon>
+            </el-button>
+          </div>
+        </el-form-item>
+
         <div class="form-options">
           <el-checkbox v-model="rememberMe" label="记住我" />
         </div>
@@ -64,31 +81,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { login } from '@/api/auth'
+import { login, getCaptcha } from '@/api/auth'
 import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import oceanVideo from '@/assets/videos/ocean-bg.mp4'
 
 const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
+const captchaLoading = ref(false)
 const rememberMe = ref(false)
 
-const form = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', captchaKey: '', captchaCode: '' })
+const captchaText = ref('')
+
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
 }
+
+async function refreshCaptcha() {
+  captchaLoading.value = true
+  try {
+    const res: any = await getCaptcha()
+    form.captchaKey = res.data.captchaKey
+    captchaText.value = res.data.expression
+    form.captchaCode = ''
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+onMounted(() => {
+  refreshCaptcha()
+})
 
 async function handleLogin() {
   await formRef.value?.validate()
   loading.value = true
   try {
     const res: any = await login(form)
-    userStore.setLoginInfo(res.data)
+    userStore.setLoginInfo({
+      accessToken: res.data.accessToken,
+      refreshToken: res.data.refreshToken,
+      userId: res.data.userId,
+      username: res.data.username,
+      avatarUrl: res.data.avatarUrl,
+      role: res.data.role
+    })
     ElMessage.success('登录成功')
     router.push('/dashboard')
   } finally {
@@ -261,6 +306,43 @@ async function handleLogin() {
   :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
     background: rgba(100, 180, 255, 0.7);
     border-color: rgba(100, 180, 255, 0.8);
+  }
+}
+
+/* ===== 验证码区域 ===== */
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .captcha-input {
+    flex: 1;
+  }
+
+  .captcha-expression {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .captcha-refresh {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
   }
 }
 

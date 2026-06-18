@@ -1,167 +1,164 @@
 <template>
   <div class="feed-page">
-    <!-- 顶部操作栏 -->
+    <!-- 顶部 -->
     <div class="feed-header">
-      <div class="feed-header-left">
-        <h2 class="page-title">动态广场</h2>
-        <p class="page-desc">社区用户的海洋探索分享</p>
+      <div class="header-left">
+        <h2>动态广场</h2>
+        <span class="header-desc">探索海洋世界的精彩分享</span>
       </div>
-      <el-button type="primary" @click="showCreateDialog = true">
-        <el-icon><Plus /></el-icon> 发布动态
-      </el-button>
+      <button class="create-btn" @click="showCreateDialog = true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        发布动态
+      </button>
     </div>
 
     <!-- 筛选标签 -->
-    <div class="feed-filters">
-      <el-radio-group v-model="currentFilter" @change="handleFilterChange" size="default">
-        <el-radio-button value="ALL">全部</el-radio-button>
-        <el-radio-button value="NORMAL">日常</el-radio-button>
-        <el-radio-button value="OBSERVATION">观测</el-radio-button>
-        <el-radio-button value="RECOGNITION">识别</el-radio-button>
-      </el-radio-group>
+    <div class="feed-tabs">
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        class="tab-item"
+        :class="{ active: currentFilter === tab.value }"
+        @click="currentFilter = tab.value; currentPage = 1; loadPosts()"
+      >
+        {{ tab.label }}
+      </button>
     </div>
 
-    <!-- 帖子列表 -->
-    <div v-loading="loading" class="post-list">
+    <!-- 瀑布流帖子列表 -->
+    <div v-loading="loading" class="waterfall" :class="{ 'single-col': posts.length === 0 }">
       <div v-if="posts.length === 0 && !loading" class="empty-state">
-        <el-empty description="暂无动态，快来发布第一条吧！" />
+        <div class="empty-icon"> ocean </div>
+        <p>暂无动态，快来发布第一条吧！</p>
       </div>
 
-      <div v-for="post in posts" :key="post.id" class="post-card">
-        <!-- 用户信息 -->
-        <div class="post-header">
-          <div class="user-info">
-            <el-avatar :size="34" class="user-avatar">
-              {{ post.username?.charAt(0)?.toUpperCase() || 'U' }}
-            </el-avatar>
-            <div class="user-meta">
-              <span class="username" @click.stop="goToUser(post.userId)">{{ post.username || '用户' }}</span>
-              <span class="post-time">{{ formatTime(post.createTime) }}</span>
+      <div
+        v-for="post in posts"
+        :key="post.id"
+        class="feed-card"
+        @click="goToDetail(post.id)"
+      >
+        <!-- 图片区 -->
+        <div v-if="post.parsedImages?.length" class="card-image-wrap">
+          <img
+            :src="post.parsedImages[0]"
+            class="card-image"
+            loading="lazy"
+          />
+          <span v-if="post.parsedImages.length > 1" class="image-count">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><rect x="3" y="3" width="18" height="18" rx="3" stroke="white" stroke-width="2" fill="none"/><rect x="7" y="7" width="14" height="14" rx="3" fill="white" opacity="0.5"/></svg>
+            {{ post.parsedImages.length }}
+          </span>
+          <span v-if="post.postType !== 'NORMAL'" class="type-badge" :class="post.postType">
+            {{ postTypeLabel(post.postType) }}
+          </span>
+          <span v-if="(post as any).status === 3" class="type-badge pending">待审核</span>
+        </div>
+        <div v-else class="card-image-wrap no-image">
+          <span class="no-image-icon">📝</span>
+        </div>
+
+        <!-- 内容区 -->
+        <div class="card-body">
+          <p class="card-text">{{ post.content }}</p>
+
+          <!-- 底部：用户 + 操作 -->
+          <div class="card-footer">
+            <div class="card-user">
+              <div class="card-avatar" @click.stop="goToUser(post.userId)">
+                {{ post.username?.charAt(0)?.toUpperCase() || 'U' }}
+              </div>
+              <span class="card-username" @click.stop="goToUser(post.userId)">{{ post.username || '用户' }}</span>
+            </div>
+            <div class="card-actions" @click.stop>
+              <button
+                class="card-action"
+                :class="{ liked: post.isLiked }"
+                @click="handleLike(post)"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" :fill="post.isLiked ? '#ff4757' : 'none'" :stroke="post.isLiked ? '#ff4757' : '#948f86'" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <span>{{ post.likeCount || 0 }}</span>
+              </button>
+              <button class="card-action" @click.stop="goToDetail(post.id)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>{{ post.commentCount || 0 }}</span>
+              </button>
+              <el-popconfirm
+                v-if="post.userId === userStore.userId"
+                title="确定删除？"
+                @confirm="handleDeletePost(post)"
+              >
+                <template #reference>
+                  <button class="card-action delete" @click.stop>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </template>
+              </el-popconfirm>
             </div>
           </div>
-          <div class="post-header-right">
-            <el-tag
-              v-if="post.postType !== 'NORMAL'"
-              :type="postTypeTag(post.postType)"
-              size="small"
-              effect="light"
-            >
-              {{ postTypeLabel(post.postType) }}
-            </el-tag>
-            <el-popconfirm
-              v-if="post.userId === userStore.userId"
-              title="确定删除这条帖子？"
-              @confirm="handleDeletePost(post)"
-            >
-              <template #reference>
-                <button class="post-delete-btn">删除</button>
-              </template>
-            </el-popconfirm>
-          </div>
-        </div>
-
-        <!-- 内容 -->
-        <div class="post-content" @click="goToDetail(post.id)">
-          <p>{{ post.content }}</p>
-        </div>
-
-        <!-- 图片 -->
-        <div v-if="post.parsedImages?.length" class="post-images">
-          <el-image
-            v-for="(img, idx) in post.parsedImages"
-            :key="idx"
-            :src="img"
-            :preview-src-list="post.parsedImages"
-            :initial-index="idx"
-            fit="cover"
-            class="post-image"
-            :class="{ 'single-image': post.parsedImages.length === 1 }"
-          />
-        </div>
-
-        <!-- 操作栏 -->
-        <div class="post-actions">
-          <button
-            class="action-btn"
-            :class="{ active: post.isLiked }"
-            @click="handleLike(post)"
-          >
-            <el-icon><Star /></el-icon>
-            <span>{{ post.likeCount || 0 }}</span>
-          </button>
-          <button class="action-btn" @click="goToDetail(post.id)">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>{{ post.commentCount || 0 }}</span>
-          </button>
-          <button
-            class="action-btn"
-            :class="{ active: post.isFavorited }"
-            @click="handleFavorite(post)"
-          >
-            <el-icon><StarFilled /></el-icon>
-            <span>{{ post.favoriteCount || 0 }}</span>
-          </button>
         </div>
       </div>
     </div>
 
     <!-- 分页 -->
     <div v-if="total > pageSize" class="pagination-wrap">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next"
-        @current-change="loadPosts"
-      />
+      <button
+        class="page-btn"
+        :disabled="currentPage <= 1"
+        @click="currentPage--; loadPosts()"
+      >上一页</button>
+      <span class="page-info">{{ currentPage }} / {{ Math.ceil(total / pageSize) }}</span>
+      <button
+        class="page-btn"
+        :disabled="currentPage >= Math.ceil(total / pageSize)"
+        @click="currentPage++; loadPosts()"
+      >下一页</button>
     </div>
 
     <!-- 发帖弹窗 -->
     <el-dialog
       v-model="showCreateDialog"
       title="发布动态"
-      width="540px"
+      width="520px"
       :close-on-click-modal="false"
       @closed="resetCreateForm"
+      class="create-dialog"
     >
-      <el-form :model="createForm" label-position="top">
-        <el-form-item label="动态内容" required>
-          <el-input
-            v-model="createForm.content"
-            type="textarea"
-            :rows="4"
-            placeholder="分享你的海洋探索故事..."
-            maxlength="500"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item label="动态类型">
-          <el-select v-model="createForm.postType" placeholder="选择类型" style="width: 100%">
-            <el-option label="日常分享" value="NORMAL" />
-            <el-option label="观测记录" value="OBSERVATION" />
-            <el-option label="物种识别" value="RECOGNITION" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="添加图片">
-          <el-upload
-            ref="uploadRef"
-            :action="uploadUrl"
-            :headers="uploadHeaders"
-            :on-success="handleUploadSuccess"
-            :on-error="handleUploadError"
-            :before-upload="beforeUpload"
-            list-type="picture-card"
-            :limit="9"
-            accept="image/*"
-          >
-            <el-icon><Plus /></el-icon>
-          </el-upload>
-          <p class="upload-tip">最多 9 张，单张不超过 10MB</p>
-        </el-form-item>
-      </el-form>
+      <div class="dialog-body">
+        <textarea
+          v-model="createForm.content"
+          class="create-textarea"
+          placeholder="分享你的海洋探索故事..."
+          maxlength="500"
+        ></textarea>
+        <div class="create-meta">
+          <select v-model="createForm.postType" class="create-select">
+            <option value="NORMAL">日常分享</option>
+            <option value="OBSERVATION">观测记录</option>
+            <option value="RECOGNITION">物种识别</option>
+          </select>
+        </div>
+        <el-upload
+          ref="uploadRef"
+          :action="uploadUrl"
+          :headers="uploadHeaders"
+          :on-success="handleUploadSuccess"
+          :on-error="handleUploadError"
+          :before-upload="beforeUpload"
+          list-type="picture-card"
+          :limit="9"
+          accept="image/*"
+          class="create-upload"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </el-upload>
+        <p class="upload-hint">最多 9 张，单张不超过 10MB</p>
+      </div>
       <template #footer>
-        <el-button @click="showCreateDialog = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="handleCreate">发布</el-button>
+        <button class="dialog-btn cancel" @click="showCreateDialog = false">取消</button>
+        <button class="dialog-btn confirm" :disabled="creating || !createForm.content.trim()" @click="handleCreate">
+          {{ creating ? '发布中...' : '发布' }}
+        </button>
       </template>
     </el-dialog>
   </div>
@@ -171,7 +168,6 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, Star, StarFilled, ChatDotRound } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import {
   getPostList,
@@ -185,26 +181,30 @@ import type { CommunityPost } from '@/types'
 const router = useRouter()
 const userStore = useUserStore()
 
-// ── 状态 ──
 const loading = ref(false)
 const creating = ref(false)
 const posts = ref<(CommunityPost & { username?: string; parsedImages?: string[]; isLiked?: boolean; isFavorited?: boolean })[]>([])
 const currentPage = ref(1)
-const pageSize = 10
+const pageSize = 12
 const total = ref(0)
 const currentFilter = ref('ALL')
 const showCreateDialog = ref(false)
 const uploadRef = ref()
 
-// ── 发帖表单 ──
+const tabs = [
+  { label: '全部', value: 'ALL' },
+  { label: '日常', value: 'NORMAL' },
+  { label: '观测', value: 'OBSERVATION' },
+  { label: '识别', value: 'RECOGNITION' },
+  { label: '我的待审核', value: 'MY_PENDING' },
+]
+
 const createForm = reactive({
   content: '',
   postType: 'NORMAL',
-  imageUrls: '' as string,
 })
 const uploadedUrls = ref<string[]>([])
 
-// ── 上传配置 ──
 const uploadUrl = '/api/upload/image'
 const uploadHeaders = {
   get Authorization() {
@@ -212,15 +212,13 @@ const uploadHeaders = {
   }
 }
 
-// ── 加载帖子 ──
 async function loadPosts() {
   loading.value = true
   try {
-    const params: any = {
-      page: currentPage.value,
-      size: pageSize,
-    }
-    if (currentFilter.value !== 'ALL') {
+    const params: any = { page: currentPage.value, size: pageSize }
+    if (currentFilter.value === 'MY_PENDING') {
+      params.myPending = true
+    } else if (currentFilter.value !== 'ALL') {
       params.postType = currentFilter.value
     }
     const res: any = await getPostList(params)
@@ -228,8 +226,8 @@ async function loadPosts() {
     posts.value = records.map((post: CommunityPost) => ({
       ...post,
       parsedImages: parseImages(post.imageUrls),
-      isLiked: false,
-      isFavorited: false,
+      isLiked: !!(post as any).isLiked,
+      isFavorited: !!(post as any).isFavorited,
     }))
     total.value = res.data?.total || 0
   } catch (e) {
@@ -249,25 +247,17 @@ function parseImages(imageUrls?: string): string[] {
   }
 }
 
-// ── 筛选 ──
-function handleFilterChange() {
-  currentPage.value = 1
-  loadPosts()
-}
-
-// ── 删除帖子 ──
 async function handleDeletePost(post: any) {
   try {
     await deletePost(post.id)
     posts.value = posts.value.filter(p => p.id !== post.id)
     total.value = Math.max(0, total.value - 1)
-    ElMessage.success('帖子已删除')
+    ElMessage.success('已删除')
   } catch (e) {
     console.error('删除失败', e)
   }
 }
 
-// ── 点赞 ──
 async function handleLike(post: any) {
   try {
     await toggleLike('POST', post.id)
@@ -278,34 +268,14 @@ async function handleLike(post: any) {
   }
 }
 
-// ── 收藏 ──
-async function handleFavorite(post: any) {
-  try {
-    await toggleFavorite('POST', post.id)
-    post.isFavorited = !post.isFavorited
-    post.favoriteCount += post.isFavorited ? 1 : -1
-  } catch (e) {
-    console.error('收藏失败', e)
-  }
-}
-
-// ── 发帖 ──
 async function handleCreate() {
-  if (!createForm.content.trim()) {
-    ElMessage.warning('请输入动态内容')
-    return
-  }
+  if (!createForm.content.trim()) return
   creating.value = true
   try {
-    const data: any = {
-      content: createForm.content,
-      postType: createForm.postType,
-    }
-    if (uploadedUrls.value.length > 0) {
-      data.imageUrls = JSON.stringify(uploadedUrls.value)
-    }
+    const data: any = { content: createForm.content, postType: createForm.postType }
+    if (uploadedUrls.value.length > 0) data.imageUrls = JSON.stringify(uploadedUrls.value)
     await createPost(data)
-    ElMessage.success('发布成功')
+    ElMessage.success('发布成功，等待审核通过后将显示在广场')
     showCreateDialog.value = false
     resetCreateForm()
     currentPage.value = 1
@@ -324,19 +294,10 @@ function resetCreateForm() {
   uploadRef.value?.clearFiles()
 }
 
-// ── 图片上传 ──
 function beforeUpload(file: File) {
-  const isImage = file.type.startsWith('image/')
-  const isLt10M = file.size / 1024 / 1024 < 10
-  if (!isImage) {
-    ElMessage.error('只能上传图片文件')
-    return false
-  }
-  if (!isLt10M) {
-    ElMessage.error('图片大小不能超过 10MB')
-    return false
-  }
-  return true
+  const ok = file.type.startsWith('image/') && file.size / 1024 / 1024 < 10
+  if (!ok) ElMessage.error('仅支持 10MB 以内的图片')
+  return ok
 }
 
 function handleUploadSuccess(response: any) {
@@ -351,34 +312,8 @@ function handleUploadError() {
   ElMessage.error('图片上传失败')
 }
 
-// ── 工具函数 ──
-function formatTime(time?: string): string {
-  if (!time) return ''
-  const date = new Date(time)
-  const now = new Date()
-  const diff = now.getTime() - date.getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes} 分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} 小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days} 天前`
-  return `${date.getMonth() + 1}月${date.getDate()}日`
-}
-
 function postTypeLabel(type: string): string {
-  const map: Record<string, string> = { NORMAL: '日常', OBSERVATION: '观测', RECOGNITION: '识别' }
-  return map[type] || type
-}
-
-function postTypeTag(type: string): '' | 'success' | 'warning' | 'info' {
-  const map: Record<string, '' | 'success' | 'warning' | 'info'> = {
-    NORMAL: '',
-    OBSERVATION: 'success',
-    RECOGNITION: 'warning',
-  }
-  return map[type] || 'info'
+  return { NORMAL: '日常', OBSERVATION: '观测', RECOGNITION: '识别' }[type] || type
 }
 
 function goToDetail(id: number) {
@@ -389,7 +324,6 @@ function goToUser(id: number) {
   router.push(`/community/user/${id}`)
 }
 
-// ── 初始化 ──
 onMounted(() => {
   loadPosts()
 })
@@ -397,7 +331,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .feed-page {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
 }
@@ -405,172 +339,268 @@ onMounted(() => {
 /* ══════ 顶部 ══════ */
 .feed-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
-.page-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--neutral-800);
-  letter-spacing: -0.02em;
-}
-
-.page-desc {
-  color: var(--neutral-400);
-  font-size: 13px;
-  margin-top: 2px;
-}
-
-/* ══════ 筛选 ══════ */
-.feed-filters {
-  margin-bottom: 12px;
-}
-
-/* ══════ 帖子卡片 ══════ */
-.post-card {
-  background: var(--surface-card);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--neutral-100);
-  padding: 14px;
-  margin-bottom: 8px;
-  transition: box-shadow 0.25s var(--ease-out), transform 0.25s var(--ease-out);
-  animation: fadeSlideUp 0.5s var(--ease-out) both;
-
-  &:hover {
-    box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+.header-left {
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--neutral-800);
+    letter-spacing: -0.02em;
+    margin-bottom: 2px;
+  }
+  .header-desc {
+    font-size: 13px;
+    color: var(--neutral-400);
   }
 }
 
-.post-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.post-header-right {
+.create-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.post-delete-btn {
-  background: none;
-  border: 1px solid var(--neutral-200);
+  padding: 10px 22px;
+  background: var(--gradient-ocean);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 12px;
-  color: var(--neutral-400);
-  padding: 2px 8px;
-  border-radius: var(--radius-xs);
-  transition: all 0.2s;
+  transition: all 0.25s var(--ease-out);
+  box-shadow: 0 4px 14px rgba(26, 107, 138, 0.3);
 
   &:hover {
-    color: var(--danger);
-    border-color: var(--danger);
-    background: rgba(196, 53, 53, 0.04);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(26, 107, 138, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
   }
 }
 
-.user-info {
+/* ══════ 筛选标签 ══════ */
+.feed-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.tab-item {
+  padding: 7px 18px;
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-500);
+  background: var(--surface-card);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--neutral-100);
+
+  &:hover {
+    color: var(--primary-main);
+    border-color: var(--primary-lighter);
+  }
+
+  &.active {
+    background: var(--primary-main);
+    color: #fff;
+    border-color: var(--primary-main);
+    box-shadow: 0 2px 8px rgba(26, 107, 138, 0.25);
+  }
+}
+
+/* ══════ 瀑布流 ══════ */
+.waterfall {
+  columns: 2;
+  column-gap: 14px;
+
+  &.single-col {
+    columns: 1;
+  }
+}
+
+.feed-card {
+  break-inside: avoid;
+  margin-bottom: 14px;
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s var(--ease-out);
+  border: 1px solid var(--neutral-75);
+  display: inline-block;
+  width: 100%;
+
+  &:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
+  }
+}
+
+/* ══════ 图片区 ══════ */
+.card-image-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+
+  &.no-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 140px;
+    background: linear-gradient(135deg, #e8f4f8 0%, #f0f4f8 100%);
+
+    .no-image-icon {
+      font-size: 36px;
+      opacity: 0.5;
+    }
+  }
+}
+
+.card-image {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 0.4s var(--ease-out);
+
+  .feed-card:hover & {
+    transform: scale(1.03);
+  }
+}
+
+.image-count {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 12px;
 }
 
-.user-avatar {
+.type-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+
+  &.NORMAL {
+    background: rgba(26, 107, 138, 0.85);
+    color: #fff;
+  }
+  &.OBSERVATION {
+    background: rgba(45, 138, 94, 0.85);
+    color: #fff;
+  }
+  &.RECOGNITION {
+    background: rgba(224, 120, 80, 0.85);
+    color: #fff;
+  }
+  &.pending {
+    background: rgba(204, 138, 48, 0.85);
+    color: #fff;
+  }
+}
+
+/* ══════ 内容区 ══════ */
+.card-body {
+  padding: 12px 14px 10px;
+}
+
+.card-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--neutral-700);
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+/* ══════ 底部 ══════ */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--neutral-75);
+}
+
+.card-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.card-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: var(--gradient-ocean);
   color: #fff;
+  font-size: 11px;
   font-weight: 600;
-  font-size: 13px;
-}
-
-.user-meta {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: scale(1.1);
+  }
 }
 
-.username {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--neutral-700);
+.card-username {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neutral-600);
   cursor: pointer;
-  transition: color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   &:hover {
     color: var(--primary-main);
   }
 }
 
-.post-time {
-  font-size: 11px;
-  color: var(--neutral-400);
-}
-
-/* ══════ 内容 ══════ */
-.post-content {
-  margin-bottom: 8px;
-  cursor: pointer;
-
-  p {
-    font-size: 14px;
-    line-height: 1.55;
-    color: var(--neutral-700);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-}
-
-/* ══════ 图片 ══════ */
-.post-images {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  margin-bottom: 8px;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-
-  .single-image & {
-    grid-template-columns: 1fr;
-    max-width: 300px;
-  }
-}
-
-.post-image {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  transition: transform 0.2s;
-
-  &:hover {
-    transform: scale(1.02);
-  }
-
-  .single-image & {
-    aspect-ratio: 16 / 10;
-  }
-}
-
-/* ══════ 操作栏 ══════ */
-.post-actions {
-  display: flex;
-  gap: 16px;
-  padding-top: 8px;
-  border-top: 1px solid var(--neutral-75);
-}
-
-.action-btn {
+.card-actions {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+}
+
+.card-action {
+  display: flex;
+  align-items: center;
+  gap: 3px;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--neutral-400);
   padding: 3px 6px;
   border-radius: var(--radius-xs);
@@ -581,38 +611,182 @@ onMounted(() => {
     background: var(--primary-soft);
   }
 
-  &.active {
-    color: var(--accent-warm);
+  &.liked {
+    color: #ff4757;
+  }
+
+  &.delete:hover {
+    color: var(--danger);
+    background: rgba(196, 53, 53, 0.06);
   }
 }
 
 /* ══════ 分页 ══════ */
 .pagination-wrap {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 12px 0;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.page-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--neutral-600);
+  background: var(--surface-card);
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary-main);
+    color: var(--primary-main);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.page-info {
+  font-size: 13px;
+  color: var(--neutral-500);
 }
 
 /* ══════ 空状态 ══════ */
 .empty-state {
-  padding: 30px 0;
+  text-align: center;
+  padding: 80px 20px;
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  p {
+    font-size: 14px;
+    color: var(--neutral-400);
+  }
 }
 
-/* ══════ 上传提示 ══════ */
-.upload-tip {
+/* ══════ 发帖弹窗 ══════ */
+.create-textarea {
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid var(--neutral-100);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--neutral-700);
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s;
+
+  &:focus {
+    border-color: var(--primary-lighter);
+  }
+
+  &::placeholder {
+    color: var(--neutral-300);
+  }
+}
+
+.create-meta {
+  margin: 12px 0;
+}
+
+.create-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--neutral-100);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--neutral-600);
+  background: var(--surface-card);
+  outline: none;
+  cursor: pointer;
+
+  &:focus {
+    border-color: var(--primary-lighter);
+  }
+}
+
+.create-upload {
+  margin-bottom: 8px;
+}
+
+.upload-hint {
   font-size: 12px;
   color: var(--neutral-400);
-  margin-top: 6px;
+  margin-top: 4px;
+}
+
+.dialog-body {
+  padding: 0 4px;
+}
+
+.dialog-btn {
+  padding: 9px 28px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+
+  &.cancel {
+    background: var(--neutral-75);
+    color: var(--neutral-600);
+
+    &:hover {
+      background: var(--neutral-100);
+    }
+  }
+
+  &.confirm {
+    background: var(--gradient-ocean);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(26, 107, 138, 0.25);
+
+    &:hover:not(:disabled) {
+      box-shadow: 0 4px 14px rgba(26, 107, 138, 0.35);
+      transform: translateY(-1px);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
 }
 
 /* ══════ 响应式 ══════ */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .feed-page {
-    padding: 0 12px;
+    padding: 0 4px;
   }
 
-  .post-images {
-    grid-template-columns: repeat(2, 1fr);
+  .waterfall {
+    columns: 2;
+    column-gap: 10px;
+  }
+
+  .feed-card {
+    margin-bottom: 10px;
+  }
+
+  .card-body {
+    padding: 10px 10px 8px;
+  }
+
+  .card-text {
+    font-size: 12px;
   }
 }
 </style>

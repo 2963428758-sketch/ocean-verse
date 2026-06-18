@@ -12,7 +12,7 @@ import com.oceanverse.pojo.vo.UserListVO;
 
 public interface UserService {
 
-    LoginVO login(LoginDTO dto, String clientIp);
+    LoginVO login(LoginDTO dto, String clientIp, String userAgent);
 
     void register(RegisterDTO dto);
 

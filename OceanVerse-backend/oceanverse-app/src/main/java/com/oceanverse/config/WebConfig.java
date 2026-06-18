@@ -11,7 +11,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * Web 配置 — 拦截器、跨域
  * <p>
- * 拦截器执行顺序：JwtInterceptor → PermissionInterceptor
+ * 拦截器执行顺序：JwtInterceptor（解析 Token + 加载权限缓存）
+ * → PermissionInterceptor（@RequireRole / @RequirePermission 注解校验）
+ * <p>
+ * Security 仅作为被动壳（SecurityConfig 已全 permitAll），
+ * 所有鉴权由拦截器层实现。
  */
 @Configuration
 @RequiredArgsConstructor
@@ -22,7 +26,6 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 第一层：JWT 认证
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns(
@@ -35,18 +38,32 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/community/post/list",
                         "/api/community/post/{id}",
                         "/api/visual/**",
-                        "/api/message/test/**"
+                        "/api/message/test/**",
+                        "/api/ai/**"
                 );
 
-        // 第二层：角色/权限校验（@RequireRole、@RequirePermission）
         registry.addInterceptor(permissionInterceptor)
-                .addPathPatterns("/api/**");
+                .addPathPatterns("/api/**")
+                .excludePathPatterns(
+                        "/api/auth/login",
+                        "/api/auth/register",
+                        "/api/auth/refresh",
+                        "/api/species/list",
+                        "/api/species/{id}",
+                        "/api/species/statistics",
+                        "/api/species/{id}/distributions",
+                        "/api/community/post/list",
+                        "/api/community/post/{id}",
+                        "/api/visual/**",
+                        "/api/message/test/**",
+                        "/api/ai/**"
+                );
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("http://localhost:5173", "http://localhost:3000")
+                .allowedOriginPatterns("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)

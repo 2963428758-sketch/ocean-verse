@@ -1,60 +1,56 @@
 <template>
   <div class="notifications-page">
-    <el-page-header @back="$router.back()">
-      <template #content>
-        <span class="page-title">消息通知</span>
-      </template>
-      <template #extra>
-        <el-button v-if="notifications.length > 0" type="primary" link @click="handleMarkAllRead">
-          全部已读
-        </el-button>
-      </template>
-    </el-page-header>
+    <!-- 导航 -->
+    <div class="nav-bar">
+      <button class="back-btn" @click="$router.back()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="nav-title">消息通知</span>
+      <button v-if="notifications.length > 0" class="mark-all" @click="handleMarkAllRead">全部已读</button>
+    </div>
 
+    <!-- 通知列表 -->
     <div v-loading="loading" class="notification-list">
       <div v-if="notifications.length === 0 && !loading" class="empty-state">
-        <el-empty description="暂无通知" />
+        <div class="empty-icon">🔔</div>
+        <p>暂无通知</p>
       </div>
 
       <div
         v-for="item in notifications"
         :key="item.id"
-        class="notification-item"
+        class="notification-card"
         :class="{ unread: item.isRead === 0 }"
         @click="handleRead(item)"
       >
-        <div class="notification-icon" :class="typeClass(item.type)">
-          <el-icon v-if="item.type === 'LIKE'"><Star /></el-icon>
-          <el-icon v-else-if="item.type === 'COMMENT'"><ChatDotRound /></el-icon>
-          <el-icon v-else-if="item.type === 'FOLLOW'"><User /></el-icon>
-          <el-icon v-else><Bell /></el-icon>
+        <div class="noti-icon" :class="typeClass(item.type)">
+          <svg v-if="item.type === 'LIKE'" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <svg v-else-if="item.type === 'COMMENT'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <svg v-else-if="item.type === 'FOLLOW'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </div>
-        <div class="notification-body">
-          <div class="notification-header">
-            <span class="notification-title">{{ item.title }}</span>
-            <span class="notification-time">{{ formatTime(item.createTime) }}</span>
+        <div class="noti-body">
+          <div class="noti-top">
+            <span class="noti-title">{{ item.title }}</span>
+            <span class="noti-time">{{ formatTime(item.createTime) }}</span>
           </div>
-          <p class="notification-content">{{ item.content }}</p>
+          <p class="noti-content">{{ item.content }}</p>
         </div>
         <div v-if="item.isRead === 0" class="unread-dot"></div>
       </div>
     </div>
 
+    <!-- 分页 -->
     <div v-if="total > pageSize" class="pagination-wrap">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next"
-        @current-change="loadNotifications"
-      />
+      <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--; loadNotifications()">上一页</button>
+      <span class="page-info">{{ currentPage }} / {{ Math.ceil(total / pageSize) }}</span>
+      <button class="page-btn" :disabled="currentPage >= Math.ceil(total / pageSize)" @click="currentPage++; loadNotifications()">下一页</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { Star, ChatDotRound, User, Bell } from '@element-plus/icons-vue'
 import { getNotificationList, markNotificationRead, markAllRead } from '@/api/community'
 import type { CommunityNotification } from '@/types'
 
@@ -70,11 +66,8 @@ async function loadNotifications() {
     const res: any = await getNotificationList({ page: currentPage.value, size: pageSize })
     notifications.value = res.data?.records || res.data || []
     total.value = res.data?.total || 0
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { console.error(e) }
+  finally { loading.value = false }
 }
 
 async function handleRead(item: CommunityNotification) {
@@ -82,9 +75,7 @@ async function handleRead(item: CommunityNotification) {
     try {
       await markNotificationRead(item.id)
       item.isRead = 1
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
   }
 }
 
@@ -92,19 +83,11 @@ async function handleMarkAllRead() {
   try {
     await markAllRead()
     notifications.value.forEach(n => (n.isRead = 1))
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (e) { console.error(e) }
 }
 
 function typeClass(type: string): string {
-  const map: Record<string, string> = {
-    LIKE: 'type-like',
-    COMMENT: 'type-comment',
-    FOLLOW: 'type-follow',
-    SYSTEM: 'type-system',
-  }
-  return map[type] || 'type-system'
+  return { LIKE: 'type-like', COMMENT: 'type-comment', FOLLOW: 'type-follow', SYSTEM: 'type-system' }[type] || 'type-system'
 }
 
 function formatTime(time?: string): string {
@@ -114,11 +97,11 @@ function formatTime(time?: string): string {
   const diff = now.getTime() - date.getTime()
   const minutes = Math.floor(diff / 60000)
   if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes} 分钟前`
+  if (minutes < 60) return `${minutes}分钟前`
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} 小时前`
+  if (hours < 24) return `${hours}小时前`
   const days = Math.floor(hours / 24)
-  if (days < 30) return `${days} 天前`
+  if (days < 30) return `${days}天前`
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
@@ -129,126 +112,184 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .notifications-page {
-  max-width: 720px;
+  max-width: 680px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
 }
 
-.page-title {
-  font-size: 15px;
-  font-weight: 600;
+/* ══════ 导航栏 ══════ */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
-:deep(.el-page-header) {
-  margin-bottom: 12px;
+.back-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-card);
+  color: var(--neutral-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-xs);
+  &:hover { background: var(--neutral-75); transform: translateX(-2px); }
 }
 
+.nav-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--neutral-800);
+}
+
+.mark-all {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--primary-main);
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  &:hover { background: var(--primary-soft); }
+}
+
+/* ══════ 通知列表 ══════ */
 .notification-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
-.notification-item {
+.notification-card {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 14px 18px;
   background: var(--surface-card);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--neutral-100);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--neutral-75);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.25s var(--ease-out);
   position: relative;
 
   &:hover {
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-md);
     transform: translateY(-1px);
   }
 
   &.unread {
-    background: var(--primary-soft);
-    border-color: rgba(26, 107, 138, 0.1);
+    background: linear-gradient(135deg, #f0f8ff 0%, #f8fbff 100%);
+    border-color: rgba(26, 107, 138, 0.12);
   }
 }
 
-.notification-icon {
-  width: 32px;
-  height: 32px;
+.noti-icon {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 15px;
+  transition: transform 0.2s;
+
+  .notification-card:hover & {
+    transform: scale(1.05);
+  }
 
   &.type-like {
     background: #fef4ee;
-    color: var(--accent-warm);
+    color: #e07850;
   }
-
   &.type-comment {
-    background: var(--primary-soft);
-    color: var(--primary-main);
+    background: #e8f4f8;
+    color: #1a6b8a;
   }
-
   &.type-follow {
-    background: var(--accent-violet-soft);
-    color: var(--accent-violet);
+    background: #f0eefa;
+    color: #7c5cbf;
   }
-
   &.type-system {
     background: var(--neutral-75);
     color: var(--neutral-500);
   }
 }
 
-.notification-body {
+.noti-body {
   flex: 1;
   min-width: 0;
 }
 
-.notification-header {
+.noti-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
-.notification-title {
-  font-size: 13px;
+.noti-title {
+  font-size: 14px;
   font-weight: 600;
   color: var(--neutral-700);
 }
 
-.notification-time {
-  font-size: 11px;
+.noti-time {
+  font-size: 12px;
   color: var(--neutral-400);
   flex-shrink: 0;
 }
 
-.notification-content {
-  font-size: 12px;
+.noti-content {
+  font-size: 13px;
   color: var(--neutral-500);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .unread-dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--accent-warm);
+  background: #ff4757;
   flex-shrink: 0;
-  margin-top: 5px;
+  margin-top: 6px;
+  animation: pulseGlow 2s infinite;
 }
 
-.empty-state {
-  padding: 30px 0;
-}
-
+/* ══════ 分页 ══════ */
 .pagination-wrap {
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 12px 0;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.page-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--neutral-600);
+  background: var(--surface-card);
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover:not(:disabled) { border-color: var(--primary-main); color: var(--primary-main); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.page-info { font-size: 13px; color: var(--neutral-500); }
+
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+  p { font-size: 14px; color: var(--neutral-400); }
 }
 </style>

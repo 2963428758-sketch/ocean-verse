@@ -38,7 +38,8 @@ public class AuthController {
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto, HttpServletRequest request) {
         String clientIp = getClientIp(request);
-        return Result.success(userService.login(dto, clientIp));
+        String userAgent = request.getHeader("User-Agent");
+        return Result.success(userService.login(dto, clientIp, userAgent));
     }
 
     @Operation(summary = "用户注册", description = "新用户注册，自动分配默认角色 VIEWER")

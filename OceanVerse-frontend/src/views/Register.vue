@@ -28,15 +28,6 @@
           />
         </el-form-item>
 
-        <el-form-item prop="email">
-          <el-input
-            v-model="form.email"
-            prefix-icon="Message"
-            placeholder="邮箱"
-            size="large"
-          />
-        </el-form-item>
-
         <el-form-item prop="password">
           <el-input
             v-model="form.password"
@@ -60,6 +51,23 @@
           />
         </el-form-item>
 
+        <el-form-item prop="captchaCode">
+          <div class="captcha-row">
+            <el-input
+              v-model="form.captchaCode"
+              prefix-icon="Key"
+              placeholder="验证码答案"
+              size="large"
+              class="captcha-input"
+              @keyup.enter="handleRegister"
+            />
+            <span class="captcha-expression">{{ captchaText }}</span>
+            <el-button class="captcha-refresh" size="large" @click="refreshCaptcha" :loading="captchaLoading">
+              <el-icon><Refresh /></el-icon>
+            </el-button>
+          </div>
+        </el-form-item>
+
         <el-form-item>
           <el-button
             class="register-btn"
@@ -80,23 +88,42 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { register } from '@/api/auth'
+import { register, getCaptcha } from '@/api/auth'
 import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
 import oceanVideo from '@/assets/videos/ocean-bg.mp4'
 
 const router = useRouter()
 const formRef = ref()
 const loading = ref(false)
-const form = reactive({ username: '', email: '', password: '', confirmPassword: '' })
+const captchaLoading = ref(false)
+const form = reactive({ username: '', password: '', confirmPassword: '', captchaKey: '', captchaCode: '' })
+const captchaText = ref('')
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }, { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, message: '密码至少6位', trigger: 'blur' }],
-  confirmPassword: [{ required: true, message: '请确认密码', trigger: 'blur' }]
+  confirmPassword: [{ required: true, message: '请确认密码', trigger: 'blur' }],
+  captchaCode: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
 }
+
+async function refreshCaptcha() {
+  captchaLoading.value = true
+  try {
+    const res: any = await getCaptcha()
+    form.captchaKey = res.data.captchaKey
+    captchaText.value = res.data.expression
+    form.captchaCode = ''
+  } finally {
+    captchaLoading.value = false
+  }
+}
+
+onMounted(() => {
+  refreshCaptcha()
+})
 
 async function handleRegister() {
   await formRef.value?.validate()
@@ -106,7 +133,7 @@ async function handleRegister() {
   }
   loading.value = true
   try {
-    await register({ username: form.username, password: form.password, email: form.email })
+    await register({ username: form.username, password: form.password, captchaKey: form.captchaKey, captchaCode: form.captchaCode })
     ElMessage.success('注册成功，请登录')
     router.push('/login')
   } finally {
@@ -256,6 +283,43 @@ async function handleRegister() {
 
   :deep(.el-form-item) {
     margin-bottom: 18px;
+  }
+}
+
+/* ===== 验证码区域 ===== */
+.captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  .captcha-input {
+    flex: 1;
+  }
+
+  .captcha-expression {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  }
+
+  .captcha-refresh {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
   }
 }
 

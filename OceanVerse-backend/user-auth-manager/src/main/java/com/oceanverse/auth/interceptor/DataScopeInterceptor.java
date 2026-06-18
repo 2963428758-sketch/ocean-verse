@@ -1,5 +1,6 @@
 package com.oceanverse.auth.interceptor;
 
+import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
 import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor;
 import com.oceanverse.auth.context.UserContext;
 import com.oceanverse.common.constants.CommonConstants;
@@ -13,6 +14,7 @@ import org.apache.ibatis.session.RowBounds;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 数据权限拦截器 — MyBatis-Plus InnerInterceptor
@@ -40,6 +42,13 @@ public class DataScopeInterceptor implements InnerInterceptor {
             "species", "create_by"
     );
 
+    /** 预编译表名匹配正则以避免子串误匹配（如 species 误匹配 species_distribution） */
+    private static final Map<String, Pattern> TABLE_PATTERNS = TABLE_USER_COLUMN.keySet().stream()
+            .collect(java.util.stream.Collectors.toMap(
+                    t -> t,
+                    t -> Pattern.compile("\\b" + Pattern.quote(t) + "\\b", Pattern.CASE_INSENSITIVE)
+            ));
+
     @Override
     public void beforeQuery(Executor executor, MappedStatement ms,
                             Object parameter, RowBounds rowBounds,
@@ -55,8 +64,8 @@ public class DataScopeInterceptor implements InnerInterceptor {
             return;
         }
 
-        // 超级管理员不过滤
-        if (CommonConstants.ROLE_SUPER_ADMIN.equals(userInfo.getRole())) {
+        // 超级管理员不过滤（使用完整角色列表判断，而非单一 JWT role 字段）
+        if (UserContext.isSuperAdmin()) {
             return;
         }
 
@@ -68,12 +77,11 @@ public class DataScopeInterceptor implements InnerInterceptor {
 
         // 获取原始 SQL
         String originalSql = boundSql.getSql();
-        String sqlLower = originalSql.toLowerCase();
 
-        // 检查 SQL 中是否包含目标表名
+        // 使用单词边界正则精确匹配表名（避免 species 误匹配 species_distribution）
         boolean matched = false;
-        for (String tableName : TABLE_USER_COLUMN.keySet()) {
-            if (sqlLower.contains(tableName)) {
+        for (Map.Entry<String, Pattern> entry : TABLE_PATTERNS.entrySet()) {
+            if (entry.getValue().matcher(originalSql).find()) {
                 matched = true;
                 break;
             }
@@ -82,51 +90,22 @@ public class DataScopeInterceptor implements InnerInterceptor {
             return;
         }
 
-        // 从原始 SQL 中提取 ORDER BY 和 LIMIT/OFFSET，移到外层
-        // 确保数据权限过滤在分页之前执行
-        String coreSql = originalSql;
-        String suffix = "";
-
-        // 提取 LIMIT 子句（含 OFFSET）
-        int limitIdx = sqlLower.lastIndexOf(" limit ");
-        if (limitIdx > 0) {
-            coreSql = originalSql.substring(0, limitIdx);
-            suffix = originalSql.substring(limitIdx);
-        }
-
-        // 提取 ORDER BY 子句（在 LIMIT 之前）
-        String coreLower = coreSql.toLowerCase();
-        int orderByIdx = coreLower.lastIndexOf(" order by ");
-        if (orderByIdx > 0) {
-            String orderByClause = coreSql.substring(orderByIdx);
-            coreSql = coreSql.substring(0, orderByIdx);
-            suffix = orderByClause + suffix;
-        }
-
-        // 拼接数据权限条件：过滤在分页之前执行
+        // 拼接数据权限条件
         StringBuilder newSql = new StringBuilder();
         newSql.append("SELECT * FROM (");
-        newSql.append(coreSql);
+        newSql.append(originalSql);
         newSql.append(") _ds_tmp WHERE 1=1");
 
         for (Map.Entry<String, String> entry : TABLE_USER_COLUMN.entrySet()) {
-            if (coreLower.contains(entry.getKey())) {
+            if (TABLE_PATTERNS.get(entry.getKey()).matcher(originalSql).find()) {
                 newSql.append(" AND ").append(entry.getValue())
                         .append(" = ").append(userInfo.getUserId());
             }
         }
 
-        // 将 ORDER BY 和 LIMIT 追加到外层（过滤之后再排序和分页）
-        newSql.append(suffix);
-
-        // 通过反射修改 BoundSql 中的 SQL
-        try {
-            var sqlField = BoundSql.class.getDeclaredField("sql");
-            sqlField.setAccessible(true);
-            sqlField.set(boundSql, newSql.toString());
-        } catch (ReflectiveOperationException e) {
-            log.error("数据权限SQL改写失败", e);
-        }
+        // 通过 MyBatis-Plus PluginUtils 修改 BoundSql 中的 SQL
+        PluginUtils.MPBoundSql mpBoundSql = PluginUtils.mpBoundSql(boundSql);
+        mpBoundSql.sql(newSql.toString());
 
         log.debug("数据权限拦截生效: userId={}, dataScope={}", userInfo.getUserId(), dataScope);
     }

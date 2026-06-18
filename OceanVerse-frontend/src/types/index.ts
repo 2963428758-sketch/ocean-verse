@@ -52,6 +52,8 @@ export interface Species {
   updateTime?: string
   createBy?: number
   updateBy?: number
+  longitude?: number
+  latitude?: number
 }
 
 export interface SpeciesDistribution {
@@ -122,6 +124,8 @@ export interface CommunityPost {
   status: number
   createTime: string
   updateTime?: string
+  isLiked?: boolean
+  isFavorited?: boolean
 }
 
 export interface CommunityComment {

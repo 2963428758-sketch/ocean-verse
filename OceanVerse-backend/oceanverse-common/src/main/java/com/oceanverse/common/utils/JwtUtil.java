@@ -35,6 +35,10 @@ public class JwtUtil {
         return generateToken(userId, username, role, null, TOKEN_TYPE_REFRESH, REFRESH_TOKEN_EXPIRE_MS);
     }
 
+    public static String generateRefreshToken(Long userId, String username, String role, Integer dataScope) {
+        return generateToken(userId, username, role, dataScope, TOKEN_TYPE_REFRESH, REFRESH_TOKEN_EXPIRE_MS);
+    }
+
     private static String generateToken(Long userId, String username, String role,
                                         Integer dataScope, String tokenType, long expireMs) {
         var builder = Jwts.builder()

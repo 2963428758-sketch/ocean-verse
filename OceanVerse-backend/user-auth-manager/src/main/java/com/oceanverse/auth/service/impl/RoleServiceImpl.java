@@ -11,6 +11,7 @@ import com.oceanverse.common.utils.RedisUtil;
 import com.oceanverse.pojo.dto.AssignPermissionsDTO;
 import com.oceanverse.pojo.dto.RoleCreateDTO;
 import com.oceanverse.pojo.dto.RoleUpdateDTO;
+import com.oceanverse.pojo.entity.SysPermission;
 import com.oceanverse.pojo.entity.SysRole;
 import com.oceanverse.pojo.entity.SysRolePermission;
 import com.oceanverse.pojo.entity.SysUserRole;
@@ -21,8 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -48,8 +48,33 @@ public class RoleServiceImpl implements RoleService {
         wrapper.orderByAsc(SysRole::getId);
         Page<SysRole> result = roleMapper.selectPage(pageParam, wrapper);
 
-        List<RoleVO> voList = result.getRecords().stream()
-                .map(this::toRoleVO)
+        List<SysRole> records = result.getRecords();
+
+        // 批量查询所有角色的权限ID和权限名（解决 N+1）
+        List<Long> roleIds = records.stream().map(SysRole::getId).toList();
+        Map<Long, List<Long>> permIdsMap = new HashMap<>();
+        Map<Long, List<String>> permNamesMap = new HashMap<>();
+
+        if (!roleIds.isEmpty()) {
+            List<Map<String, Object>> permIdRows = permissionMapper.selectPermIdsByRoleIds(roleIds);
+            for (Map<String, Object> row : permIdRows) {
+                Long roleId = ((Number) row.get("role_id")).longValue();
+                Long permId = ((Number) row.get("permission_id")).longValue();
+                permIdsMap.computeIfAbsent(roleId, k -> new ArrayList<>()).add(permId);
+            }
+
+            List<Map<String, Object>> permNameRows = permissionMapper.selectPermNamesByRoleIds(roleIds);
+            for (Map<String, Object> row : permNameRows) {
+                Long roleId = ((Number) row.get("role_id")).longValue();
+                String name = (String) row.get("name");
+                permNamesMap.computeIfAbsent(roleId, k -> new ArrayList<>()).add(name);
+            }
+        }
+
+        List<RoleVO> voList = records.stream()
+                .map(role -> toRoleVO(role,
+                        permIdsMap.getOrDefault(role.getId(), List.of()),
+                        permNamesMap.getOrDefault(role.getId(), List.of())))
                 .toList();
 
         return PageResult.of(voList, result.getTotal(), page, size);
@@ -61,7 +86,12 @@ public class RoleServiceImpl implements RoleService {
         if (role == null) {
             throw BusinessException.notFound("角色");
         }
-        return toRoleVO(role);
+        List<Long> permIds = permissionMapper.selectPermIdsByRoleId(roleId);
+        List<String> permNames = permissionMapper.selectByRoleId(roleId)
+                .stream()
+                .map(SysPermission::getName)
+                .toList();
+        return toRoleVO(role, permIds, permNames);
     }
 
     @Override
@@ -189,7 +219,7 @@ public class RoleServiceImpl implements RoleService {
         }
     }
 
-    private RoleVO toRoleVO(SysRole role) {
+    private RoleVO toRoleVO(SysRole role, List<Long> permIds, List<String> permNames) {
         RoleVO vo = new RoleVO();
         vo.setId(role.getId());
         vo.setRoleCode(role.getRoleCode());
@@ -198,17 +228,8 @@ public class RoleServiceImpl implements RoleService {
         vo.setStatus(role.getStatus());
         vo.setCreateTime(role.getCreateTime());
         vo.setUpdateTime(role.getUpdateTime());
-
-        // 查询角色关联的权限
-        List<Long> permIds = permissionMapper.selectPermIdsByRoleId(role.getId());
         vo.setPermissionIds(permIds);
-
-        List<String> permNames = permissionMapper.selectByRoleId(role.getId())
-                .stream()
-                .map(p -> p.getName())
-                .toList();
         vo.setPermissionNames(permNames);
-
         return vo;
     }
 }

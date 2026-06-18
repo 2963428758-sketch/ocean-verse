@@ -50,7 +50,8 @@ public class SecurityConfig {
                         // 公开 API 接口（无需认证）
                         .requestMatchers(
                                 "/api/auth/login",
-                                "/api/auth/register"
+                                "/api/auth/register",
+                                "/api/captcha"
                         ).permitAll()
                         // 公开查询接口（无需认证）
                         .requestMatchers(

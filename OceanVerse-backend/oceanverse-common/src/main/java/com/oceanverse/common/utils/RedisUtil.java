@@ -56,6 +56,37 @@ public class RedisUtil {
     }
 
     /**
+     * 自增 1 并设置过期时间
+     */
+    public Long incr(String key, long ttlSeconds) {
+        Long val = redisTemplate.opsForValue().increment(key);
+        if (val != null && val == 1) {
+            expire(key, ttlSeconds, TimeUnit.SECONDS);
+        }
+        return val;
+    }
+
+    /**
+     * 获取 key 对应值并解析为 Long
+     */
+    public Long getLong(String key) {
+        String val = get(key);
+        if (val == null) return null;
+        try {
+            return Long.parseLong(val);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * 获取 key 剩余 TTL（秒），-1=永久，-2=不存在
+     */
+    public Long getExpire(String key) {
+        return redisTemplate.getExpire(key, TimeUnit.SECONDS);
+    }
+
+    /**
      * 缓存 JSON 对象（使用 Jackson）
      */
     public void setObject(String key, Object obj, long seconds) {
