@@ -41,6 +41,8 @@ export interface Species {
   morphology?: string
   ecology?: string
   videoUrl?: string
+  longitude?: number
+  latitude?: number
   conservationStatusId?: number
   isEndemic?: number
   isInvasive?: number
@@ -100,6 +102,7 @@ export interface SpeciesQueryDTO {
   family?: string
   iucnStatus?: string
   protectionLevel?: string
+  sort?: string
   page?: number
   size?: number
 }
@@ -174,4 +177,84 @@ export interface CommentCreateDTO {
   postId: number
   parentId?: number
   content: string
+}
+
+// ==================== 生态观测模块 ====================
+
+export interface Observation {
+  id?: number
+  observationCode: string
+  observationType: string
+  observationDate: string
+  observationTime?: string
+  durationMinutes?: number
+  locationId?: number
+  ecosystemId?: number
+  latitude?: number
+  longitude?: number
+  depth?: number
+  waterTemperature?: number
+  salinity?: number
+  ph?: number
+  weatherCondition?: string
+  seaCondition?: string
+  observerId?: number
+  observerName?: string
+  organization?: string
+  equipmentUsed?: string
+  notes?: string
+  createTime?: string
+  updateTime?: string
+}
+
+export interface ObservationQueryDTO {
+  keyword?: string
+  observationType?: string
+  startDate?: string
+  endDate?: string
+  ecosystemId?: number
+  locationId?: number
+  observerName?: string
+  sort?: string
+  page?: number
+  size?: number
+}
+
+export interface ObservationStatistics {
+  totalCount: number
+  byType: Record<string, number>
+  byEcosystem: Record<string, number>
+  recentCount: number
+  avgDuration?: number
+}
+
+export interface ObservationLocation {
+  id?: number
+  locationCode: string
+  locationName: string
+  locationType?: string
+  latitude?: number
+  longitude?: number
+  country?: string
+  province?: string
+  city?: string
+  ecosystemId?: number
+  createTime?: string
+  updateTime?: string
+}
+
+export interface Ecosystem {
+  id?: number
+  ecosystemCode: string
+  ecosystemName: string
+  ecosystemType?: string
+  description?: string
+  areaEstimate?: number
+  depthMin?: number
+  depthMax?: number
+  temperatureRange?: string
+  threatFactors?: string
+  conservationStatus?: string
+  createTime?: string
+  updateTime?: string
 }

@@ -25,6 +25,6 @@ public class ObservationLocation {
     private Long ecosystemId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    @TableLogic(delval = "#{id}")
+    @TableLogic
     private Long deleted;
 }

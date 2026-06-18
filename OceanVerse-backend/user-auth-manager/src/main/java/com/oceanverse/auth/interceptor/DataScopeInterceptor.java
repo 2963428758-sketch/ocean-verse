@@ -82,18 +82,42 @@ public class DataScopeInterceptor implements InnerInterceptor {
             return;
         }
 
-        // 拼接数据权限条件
+        // 从原始 SQL 中提取 ORDER BY 和 LIMIT/OFFSET，移到外层
+        // 确保数据权限过滤在分页之前执行
+        String coreSql = originalSql;
+        String suffix = "";
+
+        // 提取 LIMIT 子句（含 OFFSET）
+        int limitIdx = sqlLower.lastIndexOf(" limit ");
+        if (limitIdx > 0) {
+            coreSql = originalSql.substring(0, limitIdx);
+            suffix = originalSql.substring(limitIdx);
+        }
+
+        // 提取 ORDER BY 子句（在 LIMIT 之前）
+        String coreLower = coreSql.toLowerCase();
+        int orderByIdx = coreLower.lastIndexOf(" order by ");
+        if (orderByIdx > 0) {
+            String orderByClause = coreSql.substring(orderByIdx);
+            coreSql = coreSql.substring(0, orderByIdx);
+            suffix = orderByClause + suffix;
+        }
+
+        // 拼接数据权限条件：过滤在分页之前执行
         StringBuilder newSql = new StringBuilder();
         newSql.append("SELECT * FROM (");
-        newSql.append(originalSql);
+        newSql.append(coreSql);
         newSql.append(") _ds_tmp WHERE 1=1");
 
         for (Map.Entry<String, String> entry : TABLE_USER_COLUMN.entrySet()) {
-            if (sqlLower.contains(entry.getKey())) {
+            if (coreLower.contains(entry.getKey())) {
                 newSql.append(" AND ").append(entry.getValue())
                         .append(" = ").append(userInfo.getUserId());
             }
         }
+
+        // 将 ORDER BY 和 LIMIT 追加到外层（过滤之后再排序和分页）
+        newSql.append(suffix);
 
         // 通过反射修改 BoundSql 中的 SQL
         try {

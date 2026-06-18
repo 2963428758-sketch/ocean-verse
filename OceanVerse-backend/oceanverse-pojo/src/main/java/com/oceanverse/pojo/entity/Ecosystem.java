@@ -25,6 +25,6 @@ public class Ecosystem {
     private String conservationStatus;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    @TableLogic(delval = "#{id}")
+    @TableLogic
     private Long deleted;
 }

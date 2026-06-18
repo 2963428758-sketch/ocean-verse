@@ -35,6 +35,6 @@ public class Observation {
     private String notes;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    @TableLogic(delval = "#{id}")
+    @TableLogic
     private Long deleted;
 }

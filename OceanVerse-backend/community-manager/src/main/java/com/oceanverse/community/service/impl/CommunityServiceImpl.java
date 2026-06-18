@@ -10,6 +10,7 @@ import com.oceanverse.common.utils.JwtUtil;
 import com.oceanverse.common.utils.OssUtil;
 import com.oceanverse.common.utils.RedisUtil;
 import com.oceanverse.community.mapper.*;
+import com.oceanverse.message.mapper.SysNotificationMapper;
 import com.oceanverse.community.service.CommunityService;
 import com.oceanverse.pojo.dto.CommentCreateDTO;
 import com.oceanverse.pojo.dto.PostCreateDTO;
@@ -43,7 +44,7 @@ public class CommunityServiceImpl implements CommunityService {
     private final OssUtil ossUtil;
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void createPost(PostCreateDTO dto, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityPost post = new CommunityPost();
@@ -64,7 +65,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deletePost(Long id, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityPost post = postMapper.selectById(id);
@@ -115,7 +116,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void createComment(CommentCreateDTO dto, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityComment comment = new CommunityComment();
@@ -165,7 +166,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Object toggleLike(String targetType, Long targetId, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityLike existing = likeMapper.selectOne(
@@ -207,7 +208,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Object toggleFavorite(String targetType, Long targetId, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityFavorite existing = favoriteMapper.selectOne(
@@ -291,7 +292,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public Object toggleFollow(Long followUserId, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         if (userId.equals(followUserId)) {
@@ -413,7 +414,7 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteComment(Long commentId, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityComment comment = commentMapper.selectById(commentId);

@@ -10,6 +10,11 @@ export const useUserStore = defineStore('user', () => {
   const username = ref(localStorage.getItem('username') || '')
   const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
   const role = ref(localStorage.getItem('role') || '')
+  const nickname = ref('')
+  const email = ref('')
+  const phone = ref('')
+  const realName = ref('')
+  const createTime = ref('')
   const infoLoaded = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
@@ -29,16 +34,26 @@ export const useUserStore = defineStore('user', () => {
     infoLoaded.value = true
   }
 
+  function setUserInfo(data: Record<string, any>) {
+    if (!data) return
+    userId.value = data.id ?? data.userId ?? userId.value
+    username.value = data.username ?? username.value
+    avatarUrl.value = data.avatarUrl ?? data.avatar_url ?? avatarUrl.value
+    role.value = data.role ?? role.value
+    nickname.value = data.nickname ?? ''
+    email.value = data.email ?? ''
+    phone.value = data.phone ?? ''
+    realName.value = data.realName ?? data.real_name ?? ''
+    createTime.value = data.createTime ?? data.create_time ?? ''
+  }
+
   async function fetchUserInfo() {
     if (infoLoaded.value) return
     try {
       const res: any = await http.get('/auth/info')
       const data = res.data || res
       if (data) {
-        userId.value = data.id ?? data.userId ?? userId.value
-        username.value = data.username ?? username.value
-        avatarUrl.value = data.avatarUrl ?? data.avatar_url ?? avatarUrl.value
-        role.value = data.role ?? role.value
+        setUserInfo(data)
         localStorage.setItem('userId', String(userId.value))
         localStorage.setItem('username', username.value)
         if (avatarUrl.value) localStorage.setItem('avatarUrl', avatarUrl.value)
@@ -57,6 +72,11 @@ export const useUserStore = defineStore('user', () => {
     username.value = ''
     avatarUrl.value = ''
     role.value = ''
+    nickname.value = ''
+    email.value = ''
+    phone.value = ''
+    realName.value = ''
+    createTime.value = ''
     infoLoaded.value = false
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
@@ -66,5 +86,5 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('role')
   }
 
-  return { token, userId, username, avatarUrl, role, isLoggedIn, infoLoaded, setLoginInfo, fetchUserInfo, logout }
+  return { token, userId, username, avatarUrl, role, nickname, email, phone, realName, createTime, isLoggedIn, infoLoaded, setLoginInfo, setUserInfo, fetchUserInfo, logout }
 })

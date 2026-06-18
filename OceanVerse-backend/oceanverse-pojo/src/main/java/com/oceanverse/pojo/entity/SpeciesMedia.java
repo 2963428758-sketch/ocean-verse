@@ -28,6 +28,6 @@ public class SpeciesMedia {
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    @TableLogic(delval = "#{id}")
+    @TableLogic
     private Long deleted;
 }
