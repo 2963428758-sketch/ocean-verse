@@ -16,6 +16,7 @@ import org.springframework.context.annotation.ComponentScan;
         "com.oceanverse.eco.mapper",
         "com.oceanverse.ai.mapper",
         "com.oceanverse.community.mapper",
+        "com.oceanverse.message.mapper",
         "com.oceanverse.visual.mapper"
 })
 public class OceanVerseApplication {

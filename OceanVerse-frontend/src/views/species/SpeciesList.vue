@@ -451,6 +451,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules, UploadFile, UploadInstance } from 'element-plus'
 import {
   getSpeciesList,
+  getSpeciesDetail,
   createSpecies,
   updateSpecies,
   deleteSpecies,
@@ -686,6 +687,15 @@ function openAddDialog() {
 async function openEditDialog(row: Species) {
   isEdit.value = true
   Object.assign(formData, { ...row })
+  // 获取完整物种详情（含经纬度，列表接口不返回）
+  try {
+    const detailRes: any = await getSpeciesDetail(row.id!)
+    if (detailRes.data) {
+      Object.assign(formData, detailRes.data)
+    }
+  } catch {
+    // 详情加载失败时仍使用列表数据
+  }
   uploadFileList.value = []
   pendingUploadFiles.value = []
   // 加载已有图片

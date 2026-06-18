@@ -34,18 +34,18 @@ public interface VisualMapper extends BaseMapper<Species> {
             "sd.region_name, sd.country, sd.province, sd.latitude, sd.longitude, sd.distribution_type, sd.habitat_type, " +
             "sm.file_url as image_url " +
             "FROM species_distribution sd " +
-            "LEFT JOIN species s ON sd.species_id = s.id " +
+            "LEFT JOIN species s ON sd.species_id = s.id AND s.deleted = 0 " +
             "LEFT JOIN species_media sm ON sm.species_id = s.id AND sm.is_primary = 1 AND sm.deleted = 0 " +
-            "WHERE sd.deleted = 0")
+            "WHERE sd.deleted = 0 AND s.id IS NOT NULL")
     List<Map<String, Object>> getSpeciesDistributionAll();
 
     @Select("SELECT sd.id, sd.species_id, s.chinese_name, s.scientific_name, s.iucn_status, s.description, " +
             "sd.region_name, sd.country, sd.province, sd.latitude, sd.longitude, sd.distribution_type, sd.habitat_type, " +
             "sm.file_url as image_url " +
             "FROM species_distribution sd " +
-            "LEFT JOIN species s ON sd.species_id = s.id " +
+            "LEFT JOIN species s ON sd.species_id = s.id AND s.deleted = 0 " +
             "LEFT JOIN species_media sm ON sm.species_id = s.id AND sm.is_primary = 1 AND sm.deleted = 0 " +
-            "WHERE sd.deleted = 0 AND sd.species_id = #{speciesId}")
+            "WHERE sd.deleted = 0 AND s.id IS NOT NULL AND sd.species_id = #{speciesId}")
     List<Map<String, Object>> getSpeciesDistributionBySpeciesId(@Param("speciesId") Long speciesId);
 
     @Select("SELECT DATE_FORMAT(observation_date, '%Y-%m') as period, COUNT(*) as count " +

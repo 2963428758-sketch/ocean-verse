@@ -65,6 +65,15 @@ public class SpeciesServiceImpl implements SpeciesService {
         if (species == null) {
             throw BusinessException.notFound("物种");
         }
+        // 查询主分布记录以填充经纬度
+        LambdaQueryWrapper<SpeciesDistribution> distWrapper = new LambdaQueryWrapper<>();
+        distWrapper.eq(SpeciesDistribution::getSpeciesId, id)
+                .eq(SpeciesDistribution::getIsPrimary, 1);
+        SpeciesDistribution primaryDist = speciesDistributionMapper.selectOne(distWrapper);
+        if (primaryDist != null) {
+            species.setLongitude(primaryDist.getLongitude());
+            species.setLatitude(primaryDist.getLatitude());
+        }
         return species;
     }
 
@@ -134,6 +143,35 @@ public class SpeciesServiceImpl implements SpeciesService {
         species.setUpdateTime(LocalDateTime.now());
         speciesMapper.updateById(species);
         log.info("更新物种: id={}, chineseName={}", species.getId(), species.getChineseName());
+
+        // 如果前端传入了经纬度，更新或创建主分布记录
+        if (species.getLongitude() != null && species.getLatitude() != null) {
+            LambdaQueryWrapper<SpeciesDistribution> distWrapper = new LambdaQueryWrapper<>();
+            distWrapper.eq(SpeciesDistribution::getSpeciesId, species.getId())
+                    .eq(SpeciesDistribution::getIsPrimary, 1);
+            SpeciesDistribution primaryDist = speciesDistributionMapper.selectOne(distWrapper);
+            if (primaryDist != null) {
+                primaryDist.setLongitude(species.getLongitude());
+                primaryDist.setLatitude(species.getLatitude());
+                primaryDist.setUpdateTime(LocalDateTime.now());
+                speciesDistributionMapper.updateById(primaryDist);
+                log.info("更新物种主分布记录: speciesId={}, 经度={}, 纬度={}",
+                        species.getId(), species.getLongitude(), species.getLatitude());
+            } else {
+                SpeciesDistribution distribution = new SpeciesDistribution();
+                distribution.setSpeciesId(species.getId());
+                distribution.setDistributionType("NATIVE");
+                distribution.setLongitude(species.getLongitude());
+                distribution.setLatitude(species.getLatitude());
+                distribution.setIsPrimary(1);
+                distribution.setDistributionStatus("COMMON");
+                distribution.setCreateTime(LocalDateTime.now());
+                distribution.setUpdateTime(LocalDateTime.now());
+                speciesDistributionMapper.insert(distribution);
+                log.info("创建物种主分布记录: speciesId={}, 经度={}, 纬度={}",
+                        species.getId(), species.getLongitude(), species.getLatitude());
+            }
+        }
     }
 
     @Override
@@ -143,6 +181,14 @@ public class SpeciesServiceImpl implements SpeciesService {
             throw BusinessException.notFound("物种");
         }
         speciesMapper.deleteById(id);
+        // 级联软删除关联的分布记录，避免可视化地图仍显示已删除物种的分布点
+        // 必须逐条 deleteById，因为 @TableLogic(delval = "#{id}") 在 wrapper 批量删除时无法解析实体 id
+        LambdaQueryWrapper<SpeciesDistribution> distWrapper = new LambdaQueryWrapper<>();
+        distWrapper.eq(SpeciesDistribution::getSpeciesId, id);
+        List<SpeciesDistribution> distributions = speciesDistributionMapper.selectList(distWrapper);
+        for (SpeciesDistribution dist : distributions) {
+            speciesDistributionMapper.deleteById(dist.getId());
+        }
         log.info("删除物种: id={}, chineseName={}", id, existing.getChineseName());
     }
 

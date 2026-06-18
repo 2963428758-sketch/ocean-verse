@@ -50,6 +50,8 @@ export interface Species {
   updateTime?: string
   createBy?: number
   updateBy?: number
+  longitude?: number
+  latitude?: number
 }
 
 export interface SpeciesDistribution {
