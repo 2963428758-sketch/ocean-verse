@@ -4,29 +4,51 @@ import http from '@/utils/http'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
+  const refreshToken = ref(localStorage.getItem('refreshToken') || '')
   const userId = ref<number | null>(
     localStorage.getItem('userId') ? Number(localStorage.getItem('userId')) : null
   )
   const username = ref(localStorage.getItem('username') || '')
+  const nickname = ref('')
+  const email = ref('')
+  const phone = ref('')
+  const realName = ref('')
   const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
   const role = ref(localStorage.getItem('role') || '')
+  const createTime = ref('')
   const infoLoaded = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
 
-  function setLoginInfo(data: { accessToken: string; refreshToken?: string; userId: number; username: string; avatarUrl?: string; role?: string }) {
+  function setLoginInfo(data: { accessToken: string; refreshToken: string; userId: number; username: string; avatarUrl?: string; role?: string; nickname?: string }) {
     token.value = data.accessToken
+    refreshToken.value = data.refreshToken
     userId.value = data.userId
     username.value = data.username
+    nickname.value = data.nickname || ''
     avatarUrl.value = data.avatarUrl || ''
     role.value = data.role || ''
     localStorage.setItem('token', data.accessToken)
+    localStorage.setItem('refreshToken', data.refreshToken)
     localStorage.setItem('userId', String(data.userId))
     localStorage.setItem('username', data.username)
     if (data.avatarUrl) localStorage.setItem('avatarUrl', data.avatarUrl)
     if (data.role) localStorage.setItem('role', data.role)
-    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken)
     infoLoaded.value = true
+  }
+
+  function setUserInfo(data: { id?: number; userId?: number; username?: string; nickname?: string; email?: string; phone?: string; realName?: string; avatarUrl?: string; role?: string; createTime?: string }) {
+    userId.value = data.id ?? data.userId ?? userId.value
+    username.value = data.username ?? username.value
+    nickname.value = data.nickname ?? ''
+    email.value = data.email ?? ''
+    phone.value = data.phone ?? ''
+    realName.value = data.realName ?? ''
+    avatarUrl.value = data.avatarUrl ?? avatarUrl.value
+    role.value = data.role ?? role.value
+    createTime.value = data.createTime ?? ''
+    if (data.avatarUrl) localStorage.setItem('avatarUrl', data.avatarUrl)
+    if (data.role) localStorage.setItem('role', data.role)
   }
 
   async function fetchUserInfo() {
@@ -35,14 +57,7 @@ export const useUserStore = defineStore('user', () => {
       const res: any = await http.get('/auth/info')
       const data = res.data || res
       if (data) {
-        userId.value = data.id ?? data.userId ?? userId.value
-        username.value = data.username ?? username.value
-        avatarUrl.value = data.avatarUrl ?? data.avatar_url ?? avatarUrl.value
-        role.value = data.role ?? role.value
-        localStorage.setItem('userId', String(userId.value))
-        localStorage.setItem('username', username.value)
-        if (avatarUrl.value) localStorage.setItem('avatarUrl', avatarUrl.value)
-        if (role.value) localStorage.setItem('role', role.value)
+        setUserInfo(data)
       }
     } catch {
       // token invalid, ignore
@@ -53,10 +68,16 @@ export const useUserStore = defineStore('user', () => {
 
   function logout() {
     token.value = ''
+    refreshToken.value = ''
     userId.value = null
     username.value = ''
+    nickname.value = ''
+    email.value = ''
+    phone.value = ''
+    realName.value = ''
     avatarUrl.value = ''
     role.value = ''
+    createTime.value = ''
     infoLoaded.value = false
     localStorage.removeItem('token')
     localStorage.removeItem('refreshToken')
@@ -66,5 +87,5 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('role')
   }
 
-  return { token, userId, username, avatarUrl, role, isLoggedIn, infoLoaded, setLoginInfo, fetchUserInfo, logout }
+  return { token, refreshToken, userId, username, nickname, email, phone, realName, avatarUrl, role, createTime, isLoggedIn, infoLoaded, setLoginInfo, setUserInfo, fetchUserInfo, logout }
 })

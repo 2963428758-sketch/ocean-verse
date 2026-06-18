@@ -88,7 +88,14 @@ async function handleLogin() {
   loading.value = true
   try {
     const res: any = await login(form)
-    userStore.setLoginInfo(res.data)
+    userStore.setLoginInfo({
+      accessToken: res.data.accessToken,
+      refreshToken: res.data.refreshToken,
+      userId: res.data.userId,
+      username: res.data.username,
+      avatarUrl: res.data.avatarUrl,
+      role: res.data.role
+    })
     ElMessage.success('登录成功')
     router.push('/dashboard')
   } finally {

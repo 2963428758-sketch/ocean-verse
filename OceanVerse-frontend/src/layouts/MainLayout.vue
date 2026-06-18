@@ -110,32 +110,44 @@ onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
 })
 
-const menuItems = [
-  { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
-  { path: '/species', title: '物种百科', icon: 'Collection', children: [
-    { path: '/species/list', title: '物种列表', icon: 'Collection' }
-  ]},
-  { path: '/observation', title: '观测记录', icon: 'Compass', children: [
-    { path: '/observation/list', title: '观测列表', icon: 'Notebook' }
-  ]},
-  { path: '/visualization', title: '数据可视化', icon: 'DataAnalysis', children: [
-    { path: '/visualization/statistics', title: '数据统计', icon: 'TrendCharts' },
-    { path: '/visualization/map', title: '分布地图', icon: 'MapLocation' }
-  ]},
-  { path: '/ai', title: 'AI 服务', icon: 'MagicStick', children: [
-    { path: '/ai/recognize', title: '图像识别', icon: 'Camera' },
-    { path: '/ai/chat', title: '智能问答', icon: 'ChatLineSquare' }
-  ]},
-  { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
-    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
-    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
-    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' }
-  ]},
-  { path: '/admin', title: '系统管理', icon: 'Setting', children: [
-    { path: '/admin/users', title: '用户管理', icon: 'User' },
-    { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' }
-  ]}
-]
+const menuItems = computed(() => {
+  const items = [
+    { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
+    { path: '/species', title: '物种百科', icon: 'Collection', children: [
+      { path: '/species/list', title: '物种列表', icon: 'Collection' }
+    ]},
+    { path: '/observation', title: '观测记录', icon: 'Compass', children: [
+      { path: '/observation/list', title: '观测列表', icon: 'Notebook' }
+    ]},
+    { path: '/visualization', title: '数据可视化', icon: 'DataAnalysis', children: [
+      { path: '/visualization/statistics', title: '数据统计', icon: 'TrendCharts' },
+      { path: '/visualization/map', title: '分布地图', icon: 'MapLocation' }
+    ]},
+    { path: '/ai', title: 'AI 服务', icon: 'MagicStick', children: [
+      { path: '/ai/recognize', title: '图像识别', icon: 'Camera' },
+      { path: '/ai/chat', title: '智能问答', icon: 'ChatLineSquare' }
+    ]},
+    { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
+      { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+      { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
+      { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' }
+    ]},
+  ]
+
+  // 仅管理员可见系统管理菜单
+  if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
+    items.push({
+      path: '/admin', title: '系统管理', icon: 'Setting', children: [
+        { path: '/admin/users', title: '用户管理', icon: 'User' },
+        { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' },
+        { path: '/admin/login-log', title: '登录日志', icon: 'Document' },
+        { path: '/admin/operation-log', title: '操作日志', icon: 'Tickets' }
+      ]
+    })
+  }
+
+  return items
+})
 
 const breadcrumbs = computed(() => {
   return route.matched.filter(r => r.meta?.title).map(r => r.meta.title as string)

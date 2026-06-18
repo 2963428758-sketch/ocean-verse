@@ -44,6 +44,11 @@ public final class CommonConstants {
     public static final int LOGIN_FAIL_MAX_ATTEMPTS = 5;
     public static final long LOGIN_LOCK_SECONDS = 15 * 60L;
 
+    // ==================== Token / 缓存 TTL（秒） ====================
+    public static final long ACCESS_TOKEN_TTL = 7200L;
+    public static final long REFRESH_TOKEN_TTL = 604800L;
+    public static final long PERMS_CACHE_TTL = 7200L;
+
     // ==================== 超级管理员角色标识 ====================
     public static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 
@@ -84,6 +89,17 @@ public final class CommonConstants {
     public static final String ACTION_STATS_UPDATE = "STATS_UPDATE";
     public static final String ACTION_LOG_ARCHIVE = "LOG_ARCHIVE";
     public static final String ACTION_USER_REGISTER = "USER_REGISTER";
+
+    // ==================== 认证事件类型（Stream 消息） ====================
+    public static final String AUTH_FORCE_LOGOUT = "AUTH_FORCE_LOGOUT";
+    public static final String AUTH_LOGIN_ALERT = "AUTH_LOGIN_ALERT";
+    public static final String AUTH_PASSWORD_CHANGE = "AUTH_PASSWORD_CHANGE";
+
+    // ==================== 操作日志类型 ====================
+    public static final String OP_TYPE_CREATE = "CREATE";
+    public static final String OP_TYPE_UPDATE = "UPDATE";
+    public static final String OP_TYPE_DELETE = "DELETE";
+    public static final String OP_TYPE_OTHER = "OTHER";
 
     // ==================== 通用响应码 ====================
     public static final int CODE_SUCCESS = 200;

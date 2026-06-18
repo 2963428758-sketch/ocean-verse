@@ -47,4 +47,7 @@ public class UserListVO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "锁定剩余秒数（仅 status=2 时有值）")
+    private Long lockRemainingSeconds;
 }

@@ -13,6 +13,7 @@ import org.apache.ibatis.session.RowBounds;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * 数据权限拦截器 — MyBatis-Plus InnerInterceptor
@@ -40,6 +41,13 @@ public class DataScopeInterceptor implements InnerInterceptor {
             "species", "create_by"
     );
 
+    /** 预编译表名匹配正则以避免子串误匹配（如 species 误匹配 species_distribution） */
+    private static final Map<String, Pattern> TABLE_PATTERNS = TABLE_USER_COLUMN.keySet().stream()
+            .collect(java.util.stream.Collectors.toMap(
+                    t -> t,
+                    t -> Pattern.compile("\\b" + Pattern.quote(t) + "\\b", Pattern.CASE_INSENSITIVE)
+            ));
+
     @Override
     public void beforeQuery(Executor executor, MappedStatement ms,
                             Object parameter, RowBounds rowBounds,
@@ -55,8 +63,8 @@ public class DataScopeInterceptor implements InnerInterceptor {
             return;
         }
 
-        // 超级管理员不过滤
-        if (CommonConstants.ROLE_SUPER_ADMIN.equals(userInfo.getRole())) {
+        // 超级管理员不过滤（使用完整角色列表判断，而非单一 JWT role 字段）
+        if (UserContext.isSuperAdmin()) {
             return;
         }
 
@@ -68,12 +76,11 @@ public class DataScopeInterceptor implements InnerInterceptor {
 
         // 获取原始 SQL
         String originalSql = boundSql.getSql();
-        String sqlLower = originalSql.toLowerCase();
 
-        // 检查 SQL 中是否包含目标表名
+        // 使用单词边界正则精确匹配表名（避免 species 误匹配 species_distribution）
         boolean matched = false;
-        for (String tableName : TABLE_USER_COLUMN.keySet()) {
-            if (sqlLower.contains(tableName)) {
+        for (Map.Entry<String, Pattern> entry : TABLE_PATTERNS.entrySet()) {
+            if (entry.getValue().matcher(originalSql).find()) {
                 matched = true;
                 break;
             }
@@ -89,7 +96,7 @@ public class DataScopeInterceptor implements InnerInterceptor {
         newSql.append(") _ds_tmp WHERE 1=1");
 
         for (Map.Entry<String, String> entry : TABLE_USER_COLUMN.entrySet()) {
-            if (sqlLower.contains(entry.getKey())) {
+            if (TABLE_PATTERNS.get(entry.getKey()).matcher(originalSql).find()) {
                 newSql.append(" AND ").append(entry.getValue())
                         .append(" = ").append(userInfo.getUserId());
             }

@@ -5,6 +5,7 @@ import com.oceanverse.pojo.entity.SysPermission;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface PermissionMapper extends BaseMapper<SysPermission> {
@@ -33,4 +34,30 @@ public interface PermissionMapper extends BaseMapper<SysPermission> {
     @Select("SELECT rp.permission_id FROM sys_role_permission rp " +
             "WHERE rp.role_id = #{roleId}")
     List<Long> selectPermIdsByRoleId(@Param("roleId") Long roleId);
+
+    /**
+     * 批量查询多个角色的权限ID映射（解决 N+1 问题）
+     */
+    @Select("<script>" +
+            "SELECT rp.role_id, rp.permission_id FROM sys_role_permission rp " +
+            "WHERE rp.role_id IN " +
+            "<foreach item='id' collection='roleIds' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    List<Map<String, Object>> selectPermIdsByRoleIds(@Param("roleIds") List<Long> roleIds);
+
+    /**
+     * 批量查询多个角色的权限名称映射
+     */
+    @Select("<script>" +
+            "SELECT rp.role_id, p.name FROM sys_role_permission rp " +
+            "INNER JOIN sys_permission p ON rp.permission_id = p.id " +
+            "WHERE rp.role_id IN " +
+            "<foreach item='id' collection='roleIds' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            " ORDER BY p.sort ASC" +
+            "</script>")
+    List<Map<String, Object>> selectPermNamesByRoleIds(@Param("roleIds") List<Long> roleIds);
 }
