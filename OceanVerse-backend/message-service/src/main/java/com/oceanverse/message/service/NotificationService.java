@@ -1,15 +1,14 @@
 package com.oceanverse.message.service;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.message.dto.NotificationMessage;
-import com.oceanverse.community.mapper.SysNotificationMapper;
 import com.oceanverse.message.websocket.NotificationWebSocket;
 import com.oceanverse.pojo.entity.SysNotification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.oceanverse.message.mapper.SysNotificationMapper;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
