@@ -1,23 +1,34 @@
 package com.oceanverse.ai.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.oceanverse.ai.eval.AiEvalService;
+import com.oceanverse.ai.ratelimit.AiRateLimiter;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.ChatDTO;
+import com.oceanverse.pojo.entity.ImageRecognition;
+import com.oceanverse.pojo.entity.QaHistory;
 import com.oceanverse.ai.rag.KnowledgeBaseService;
 import com.oceanverse.ai.service.AiService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * AI 智能服务接口 — 成员B/E
  * 包含：图像识别、智能问答、数据分析
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
@@ -26,14 +37,22 @@ public class AiController {
     private final AiService aiService;
     private final KnowledgeBaseService knowledgeBaseService;
     private final ObjectMapper objectMapper;
+    private final AiRateLimiter aiRateLimiter;
+    private final AiEvalService aiEvalService;
 
     /**
      * 图像识别 — 上传照片识别海洋生物
      */
     @PostMapping("/recognize")
-    public Result<Object> recognize(@RequestParam("file") MultipartFile file,
+    public Result<Map<String, Object>> recognize(@RequestParam("file") MultipartFile file,
                                      @RequestParam(value = "latitude", required = false) Double latitude,
                                      @RequestParam(value = "longitude", required = false) Double longitude) {
+        // 限流检查（任务 3.2）
+        Long userId = getCurrentUserId();
+        if (!aiRateLimiter.isAllowed(userId, "recognition")) {
+            return Result.fail("今日识别次数已用完，请明天再试");
+        }
+        aiRateLimiter.recordCall(userId, "recognition");
         return Result.success(aiService.recognizeImage(file, latitude, longitude));
     }
 
@@ -49,6 +68,22 @@ public class AiController {
     @PostMapping("/chat")
     public SseEmitter chat(@Valid @RequestBody ChatDTO dto) {
         SseEmitter emitter = new SseEmitter(120_000L);
+
+        // 限流检查（任务 3.2）
+        Long userId = getCurrentUserId();
+        if (!aiRateLimiter.isAllowed(userId, "chat")) {
+            try {
+                String errorMsg = objectMapper.writeValueAsString("今日问答次数已用完，请明天再试");
+                emitter.send(SseEmitter.event().data(errorMsg));
+                emitter.send(SseEmitter.event().data("[ERROR]"));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+            return emitter;
+        }
+        aiRateLimiter.recordCall(userId, "chat");
+
         AtomicReference<Long> savedIdRef = new AtomicReference<>();
 
         Disposable subscription = aiService.chatStream(dto, savedIdRef)
@@ -95,7 +130,7 @@ public class AiController {
      * 获取识别历史
      */
     @GetMapping("/recognition/history")
-    public Result<Object> getRecognitionHistory(
+    public Result<Page<ImageRecognition>> getRecognitionHistory(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
         return Result.success(aiService.getRecognitionHistory(page, size));
@@ -105,7 +140,7 @@ public class AiController {
      * 获取问答历史
      */
     @GetMapping("/chat/history")
-    public Result<Object> getChatHistory(
+    public Result<Page<QaHistory>> getChatHistory(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "10") Integer size) {
         return Result.success(aiService.getChatHistory(page, size));
@@ -146,5 +181,39 @@ public class AiController {
     public Result<Void> rebuildKnowledgeBase() {
         knowledgeBaseService.rebuildIndex();
         return Result.success();
+    }
+
+    /**
+     * 查询剩余调用配额（任务 3.2）
+     */
+    @GetMapping("/quota")
+    public Result<Object> getQuota() {
+        Long userId = getCurrentUserId();
+        Map<String, Object> quota = new HashMap<>();
+        quota.put("chatRemaining", aiRateLimiter.getRemainingQuota(userId, "chat"));
+        quota.put("recognitionRemaining", aiRateLimiter.getRemainingQuota(userId, "recognition"));
+        return Result.success(quota);
+    }
+
+    /**
+     * AI 效果评估统计（任务 3.3）
+     */
+    @GetMapping("/eval/stats")
+    public Result<Object> getEvalStats() {
+        return Result.success(aiEvalService.getEvalStats());
+    }
+
+    // ==================== 辅助方法 ====================
+
+    private Long getCurrentUserId() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof Long userId) {
+                return userId;
+            }
+        } catch (Exception e) {
+            log.debug("获取当前用户 ID 失败（可能为匿名访问）: {}", e.getMessage());
+        }
+        return null;
     }
 }

@@ -154,35 +154,58 @@ public class SpeciesServiceImpl implements SpeciesService {
         long totalCount = speciesMapper.selectCount(null);
         stats.put("totalCount", totalCount);
 
-        // 按保护等级统计
-        List<Species> allSpecies = speciesMapper.selectList(null);
-        Map<String, Long> byProtectionLevel = allSpecies.stream()
-                .filter(s -> StringUtils.hasText(s.getProtectionLevel()))
-                .collect(Collectors.groupingBy(Species::getProtectionLevel, Collectors.counting()));
+        // 按保护等级统计（数据库 GROUP BY）
+        List<Map<String, Object>> protectionLevelResult = speciesMapper.selectMaps(
+                new LambdaQueryWrapper<Species>()
+                        .select(Species::getProtectionLevel)
+                        .isNotNull(Species::getProtectionLevel)
+                        .ne(Species::getProtectionLevel, "")
+                        .groupBy(Species::getProtectionLevel));
+        Map<String, Long> byProtectionLevel = protectionLevelResult.stream()
+                .collect(Collectors.toMap(
+                        m -> String.valueOf(m.get("protection_level")),
+                        m -> ((Number) m.get("count(*)")).longValue(),
+                        (a, b) -> a));
         stats.put("byProtectionLevel", byProtectionLevel);
 
-        // 按IUCN等级统计
-        Map<String, Long> byIucnStatus = allSpecies.stream()
-                .filter(s -> StringUtils.hasText(s.getIucnStatus()))
-                .collect(Collectors.groupingBy(Species::getIucnStatus, Collectors.counting()));
+        // 按IUCN等级统计（数据库 GROUP BY）
+        List<Map<String, Object>> iucnResult = speciesMapper.selectMaps(
+                new LambdaQueryWrapper<Species>()
+                        .select(Species::getIucnStatus)
+                        .isNotNull(Species::getIucnStatus)
+                        .ne(Species::getIucnStatus, "")
+                        .groupBy(Species::getIucnStatus));
+        Map<String, Long> byIucnStatus = iucnResult.stream()
+                .collect(Collectors.toMap(
+                        m -> String.valueOf(m.get("iucn_status")),
+                        m -> ((Number) m.get("count(*)")).longValue(),
+                        (a, b) -> a));
         stats.put("byIucnStatus", byIucnStatus);
 
-        // 按科统计
-        Map<String, Long> byFamily = allSpecies.stream()
-                .filter(s -> StringUtils.hasText(s.getFamily()))
-                .collect(Collectors.groupingBy(Species::getFamily, Collectors.counting()));
+        // 按科统计（数据库 GROUP BY）
+        List<Map<String, Object>> familyResult = speciesMapper.selectMaps(
+                new LambdaQueryWrapper<Species>()
+                        .select(Species::getFamily)
+                        .isNotNull(Species::getFamily)
+                        .ne(Species::getFamily, "")
+                        .groupBy(Species::getFamily));
+        Map<String, Long> byFamily = familyResult.stream()
+                .collect(Collectors.toMap(
+                        m -> String.valueOf(m.get("family")),
+                        m -> ((Number) m.get("count(*)")).longValue(),
+                        (a, b) -> a));
         stats.put("byFamily", byFamily);
 
         // 特有种数量
-        long endemicCount = allSpecies.stream()
-                .filter(s -> s.getIsEndemic() != null && s.getIsEndemic() == 1)
-                .count();
+        long endemicCount = speciesMapper.selectCount(
+                new LambdaQueryWrapper<Species>()
+                        .eq(Species::getIsEndemic, 1));
         stats.put("endemicCount", endemicCount);
 
         // 入侵物种数量
-        long invasiveCount = allSpecies.stream()
-                .filter(s -> s.getIsInvasive() != null && s.getIsInvasive() == 1)
-                .count();
+        long invasiveCount = speciesMapper.selectCount(
+                new LambdaQueryWrapper<Species>()
+                        .eq(Species::getIsInvasive, 1));
         stats.put("invasiveCount", invasiveCount);
 
         return stats;

@@ -1,16 +1,20 @@
 package com.oceanverse.ai.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.pojo.dto.ChatDTO;
+import com.oceanverse.pojo.entity.ImageRecognition;
+import com.oceanverse.pojo.entity.QaHistory;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 public interface AiService {
     /**
      * 图像识别
      */
-    Object recognizeImage(MultipartFile file, Double latitude, Double longitude);
+    Map<String, Object> recognizeImage(MultipartFile file, Double latitude, Double longitude);
 
     /**
      * 智能问答（SSE 流式）— 返回 Flux<String>，由 Controller 通过 SseEmitter 推送
@@ -23,12 +27,12 @@ public interface AiService {
     /**
      * 识别历史
      */
-    Object getRecognitionHistory(Integer page, Integer size);
+    Page<ImageRecognition> getRecognitionHistory(Integer page, Integer size);
 
     /**
      * 问答历史
      */
-    Object getChatHistory(Integer page, Integer size);
+    Page<QaHistory> getChatHistory(Integer page, Integer size);
 
     /**
      * 问答反馈

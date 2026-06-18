@@ -1,13 +1,20 @@
 package com.oceanverse.community.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.CommentCreateDTO;
 import com.oceanverse.pojo.dto.PostCreateDTO;
 import com.oceanverse.pojo.dto.PostQueryDTO;
+import com.oceanverse.pojo.entity.CommunityComment;
+import com.oceanverse.pojo.entity.CommunityPost;
+import com.oceanverse.pojo.entity.SysNotification;
 import com.oceanverse.community.service.CommunityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 社区互动接口 — 成员D
@@ -30,12 +37,12 @@ public class    CommunityController {
     }
 
     @GetMapping("/post/list")
-    public Result<Object> listPosts(PostQueryDTO query) {
+    public Result<Page<CommunityPost>> listPosts(PostQueryDTO query) {
         return Result.success(communityService.listPosts(query));
     }
 
     @GetMapping("/post/{id}")
-    public Result<Object> getPost(@PathVariable Long id) {
+    public Result<CommunityPost> getPost(@PathVariable Long id) {
         return Result.success(communityService.getPostDetail(id));
     }
 
@@ -56,7 +63,7 @@ public class    CommunityController {
     }
 
     @GetMapping("/comment/list/{postId}")
-    public Result<Object> listComments(@PathVariable Long postId,
+    public Result<Page<CommunityComment>> listComments(@PathVariable Long postId,
                                         @RequestParam(defaultValue = "1") Integer page,
                                         @RequestParam(defaultValue = "10") Integer size) {
         return Result.success(communityService.listComments(postId, page, size));
@@ -72,7 +79,7 @@ public class    CommunityController {
     // ==================== 点赞 ====================
 
     @PostMapping("/like/{targetType}/{targetId}")
-    public Result<Object> toggleLike(@PathVariable String targetType,
+    public Result<String> toggleLike(@PathVariable String targetType,
                                       @PathVariable Long targetId,
                                       @RequestHeader("Authorization") String token) {
         return Result.success(communityService.toggleLike(targetType, targetId, token));
@@ -81,14 +88,14 @@ public class    CommunityController {
     // ==================== 收藏 ====================
 
     @PostMapping("/favorite/{targetType}/{targetId}")
-    public Result<Object> toggleFavorite(@PathVariable String targetType,
+    public Result<String> toggleFavorite(@PathVariable String targetType,
                                           @PathVariable Long targetId,
                                           @RequestHeader("Authorization") String token) {
         return Result.success(communityService.toggleFavorite(targetType, targetId, token));
     }
 
     @GetMapping("/favorite/list")
-    public Result<Object> listFavorites(@RequestParam String targetType,
+    public Result<Page<CommunityPost>> listFavorites(@RequestParam String targetType,
                                          @RequestParam(defaultValue = "1") Integer page,
                                          @RequestParam(defaultValue = "10") Integer size,
                                          @RequestHeader("Authorization") String token) {
@@ -96,7 +103,7 @@ public class    CommunityController {
     }
 
     @GetMapping("/like/list")
-    public Result<Object> listLikedPosts(@RequestParam(defaultValue = "1") Integer page,
+    public Result<Page<CommunityPost>> listLikedPosts(@RequestParam(defaultValue = "1") Integer page,
                                           @RequestParam(defaultValue = "10") Integer size,
                                           @RequestHeader("Authorization") String token) {
         return Result.success(communityService.listLikedPosts(page, size, token));
@@ -105,27 +112,27 @@ public class    CommunityController {
     // ==================== 关注 ====================
 
     @PostMapping("/follow/{userId}")
-    public Result<Object> toggleFollow(@PathVariable Long userId,
+    public Result<String> toggleFollow(@PathVariable Long userId,
                                         @RequestHeader("Authorization") String token) {
         return Result.success(communityService.toggleFollow(userId, token));
     }
 
     @GetMapping("/user/{userId}")
-    public Result<Object> getUserProfile(@PathVariable Long userId) {
+    public Result<Map<String, Object>> getUserProfile(@PathVariable Long userId) {
         return Result.success(communityService.getUserProfile(userId));
     }
 
     // ==================== 通知 ====================
 
     @GetMapping("/notification/list")
-    public Result<Object> listNotifications(@RequestParam(defaultValue = "1") Integer page,
+    public Result<Page<SysNotification>> listNotifications(@RequestParam(defaultValue = "1") Integer page,
                                              @RequestParam(defaultValue = "10") Integer size,
                                              @RequestHeader("Authorization") String token) {
         return Result.success(communityService.listNotifications(page, size, token));
     }
 
     @GetMapping("/notification/unread")
-    public Result<Object> getUnreadCount(@RequestHeader("Authorization") String token) {
+    public Result<Long> getUnreadCount(@RequestHeader("Authorization") String token) {
         return Result.success(communityService.getUnreadCount(token));
     }
 
@@ -153,7 +160,7 @@ public class    CommunityController {
     // ==================== 排行榜 ====================
 
     @GetMapping("/leaderboard")
-    public Result<Object> getLeaderboard(@RequestParam(defaultValue = "points") String type) {
+    public Result<List<Map<String, Object>>> getLeaderboard(@RequestParam(defaultValue = "points") String type) {
         return Result.success(communityService.getLeaderboard(type));
     }
 }

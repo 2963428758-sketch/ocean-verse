@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.oceanverse.ai.cache.SemanticCacheService;
 import com.oceanverse.ai.config.AiProperties;
 import com.oceanverse.ai.mapper.ImageRecognitionMapper;
 import com.oceanverse.ai.mapper.QaHistoryMapper;
@@ -17,6 +18,8 @@ import com.oceanverse.common.utils.RedisUtil;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
 import com.oceanverse.pojo.entity.QaHistory;
+import com.oceanverse.pojo.entity.Species;
+import com.oceanverse.species.mapper.SpeciesMapper;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -79,6 +82,10 @@ public class AiServiceImpl implements AiService {
     private final KnowledgeBaseService knowledgeBaseService;
     private final ChatSessionManager chatSessionManager;
 
+    // 第三层新增依赖
+    private final SemanticCacheService semanticCacheService;
+    private final SpeciesMapper speciesMapper;
+
     // ==================== System Prompt ====================
 
     // CHAT_SYSTEM_PROMPT 已迁移至 PromptTemplateManager，按 questionType 分发差异化 Prompt
@@ -95,10 +102,19 @@ public class AiServiceImpl implements AiService {
             }
             """;
 
+    /** 默认置信度（模型未返回置信度时的回退值） */
+    private static final double DEFAULT_CONFIDENCE = 0.50;
+    /** 高置信度阈值 — 超过此值自动标记为 VERIFIED */
+    private static final double HIGH_CONFIDENCE_THRESHOLD = 0.8;
+    /** 缓存流式回答的每个 chunk 字符数 */
+    private static final int STREAM_CHUNK_SIZE = 10;
+    /** RAG 检索返回的 Top-K 文档数 */
+    private static final int RAG_TOP_K = 3;
+
     // ==================== 图像识别（任务 1.2）====================
 
     @Override
-    public Object recognizeImage(MultipartFile file, Double latitude, Double longitude) {
+    public Map<String, Object> recognizeImage(MultipartFile file, Double latitude, Double longitude) {
         long startTime = System.currentTimeMillis();
 
         // 1. 上传至 OSS
@@ -141,20 +157,20 @@ public class AiServiceImpl implements AiService {
             record.setPredictedSpeciesName(result.path("speciesName").asText("未知"));
 
             // 安全解析置信度：使用 asDouble 避免 NumberFormatException
-            double confidenceValue = result.path("confidence").asDouble(0.50);
+            double confidenceValue = result.path("confidence").asDouble(DEFAULT_CONFIDENCE);
             record.setConfidenceScore(BigDecimal.valueOf(confidenceValue));
             record.setRecognitionResult(response);
             record.setAiModelVersion(aiProperties.getImageModel());
 
             // 5. 高置信度自动标记为已验证
-            record.setVerificationStatus(confidenceValue > 0.8 ? "VERIFIED" : "PENDING");
+            record.setVerificationStatus(confidenceValue > HIGH_CONFIDENCE_THRESHOLD ? "VERIFIED" : "PENDING");
 
         } catch (Exception e) {
             log.error("图像识别失败: {}", e.getMessage(), e);
             record.setAiModelVersion(aiProperties.getImageModel());
             record.setPredictedSpeciesName("识别失败");
             record.setConfidenceScore(BigDecimal.ZERO);
-            record.setErrorMessage(e.getMessage());
+            record.setErrorMessage("图像识别处理失败，请稍后重试");
             record.setVerificationStatus("PENDING");
         }
 
@@ -166,17 +182,80 @@ public class AiServiceImpl implements AiService {
         // 7. 发布识别完成事件到 Redis Stream（任务 1.4）
         publishRecognitionEvent(record);
 
+        // 7.5 识别成功后关联物种表（任务 3.4）
+        Map<String, Object> result = null;
+        if (record.getPredictedSpeciesName() != null && !"识别失败".equals(record.getPredictedSpeciesName())) {
+            Species species = speciesMapper.selectOne(
+                    new LambdaQueryWrapper<Species>()
+                            .eq(Species::getCommonName, record.getPredictedSpeciesName())
+                            .or()
+                            .eq(Species::getScientificName, record.getPredictedSpeciesName())
+                            .last("LIMIT 1")
+            );
+
+            if (species != null) {
+                record.setPredictedSpeciesId(species.getId());
+                recognitionMapper.updateById(record);
+
+                Map<String, Object> speciesCard = new java.util.HashMap<>();
+                speciesCard.put("id", species.getId());
+                speciesCard.put("commonName", species.getCommonName());
+                speciesCard.put("scientificName", species.getScientificName());
+                speciesCard.put("iucnStatus", species.getIucnStatus());
+                speciesCard.put("protectionLevel", species.getProtectionLevel());
+                speciesCard.put("morphology", species.getMorphology());
+                speciesCard.put("ecology", species.getEcology());
+                speciesCard.put("description", species.getDescription());
+
+                result = new java.util.HashMap<>();
+                result.put("recognition", record);
+                result.put("speciesCard", speciesCard);
+
+                log.info("物种匹配成功: {} → speciesId={}", record.getPredictedSpeciesName(), species.getId());
+            }
+        }
+
+        // 7.6 高置信度识别建议创建观测记录（任务 3.5）
+        if (record.getConfidenceScore() != null
+                && record.getConfidenceScore().compareTo(BigDecimal.valueOf(HIGH_CONFIDENCE_THRESHOLD)) >= 0
+                && latitude != null && longitude != null) {
+            if (result == null) {
+                result = new java.util.HashMap<>();
+                result.put("recognition", record);
+            }
+            result.put("suggestObservation", true);
+            result.put("observationData", Map.of(
+                    "speciesId", record.getPredictedSpeciesId() != null ? record.getPredictedSpeciesId() : 0L,
+                    "speciesName", record.getPredictedSpeciesName() != null ? record.getPredictedSpeciesName() : "未知",
+                    "latitude", latitude,
+                    "longitude", longitude,
+                    "observationTime", LocalDateTime.now(),
+                    "confidence", record.getConfidenceScore()
+            ));
+        }
+
         log.info("图像识别完成: code={}, species={}, confidence={}, 耗时={}ms",
                 record.getRecognitionCode(), record.getPredictedSpeciesName(),
                 record.getConfidenceScore(), record.getProcessingTimeMs());
 
-        return record;
+        if (result == null) {
+            result = new java.util.HashMap<>();
+            result.put("recognition", record);
+        }
+        return result;
     }
 
     // ==================== 智能问答 SSE 流式（第二层：Prompt模板 + RAG + 多轮对话）====================
 
     @Override
     public Flux<String> chatStream(ChatDTO dto, AtomicReference<Long> savedIdRef) {
+        // 0. 语义缓存检查（任务 3.1）
+        String cachedAnswer = semanticCacheService.getCachedAnswer(dto.getQuestion());
+        if (cachedAnswer != null) {
+            log.info("语义缓存命中，跳过模型调用: {}", dto.getQuestion());
+            return streamCachedAnswer(cachedAnswer);
+        }
+
         long startTime = System.currentTimeMillis();
 
         // 1. 创建问答记录骨架（流结束后填充完整回答）
@@ -246,6 +325,12 @@ public class AiServiceImpl implements AiService {
                         qaHistoryMapper.insert(history);
                         savedIdRef.set(history.getId());
                         publishChatEvent(history);
+
+                        // 缓存高质量回答（任务 3.1）
+                        if (history.getFeedback() == null || history.getFeedback() == 1) {
+                            semanticCacheService.cacheAnswer(dto.getQuestion(), answer);
+                        }
+
                         log.info("智能问答完成: code={}, 耗时={}ms, 回答长度={}, RAG={}, 历史轮数={}",
                                 history.getQuestionCode(),
                                 history.getProcessingTimeMs(),
@@ -269,10 +354,27 @@ public class AiServiceImpl implements AiService {
                 }));
     }
 
+    // ==================== 语义缓存辅助方法（任务 3.1）====================
+
+    /**
+     * 将缓存答案拆分为 chunk 模拟流式返回
+     * <p>
+     * 追加元数据事件 qaId=-1 标记为缓存回答，前端可据此展示"来自缓存"标识。
+     */
+    private Flux<String> streamCachedAnswer(String answer) {
+        List<String> chunks = new ArrayList<>();
+        for (int i = 0; i < answer.length(); i += STREAM_CHUNK_SIZE) {
+            chunks.add(answer.substring(i, Math.min(i + STREAM_CHUNK_SIZE, answer.length())));
+        }
+        return Flux.fromIterable(chunks)
+                .concatWith(Mono.fromCallable(() ->
+                        objectMapper.writeValueAsString(Map.of("qaId", -1))));
+    }
+
     // ==================== 历史记录查询 ====================
 
     @Override
-    public Object getRecognitionHistory(Integer page, Integer size) {
+    public Page<ImageRecognition> getRecognitionHistory(Integer page, Integer size) {
         return recognitionMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<ImageRecognition>()
@@ -281,7 +383,7 @@ public class AiServiceImpl implements AiService {
     }
 
     @Override
-    public Object getChatHistory(Integer page, Integer size) {
+    public Page<QaHistory> getChatHistory(Integer page, Integer size) {
         return qaHistoryMapper.selectPage(
                 new Page<>(page, size),
                 new LambdaQueryWrapper<QaHistory>()
@@ -325,7 +427,7 @@ public class AiServiceImpl implements AiService {
      */
     private String searchRagContext(String question) {
         try {
-            List<Document> relevantDocs = knowledgeBaseService.search(question, 3);
+            List<Document> relevantDocs = knowledgeBaseService.search(question, RAG_TOP_K);
             String context = knowledgeBaseService.formatContext(relevantDocs);
             log.info("RAG 检索完成: 命中 {} 个文档, 上下文长度={}", relevantDocs.size(), context.length());
             return context;
