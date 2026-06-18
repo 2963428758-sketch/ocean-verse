@@ -1,6 +1,7 @@
 package com.oceanverse.species.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.oceanverse.common.annotation.OperateLog;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.SpeciesQueryDTO;
 import com.oceanverse.pojo.entity.Species;
@@ -36,12 +37,14 @@ public class SpeciesController {
         return Result.success(speciesService.getSpeciesDetail(id));
     }
 
+    @OperateLog(module = "物种管理", type = OperateLog.OperateType.CREATE)
     @PostMapping
     public Result<Long> create(@RequestBody Species species) {
         speciesService.createSpecies(species);
         return Result.success(species.getId());
     }
 
+    @OperateLog(module = "物种管理", type = OperateLog.OperateType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody Species species) {
         species.setId(id);
@@ -49,6 +52,7 @@ public class SpeciesController {
         return Result.success();
     }
 
+    @OperateLog(module = "物种管理", type = OperateLog.OperateType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
         speciesService.deleteSpecies(id);
