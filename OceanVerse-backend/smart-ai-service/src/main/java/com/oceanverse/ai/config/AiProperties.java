@@ -99,10 +99,8 @@ public class AiProperties {
     // ==================== 路径规范化 ====================
 
     /**
-     * 启动时规范化文件路径，确保从不同工作目录启动都能定位到正确的 data/ai/ 目录。
-     * <p>
-     * 例如：从 OceanVerse/ 启动时 data/ai/xxx.json 直接可用；
-     * 从 OceanVerse-backend/ 或子模块启动时，向上查找 data/ai/ 目录。
+     * 启动时规范化文件路径，确保从不同工作目录启动都能定位到
+     * OceanVerse-backend/smart-ai-service/data/ai/ 目录。
      */
     @PostConstruct
     public void resolvePaths() {
@@ -111,35 +109,57 @@ public class AiProperties {
     }
 
     /**
-     * 解析相对路径，确保指向项目根目录下的 data/ai/ 位置。
+     * 解析相对路径，定位到 Maven 多模块项目根目录下。
      * <p>
      * 策略：
-     * 1. 如果当前工作目录下该路径存在 → 直接使用
-     * 2. 否则向上遍历父目录，找到包含 data/ai/ 的项目根目录
-     * 3. 如果仍未找到 → 保持原路径（首次运行时会新建）
+     * 1. 当前工作目录已包含 smart-ai-service/ → 就是项目根，直接拼接
+     * 2. 否则向上遍历，找到包含 smart-ai-service/ 子目录的那一层
+     * 3. 兜底返回工作目录下的绝对路径
+     * <p>
+     * 示例（path = smart-ai-service/data/ai/vector-store.json）：
+     * - 从 OceanVerse-backend/ 启动 → 当前目录包含 smart-ai-service/ ✓
+     * - 从 OceanVerse/ 启动 → 向上找，在 OceanVerse-backend/ 下找到 ✓
+     * - 从 oceanverse-app/ 启动 → 向上到 OceanVerse-backend/ 找到 ✓
      */
     private String resolveDataPath(String path) {
         if (path == null || path.isEmpty() || new File(path).isAbsolute()) {
             return path;
         }
 
-        // 当前工作目录下该路径存在 → 直接返回
-        if (new File(path).exists()) {
-            return new File(path).getAbsolutePath();
+        File workDir = new File(System.getProperty("user.dir"));
+
+        // 当前工作目录已包含 smart-ai-service/ → 直接拼接
+        if (new File(workDir, "smart-ai-service").isDirectory()) {
+            File resolved = new File(workDir, path);
+            log.debug("路径解析: {} → {}", path, resolved.getAbsolutePath());
+            return resolved.getAbsolutePath();
         }
 
-        // 向上查找包含 data/ai/ 的项目根目录
-        File dir = new File(System.getProperty("user.dir"));
+        // 当前目录的子目录中查找（覆盖从上层目录启动的场景，如 OceanVerse/ → OceanVerse-backend/smart-ai-service）
+        File[] children = workDir.listFiles(File::isDirectory);
+        if (children != null) {
+            for (File child : children) {
+                if (new File(child, "smart-ai-service").isDirectory()) {
+                    File resolved = new File(child, path);
+                    log.debug("路径解析(子目录): {} → {}", path, resolved.getAbsolutePath());
+                    return resolved.getAbsolutePath();
+                }
+            }
+        }
+
+        // 向上遍历父目录
+        File dir = workDir.getParentFile();
         for (int i = 0; i < 5 && dir != null; i++) {
-            File candidate = new File(dir, path);
-            if (candidate.getParentFile() != null && candidate.getParentFile().exists()) {
-                log.debug("路径解析: {} → {}", path, candidate.getAbsolutePath());
-                return candidate.getAbsolutePath();
+            if (new File(dir, "smart-ai-service").isDirectory()) {
+                File resolved = new File(dir, path);
+                log.debug("路径解析(父目录): {} → {}", path, resolved.getAbsolutePath());
+                return resolved.getAbsolutePath();
             }
             dir = dir.getParentFile();
         }
 
-        // 兜底：返回当前工作目录下的路径
+        // 兜底：返回工作目录下的绝对路径
+        log.warn("未找到 smart-ai-service 模块目录，使用工作目录: {}", workDir);
         return new File(path).getAbsolutePath();
     }
 }
