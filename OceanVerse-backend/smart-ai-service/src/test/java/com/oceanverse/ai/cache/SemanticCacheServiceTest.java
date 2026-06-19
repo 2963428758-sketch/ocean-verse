@@ -54,7 +54,7 @@ class SemanticCacheServiceTest {
                 .thenReturn(new float[0]);
 
         aiProperties = new AiProperties();
-        // cacheVectorStorePath 保持默认 data/ai/cache-vector-store.json（磁盘文件不存在，load 会跳过）
+        // cacheVectorStorePath 保持默认 smart-ai-service/data/ai/cache-vector-store.json（磁盘文件不存在，load 会跳过）
         // cacheSemanticThreshold 默认 0.90
         // cacheTtlHours 默认 24L
 

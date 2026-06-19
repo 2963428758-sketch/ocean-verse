@@ -73,7 +73,8 @@ oceanverse:
     temperature: 0.7
     similarity-threshold: 0.7
     session-ttl-minutes: 30
-    vector-store-path: data/ai/vector-store.json
+    vector-store-path: smart-ai-service/data/ai/vector-store.json
+    cache-vector-store-path: smart-ai-service/data/ai/cache-vector-store.json
   oss:
     endpoint: oss-cn-beijing.aliyuncs.com
     access-key-id: ${OSS_ACCESS_KEY_ID:}

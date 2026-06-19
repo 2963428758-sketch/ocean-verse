@@ -19,7 +19,9 @@
 *~
 
 # ---------- 运行时生成 ----------
-data/ai/vector-store.json
+smart-ai-service/data/ai/vector-store.json
+smart-ai-service/data/ai/vector-store.json.meta
+smart-ai-service/data/ai/cache-vector-store.json
 **/*.log
 
 # ---------- 密钥文件（切勿提交） ----------
@@ -46,4 +48,4 @@ desktop.ini
 # ---------- Docker ----------
 **/docker-compose.override.yml
 /docs/
-/data/
+/OceanVerse-backend/smart-ai-service/data/
