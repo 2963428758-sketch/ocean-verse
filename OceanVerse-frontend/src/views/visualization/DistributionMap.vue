@@ -305,6 +305,22 @@ watch(filteredDistributions, () => updateMarkerVisibility())
 
 /* ===== 3D 地球 (ECharts GL) ===== */
 
+/** 根据经纬度粗略判断所属大洲 */
+function getContinent(lat: number, lng: number): string {
+  if (lat < -60) return '南极洲'
+  if (lat > 0 && lat < 75 && lng > 25 && lng <= 180) {
+    // 亚洲与欧洲分界线：大致沿乌拉尔山脉 60°E
+    if (lat > 35 && lng > 25 && lng <= 60) return '欧洲'
+    return '亚洲'
+  }
+  if (lat > 0 && lat < 72 && lng > -30 && lng <= 25) return '欧洲'
+  if (lat > -38 && lat < 38 && lng > -20 && lng <= 55) return '非洲'
+  if (lat > 10 && lat < 80 && lng > -170 && lng <= -50) return '北美洲'
+  if (lat > -58 && lat <= 15 && lng > -85 && lng <= -35) return '南美洲'
+  if (lat > -50 && lat < -5 && lng > 100 && lng <= 180) return '大洋洲'
+  return '未知'
+}
+
 async function initGlobe() {
   if (!globeContainer.value) return
 
@@ -336,6 +352,7 @@ async function initGlobe() {
       name: d.chinese_name || '未知物种',
       value: [d.longitude, d.latitude, 0],
       iucn: d.iucn_status,
+      continent: getContinent(d.latitude, d.longitude),
       region: [d.country, d.province, d.region_name].filter(Boolean).join(' / '),
       family: d.family || '',
       itemStyle: {
@@ -368,7 +385,7 @@ async function initGlobe() {
         zoomSensitivity: 1.2
       },
       light: {
-        ambient: { intensity: 0.4 },
+        ambient: { intensity: 0.7 },
         main: { intensity: 1.5, shadow: false }
       }
     },
@@ -376,10 +393,20 @@ async function initGlobe() {
       type: 'scatter3D',
       coordinateSystem: 'globe',
       data: markerData,
-      symbolSize: 18,
+      symbol: 'diamond',
+      symbolSize: 20,
       itemStyle: {
-        borderWidth: 2,
-        borderColor: '#fff'
+        borderWidth: 1.5,
+        borderColor: 'rgba(255,255,255,0.9)',
+        shadowBlur: 8,
+        shadowColor: 'rgba(0,0,0,0.4)'
+      },
+      emphasis: {
+        scale: 1.6,
+        itemStyle: {
+          shadowBlur: 20,
+          shadowColor: 'rgba(255,255,255,0.5)'
+        }
       },
       encode: {
         tooltip: [0, 1]
@@ -397,6 +424,7 @@ async function initGlobe() {
           `<b style="font-size:14px">${d.name}</b><br/>` +
           `<span style="color:#999;font-size:11px;font-style:italic">${d.family || ''}</span><br/>` +
           `<span style="display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;font-weight:600;color:#fff;background:${color};margin:4px 0">IUCN ${d.iucn || '—'}</span><br/>` +
+          `<span style="font-size:12px;color:#666">🌍 ${d.continent || '未知'}</span><br/>` +
           `<span style="font-size:12px;color:#666">📍 ${d.region || '未知区域'}</span>` +
           `</div>`
       }

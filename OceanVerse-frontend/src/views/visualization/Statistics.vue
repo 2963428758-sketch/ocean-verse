@@ -14,15 +14,21 @@
     <!-- 原有三个图表 -->
     <el-row :gutter="20" style="margin-top:20px">
       <el-col :span="12">
-        <el-card shadow="hover"><div ref="familyChart" style="height:400px"></div></el-card>
+        <el-card shadow="hover" :body-style="{ padding: 0 }">
+          <div ref="familyChart" style="height:400px;background:#051b4a;border-radius:4px"></div>
+        </el-card>
       </el-col>
       <el-col :span="12">
-        <el-card shadow="hover"><div ref="iucnChart" style="height:400px"></div></el-card>
+        <el-card shadow="hover" :body-style="{ padding: 0 }">
+          <div ref="iucnChart" style="height:400px;background:#051b4a;border-radius:4px"></div>
+        </el-card>
       </el-col>
     </el-row>
     <el-row :gutter="20" style="margin-top:20px">
       <el-col :span="24">
-        <el-card shadow="hover"><div ref="trendChart" style="height:400px"></div></el-card>
+        <el-card shadow="hover" :body-style="{ padding: 0 }">
+          <div ref="trendChart" style="height:400px;background:#051b4a;border-radius:4px"></div>
+        </el-card>
       </el-col>
     </el-row>
   </div>
@@ -218,10 +224,21 @@ onMounted(async () => {
     charts.push(chart)
     const res = await getSpeciesByFamily()
     chart.setOption({
-      title: { text: '物种按科分布', left: 'center' },
-      tooltip: { trigger: 'item' },
+      title: { text: '物种按科分布', left: 'center', textStyle: { color: '#fff', fontSize: 16 } },
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        borderColor: 'rgba(147,235,248,0.5)',
+        textStyle: { color: '#fff' }
+      },
+      legend: {
+        type: 'scroll',
+        bottom: 10,
+        textStyle: { color: '#ccc', fontSize: 11 }
+      },
       series: [{
-        type: 'pie', radius: ['40%', '70%'],
+        type: 'pie', radius: ['40%', '65%'], center: ['50%', '48%'],
+        label: { color: '#ddd', fontSize: 11 },
         data: res.data.map((item: any) => ({ value: item.count, name: item.family }))
       }]
     })
@@ -233,10 +250,25 @@ onMounted(async () => {
     charts.push(chart)
     const res = await getSpeciesByIucn()
     chart.setOption({
-      title: { text: 'IUCN 保护等级分布', left: 'center' },
-      tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: res.data.map((item: any) => item.iucn_status) },
-      yAxis: { type: 'value' },
+      title: { text: 'IUCN 保护等级分布', left: 'center', textStyle: { color: '#fff', fontSize: 16 } },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        borderColor: 'rgba(147,235,248,0.5)',
+        textStyle: { color: '#fff' }
+      },
+      xAxis: {
+        type: 'category',
+        data: res.data.map((item: any) => item.iucn_status),
+        axisLabel: { color: '#ccc' },
+        axisLine: { lineStyle: { color: '#555' } }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { color: '#ccc' },
+        axisLine: { lineStyle: { color: '#555' } },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } }
+      },
       series: [{
         type: 'bar',
         data: res.data.map((item: any) => ({
@@ -253,10 +285,27 @@ onMounted(async () => {
     charts.push(chart)
     const res = await getObservationTrend()
     chart.setOption({
-      title: { text: '观测记录趋势', left: 'center' },
-      tooltip: { trigger: 'axis' },
-      xAxis: { type: 'category', data: res.data.map((item: any) => item.period) },
-      yAxis: { type: 'value', name: '观测次数' },
+      title: { text: '观测记录趋势', left: 'center', textStyle: { color: '#fff', fontSize: 16 } },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        borderColor: 'rgba(147,235,248,0.5)',
+        textStyle: { color: '#fff' }
+      },
+      xAxis: {
+        type: 'category',
+        data: res.data.map((item: any) => item.period),
+        axisLabel: { color: '#ccc' },
+        axisLine: { lineStyle: { color: '#555' } }
+      },
+      yAxis: {
+        type: 'value',
+        name: '观测次数',
+        nameTextStyle: { color: '#ccc' },
+        axisLabel: { color: '#ccc' },
+        axisLine: { lineStyle: { color: '#555' } },
+        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } }
+      },
       series: [{
         type: 'line', smooth: true, symbol: 'circle', symbolSize: 8,
         lineStyle: { width: 3, color: '#409eff' },
