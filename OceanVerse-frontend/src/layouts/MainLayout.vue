@@ -179,7 +179,8 @@ async function doLogout() {
 .sidebar {
   background: linear-gradient(180deg, #1b5a80 0%, #2980b9 50%, #3da8d8 100%);
   transition: width 0.3s var(--ease-out);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-right: none;
 }
 
