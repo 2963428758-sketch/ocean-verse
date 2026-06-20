@@ -424,7 +424,7 @@ onMounted(async () => {
         }
       },
       options: timelineOptions
-    })
+    } as any)
 
     // 鼠标悬停时暂停时间轴，移开后恢复
     chart.on('mouseover', () => {

@@ -96,16 +96,32 @@ public class AiStreamConsumer extends StreamConsumer {
         }
 
         String speciesName = event.getSpeciesName() != null ? event.getSpeciesName() : "待确认";
+        String code = event.getRecognitionCode() != null ? event.getRecognitionCode() : "";
+
+        // 构建通知内容：物种名 + 置信度 + 识别编码
+        StringBuilder content = new StringBuilder();
+        content.append("识别结果：").append(speciesName)
+                .append("（置信度 ").append(confidenceStr).append("）");
+        if (!code.isEmpty()) {
+            content.append(" 编码：").append(code);
+        }
+
+        // 低置信度提示
+        String title = "图像识别已完成";
+        if (event.getConfidence() != null && event.getConfidence() < 0.8) {
+            title = "图像识别已完成（待确认）";
+            content.append("。识别结果置信度较低，建议人工核实。");
+        }
 
         NotificationMessage msg = NotificationMessage.builder()
                 .userId(event.getUserId())
                 .notificationType(CommonConstants.NOTIFY_AI_RESULT)
-                .title("图像识别已完成")
-                .content("识别结果：" + speciesName + "（置信度 " + confidenceStr + "）")
-                .relatedId(null)
+                .title(title)
+                .content(content.toString())
+                .relatedId(event.getRecognitionId())
                 .build();
 
         notificationService.publishNotification(msg);
-        log.info("识别完成通知已转发: userId={}, species={}", event.getUserId(), speciesName);
+        log.info("识别完成通知已转发: userId={}, species={}, code={}", event.getUserId(), speciesName, code);
     }
 }

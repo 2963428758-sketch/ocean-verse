@@ -755,6 +755,22 @@ async function handleDelete(id: number) {
 onMounted(() => {
   search()
   loadStats()
+
+  // 检测 AI 识别页面跳转的预填数据（一键新增物种）
+  const aiPrefillStr = sessionStorage.getItem('speciesAiPrefill')
+  if (aiPrefillStr) {
+    sessionStorage.removeItem('speciesAiPrefill')
+    try {
+      const aiPrefill = JSON.parse(aiPrefillStr)
+      openAddDialog()
+      // openAddDialog 先重置所有字段，再用 aiPrefill 覆盖
+      Object.assign(formData, aiPrefill)
+      dialogVisible.value = true
+      ElMessage.info('已自动填入 AI 识别结果，请核实后提交')
+    } catch (e) {
+      console.error('解析物种预填数据失败:', e)
+    }
+  }
 })
 </script>
 

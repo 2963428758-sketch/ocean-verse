@@ -482,6 +482,25 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
+    public void deleteNotification(Long id, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        SysNotification notification = notificationMapper.selectById(id);
+        if (notification == null || !notification.getUserId().equals(userId)) {
+            throw BusinessException.forbidden();
+        }
+        notificationMapper.deleteById(id);
+    }
+
+    @Override
+    public void deleteAllReadNotifications(String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        notificationMapper.delete(
+                new LambdaQueryWrapper<SysNotification>()
+                        .eq(SysNotification::getUserId, userId)
+                        .eq(SysNotification::getIsRead, 1));
+    }
+
+    @Override
     public String uploadAvatar(org.springframework.web.multipart.MultipartFile file, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         String url = ossUtil.upload(file);

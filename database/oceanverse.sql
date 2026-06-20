@@ -39,6 +39,10 @@ UPDATE species SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
 UPDATE ecosystem SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
 UPDATE observation_location SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
 
+
+INSERT INTO sys_notification (user_id, title, content, type, is_read, create_time)
+VALUES (1, 'AI 识别次数即将用尽', '今日剩余识别次数：2 次，请合理安排使用。', 'QUOTA_WARNING', 0, NOW());
+
 -- =====================================================
 -- 一、建表语句
 -- =====================================================

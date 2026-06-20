@@ -95,6 +95,9 @@ const userStore = useUserStore()
 const isCollapse = ref(false)
 const unreadCount = ref(0)
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let ws: WebSocket | null = null
+let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
+let wsReconnectDelay = 1000
 
 async function fetchUnreadCount() {
   try {
@@ -103,16 +106,74 @@ async function fetchUnreadCount() {
   } catch {}
 }
 
+function connectWebSocket() {
+  if (!userStore.isLoggedIn || !userStore.userId) return
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const url = `${protocol}//${window.location.host}/ws/notification/${userStore.userId}`
+
+  try {
+    ws = new WebSocket(url)
+
+    ws.onopen = () => {
+      wsReconnectDelay = 1000 // 连接成功后重置重连间隔
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (typeof data.unreadCount === 'number') {
+          unreadCount.value = data.unreadCount
+        } else {
+          fetchUnreadCount() // 兜底：消息格式不含未读数时走 HTTP
+        }
+      } catch {
+        fetchUnreadCount()
+      }
+    }
+
+    ws.onclose = () => {
+      ws = null
+      // 指数退避重连，最大 30 秒
+      if (userStore.isLoggedIn) {
+        wsReconnectTimer = setTimeout(() => {
+          connectWebSocket()
+        }, wsReconnectDelay)
+        wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30000)
+      }
+    }
+
+    ws.onerror = () => {
+      ws?.close()
+    }
+  } catch {
+    // WebSocket 创建失败，降级为纯轮询
+  }
+}
+
 onMounted(() => {
   if (userStore.isLoggedIn) {
     fetchUnreadCount()
-    pollTimer = setInterval(fetchUnreadCount, 30000)
+    pollTimer = setInterval(fetchUnreadCount, 30000) // 轮询作为兜底
+    connectWebSocket()
+    window.addEventListener('notification-changed', fetchUnreadCount)
+    document.addEventListener('visibilitychange', onVisibilityChange)
   }
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (wsReconnectTimer) clearTimeout(wsReconnectTimer)
+  ws?.close()
+  window.removeEventListener('notification-changed', fetchUnreadCount)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    fetchUnreadCount()
+  }
+}
 
 const menuItems = computed(() => {
   const items = [
@@ -275,8 +336,10 @@ async function doLogout() {
   gap: 12px;
 
   .notification-badge {
+    display: inline-flex;
+    align-items: center;
     :deep(.el-badge__content) {
-      top: 4px;
+      top: 6px;
       right: 14px;
     }
   }
@@ -285,9 +348,14 @@ async function doLogout() {
     font-size: 20px;
     cursor: pointer;
     color: var(--neutral-500);
-    padding: 6px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: var(--radius-sm);
     transition: all 0.2s;
+    vertical-align: middle;
 
     &:hover {
       color: var(--primary-main);

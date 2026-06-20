@@ -30,6 +30,7 @@
             <span class="scan-text">AI 正在分析...</span>
           </div>
           <button v-if="!loading" class="change-btn" @click="triggerUpload">更换图片</button>
+          <button v-if="!loading && result" class="re-recognize-btn" @click="doRecognize">重新识别</button>
           <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="handleInputChange" />
         </div>
 
@@ -40,6 +41,15 @@
             <span>高置信度识别 — 可记录为生态观测</span>
           </div>
           <button class="observation-btn" @click="showObservationPrompt">记录观测</button>
+        </div>
+
+        <!-- 录入新物种横幅（高置信度 + 未匹配知识库物种） -->
+        <div v-if="result && showNewSpeciesSuggestion" class="new-species-banner">
+          <div class="new-species-info">
+            <span class="new-species-icon">🧬</span>
+            <span>数据库中未找到该物种 — 可一键录入</span>
+          </div>
+          <button class="new-species-btn" @click="createSpeciesFromAi">录入新物种</button>
         </div>
 
         <el-button v-if="file && !loading && !result" type="primary" class="recognize-btn" @click="doRecognize">
@@ -73,7 +83,7 @@
         </div>
 
         <!-- 识别结果 -->
-        <div v-if="result" class="result-content">
+        <div v-if="result && !loading" class="result-content">
           <!-- 物种标题 -->
           <div class="species-header">
             <div class="species-names">
@@ -167,7 +177,7 @@
         </div>
 
         <!-- 识别失败 -->
-        <div v-if="result && !result.predictedSpeciesName && !parsedResult.speciesName" class="error-state">
+        <div v-if="result && !loading && !result.predictedSpeciesName && !parsedResult.speciesName" class="error-state">
           <p>识别失败，请尝试上传更清晰的图片</p>
           <p v-if="result.errorMessage" class="error-detail">{{ result.errorMessage }}</p>
         </div>
@@ -178,12 +188,13 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'AiRecognize' })
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { recognizeImage } from '@/api/ai'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { recognizeImage, getRecognitionById } from '@/api/ai'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 
 const fileInput = ref<HTMLInputElement>()
 const file = ref<File | null>(null)
@@ -193,6 +204,16 @@ const previewUrl = ref<string | null>(null)
 const speciesCard = ref<any>(null)
 const observationData = ref<any>(null)
 const hasObservationSuggestion = ref(false)
+const speciesPrefillData = ref<any>(null)
+
+// 高置信度 + 未匹配知识库物种 → 显示"录入新物种"横幅
+const showNewSpeciesSuggestion = computed(() => {
+  return !speciesCard.value
+    && result.value?.confidenceScore >= 0.8
+    && result.value?.predictedSpeciesName
+    && result.value.predictedSpeciesName !== '未知'
+    && !!speciesPrefillData.value
+})
 
 // 解析 recognitionResult（后端存储的 AI 原始 JSON 响应）
 const parsedResult = computed(() => {
@@ -261,6 +282,7 @@ function selectFile(f: File) {
   speciesCard.value = null
   observationData.value = null
   hasObservationSuggestion.value = false
+  speciesPrefillData.value = null
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = URL.createObjectURL(f)
 }
@@ -271,32 +293,43 @@ function resetAll() {
   speciesCard.value = null
   observationData.value = null
   hasObservationSuggestion.value = false
+  speciesPrefillData.value = null
   if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = null }
 }
 
 async function doRecognize() {
   if (!file.value) return
   loading.value = true
+  sessionStorage.removeItem('lastRecognitionId')
   try {
     const res: any = await recognizeImage(file.value)
     const data = res.data
-    // 第三层增强响应格式：{ recognition, speciesCard?, suggestObservation?, observationData? }
+    // 第三层增强响应格式：{ recognition, speciesCard?, suggestObservation?, observationData?, speciesPrefill? }
     if (data && data.recognition) {
       result.value = data.recognition
       speciesCard.value = data.speciesCard || null
       hasObservationSuggestion.value = !!data.suggestObservation
       observationData.value = data.observationData || null
+      speciesPrefillData.value = data.speciesPrefill || null
+      // 保存识别 ID 到 sessionStorage，导航到其他页面后返回可恢复
+      if (data.recognition.id) {
+        sessionStorage.setItem('lastRecognitionId', String(data.recognition.id))
+      }
     } else {
       // 兼容旧格式：直接返回识别记录
       result.value = data
       speciesCard.value = null
       hasObservationSuggestion.value = false
       observationData.value = null
+      speciesPrefillData.value = null
     }
     ElMessage.success('识别完成')
     // 高置信度识别时显示观测建议横幅，用户主动点击后才弹窗
-  } catch {
-    ElMessage.error('识别失败，请重试')
+  } catch (e: any) {
+    // 全局拦截器已展示业务错误信息（如"今日识别次数已用完"），此处仅补充兜底
+    if (!e?.message) {
+      ElMessage.error('识别失败，请重试')
+    }
   } finally {
     loading.value = false
   }
@@ -313,7 +346,7 @@ function showObservationPrompt() {
     path: '/observation/list',
     state: {
       aiPrefill: {
-        observationType: 'SIGHTING',
+        observationType: 'AI_RECOGNITION',
         observationDate: now.toISOString().slice(0, 10),
         observationTime: now.toTimeString().slice(0, 5),
         latitude: od.latitude || undefined,
@@ -323,6 +356,71 @@ function showObservationPrompt() {
     }
   })
 }
+
+function createSpeciesFromAi() {
+  if (!speciesPrefillData.value) return
+  sessionStorage.setItem('speciesAiPrefill', JSON.stringify(speciesPrefillData.value))
+  router.push('/species/list')
+}
+
+// 从通知跳转过来时，通过 ?id= 加载识别结果
+// 或从 sessionStorage 恢复上次识别结果（如从物种列表返回时）
+onMounted(async () => {
+  const queryId = route.query.id
+  const savedId = sessionStorage.getItem('lastRecognitionId')
+  const id = queryId || savedId
+  if (id && !isNaN(Number(id))) {
+    loading.value = true
+    try {
+      const res: any = await getRecognitionById(Number(id))
+      if (res.data) {
+        result.value = res.data
+        previewUrl.value = res.data.imageUrl || null
+        // 根据识别记录重建 speciesCard 和 speciesPrefillData
+        // 如果 predictedSpeciesId 存在说明匹配到了物种
+        if (res.data.predictedSpeciesId) {
+          speciesCard.value = { id: res.data.predictedSpeciesId }
+        } else {
+          speciesCard.value = null
+        }
+        // 从 recognitionResult JSON 重建 speciesPrefillData
+        if (res.data.recognitionResult && res.data.confidenceScore >= 0.8 && !res.data.predictedSpeciesId) {
+          try {
+            const parsed = JSON.parse(res.data.recognitionResult)
+            speciesPrefillData.value = {
+              scientificName: parsed.scientificName || '',
+              chineseName: parsed.speciesName || '',
+              commonName: parsed.commonName || '',
+              description: parsed.description || '',
+              morphology: parsed.morphology || '',
+              ecology: parsed.ecology || '',
+              kingdom: parsed.kingdom || '',
+              phylum: parsed.phylum || '',
+              className: parsed.className || '',
+              orderName: parsed.orderName || '',
+              family: parsed.family || '',
+              genus: parsed.genus || '',
+              species: parsed.species || '',
+              iucnStatus: parsed.iucnStatus || '',
+              protectionLevel: parsed.protectionLevel || '',
+              isEndemic: parsed.isEndemic || 0,
+              isInvasive: parsed.isInvasive || 0,
+              source: 'AI 图像识别自动生成'
+            }
+          } catch { speciesPrefillData.value = null }
+        }
+        hasObservationSuggestion.value = res.data.confidenceScore >= 0.8
+        observationData.value = null // 历史记录无法重建观测数据
+      } else {
+        ElMessage.warning('未找到该识别记录')
+      }
+    } catch (e: any) {
+      if (!e?.message) ElMessage.error('加载识别记录失败')
+    } finally {
+      loading.value = false
+    }
+  }
+})
 </script>
 
 <style scoped lang="scss">
@@ -461,6 +559,22 @@ function showObservationPrompt() {
   backdrop-filter: blur(4px);
   transition: background 0.2s;
   &:hover { background: rgba(0,0,0,0.7); }
+}
+
+.re-recognize-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 100px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(26, 107, 138, 0.75);
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s;
+  &:hover { background: rgba(26, 107, 138, 0.9); }
 }
 
 .recognize-btn {
@@ -787,6 +901,44 @@ function showObservationPrompt() {
   border: none;
   border-radius: 8px;
   background: var(--el-color-success, #67c23a);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+  &:hover { opacity: 0.85; }
+}
+
+/* ── 录入新物种横幅 ── */
+.new-species-banner {
+  margin-top: 10px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, #5c6bc0 30%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, #5c6bc0 6%, white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.new-species-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--neutral-700);
+}
+
+.new-species-icon {
+  font-size: 18px;
+}
+
+.new-species-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #5c6bc0;
   color: white;
   font-size: 12px;
   font-weight: 500;

@@ -60,6 +60,10 @@ export const markNotificationRead = (id: number) => http.put(`/community/notific
 
 export const markAllRead = () => http.put('/community/notification/read-all')
 
+export const deleteNotification = (id: number) => http.delete(`/community/notification/${id}`)
+
+export const deleteAllReadNotifications = () => http.delete('/community/notification/read')
+
 // ==================== 头像 ====================
 
 export const uploadAvatar = (file: File) => {

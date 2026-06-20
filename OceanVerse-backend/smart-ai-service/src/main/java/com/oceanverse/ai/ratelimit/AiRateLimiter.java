@@ -1,6 +1,9 @@
 package com.oceanverse.ai.ratelimit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oceanverse.ai.config.AiProperties;
+import com.oceanverse.common.constants.CommonConstants;
+import com.oceanverse.common.utils.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -9,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * AI API 调用限流器（任务 3.2）
@@ -26,9 +31,12 @@ import java.time.format.DateTimeFormatter;
 public class AiRateLimiter {
 
     private static final String RATE_LIMIT_KEY_PREFIX = "ai:ratelimit:";
+    private static final String WARNED_KEY_PREFIX = "ai:ratelimit:warned:";
 
     private final StringRedisTemplate redisTemplate;
     private final AiProperties aiProperties;
+    private final RedisUtil redisUtil;
+    private final ObjectMapper objectMapper;
 
     /**
      * 检查用户是否允许调用
@@ -64,6 +72,8 @@ public class AiRateLimiter {
         String key = buildKey(userId, actionType);
         redisTemplate.opsForValue().increment(key);
         redisTemplate.expire(key, Duration.ofDays(2));
+
+        checkAndWarnQuota(userId, actionType);
     }
 
     /**
@@ -92,5 +102,63 @@ public class AiRateLimiter {
         return "chat".equals(actionType)
                 ? aiProperties.getDailyChatLimit()
                 : aiProperties.getDailyRecognitionLimit();
+    }
+
+    private int getWarningThreshold(String actionType) {
+        return "chat".equals(actionType)
+                ? aiProperties.getChatWarningThreshold()
+                : aiProperties.getRecognitionWarningThreshold();
+    }
+
+    /**
+     * 检查剩余配额是否触达预警阈值，触达则发布通知到 stream:notification。
+     * <p>
+     * 使用 Redis warned key 保证每天每类只推一次，失败不影响主流程。
+     */
+    private void checkAndWarnQuota(Long userId, String actionType) {
+        try {
+            String key = buildKey(userId, actionType);
+            String countStr = redisTemplate.opsForValue().get(key);
+            int count = countStr != null ? Integer.parseInt(countStr) : 0;
+            int limit = getLimit(actionType);
+            int remaining = limit - count;
+            int threshold = getWarningThreshold(actionType);
+
+            if (remaining > threshold || remaining <= 0) {
+                return;
+            }
+
+            // 去重：当天已发过预警则跳过
+            String warnedKey = buildWarnedKey(userId, actionType);
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(warnedKey))) {
+                return;
+            }
+            redisTemplate.opsForValue().set(warnedKey, "1", Duration.ofDays(2));
+
+            // 构建通知
+            String actionLabel = "chat".equals(actionType) ? "问答" : "识别";
+            String title = "AI " + actionLabel + "次数即将用尽";
+            String content = "今日剩余" + actionLabel + "次数：" + remaining + " 次，请合理安排使用。";
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("userId", userId);
+            payload.put("notificationType", CommonConstants.NOTIFY_QUOTA_WARNING);
+            payload.put("title", title);
+            payload.put("content", content);
+
+            Map<String, String> fields = new HashMap<>();
+            fields.put(CommonConstants.FIELD_TYPE, CommonConstants.NOTIFY_QUOTA_WARNING);
+            fields.put(CommonConstants.FIELD_PAYLOAD, objectMapper.writeValueAsString(payload));
+            redisUtil.xAdd(CommonConstants.STREAM_NOTIFICATION, fields);
+
+            log.info("配额预警通知已发送: userId={}, actionType={}, remaining={}/{}", userId, actionType, remaining, limit);
+        } catch (Exception e) {
+            log.warn("配额预警通知发送失败（不影响主流程）: userId={}, actionType={}", userId, actionType, e);
+        }
+    }
+
+    private String buildWarnedKey(Long userId, String actionType) {
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        return WARNED_KEY_PREFIX + userId + ":" + actionType + ":" + dateStr;
     }
 }

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.ai.eval.AiEvalService;
 import com.oceanverse.ai.ratelimit.AiRateLimiter;
 import com.oceanverse.common.result.Result;
+import com.oceanverse.common.utils.JwtUtil;
 import com.oceanverse.pojo.dto.AiObservationDTO;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
@@ -138,6 +139,18 @@ public class AiController {
     }
 
     /**
+     * 获取单条识别记录详情（通知点击跳转用）
+     */
+    @GetMapping("/recognition/{id}")
+    public Result<ImageRecognition> getRecognitionById(@PathVariable Long id) {
+        ImageRecognition record = aiService.getRecognitionById(id);
+        if (record == null) {
+            return Result.error("识别记录不存在");
+        }
+        return Result.success(record);
+    }
+
+    /**
      * 获取问答历史
      */
     @GetMapping("/chat/history")
@@ -184,15 +197,20 @@ public class AiController {
     }
 
     /**
-     * 重建知识库索引
+     * 重建知识库索引（异步）
      * <p>
-     * 从数据库重新加载物种数据并向量化，保存到磁盘。
-     * 新增或删除物种后调用此接口即可刷新 RAG 知识库，无需重启应用。
+     * 从 Authorization 头解析管理员 userId，触发后台异步重建。
+     * 接口立即返回，重建完成后通过通知系统告知结果。
      */
     @PostMapping("/knowledge/rebuild")
-    public Result<Void> rebuildKnowledgeBase() {
-        knowledgeBaseService.rebuildIndex();
-        return Result.success();
+    public Result<String> rebuildKnowledgeBase(@RequestHeader(value = "Authorization", required = false) String token) {
+        if (knowledgeBaseService.isRebuilding()) {
+            return Result.error("知识库正在重建中，请稍后再试");
+        }
+
+        Long userId = parseUserIdFromToken(token);
+        knowledgeBaseService.rebuildIndexAsync(userId);
+        return Result.success("知识库重建已启动，完成后将通过通知告知结果");
     }
 
     /**
@@ -227,5 +245,24 @@ public class AiController {
             log.debug("获取当前用户 ID 失败（可能为匿名访问）: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * 从 Authorization 头解析用户 ID
+     * <p>
+     * 用于未被 JwtInterceptor 拦截的路径（如 /api/ai/**），
+     * 直接从 JWT token 中提取 userId。
+     */
+    private Long parseUserIdFromToken(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        try {
+            String rawToken = token.startsWith("Bearer ") ? token.substring(7) : token;
+            return JwtUtil.getUserId(rawToken);
+        } catch (Exception e) {
+            log.warn("从 Authorization 头解析 userId 失败: {}", e.getMessage());
+            return null;
+        }
     }
 }
