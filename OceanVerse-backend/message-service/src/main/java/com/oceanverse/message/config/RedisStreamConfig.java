@@ -47,7 +47,7 @@ public class RedisStreamConfig {
 
         var options = StreamMessageListenerContainerOptions
                 .builder()
-                .pollTimeout(Duration.ofSeconds(2))
+                .pollTimeout(Duration.ofMillis(500))
                 .batchSize(10)
                 .build();
 

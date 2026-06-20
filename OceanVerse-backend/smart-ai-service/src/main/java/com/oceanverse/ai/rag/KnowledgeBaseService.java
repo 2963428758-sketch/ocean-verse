@@ -1,6 +1,9 @@
 package com.oceanverse.ai.rag;
 
 import com.oceanverse.ai.config.AiProperties;
+import com.oceanverse.common.constants.CommonConstants;
+import com.oceanverse.common.utils.RedisUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -15,7 +18,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -36,6 +43,8 @@ public class KnowledgeBaseService {
     private final VectorStore originalVectorStore;
     private final AiProperties aiProperties;
     private final EmbeddingModel embeddingModel;
+    private final RedisUtil redisUtil;
+    private final ObjectMapper objectMapper;
 
     /**
      * 重建后的向量存储实例（原子替换，确保线程安全）
@@ -54,14 +63,23 @@ public class KnowledgeBaseService {
      */
     private volatile long indexedDocumentCount = -1;
 
+    /**
+     * 重建进行中标记，防止并发重建
+     */
+    private final AtomicBoolean rebuilding = new AtomicBoolean(false);
+
     public KnowledgeBaseService(DocumentLoader documentLoader,
                                 VectorStore vectorStore,
                                 AiProperties aiProperties,
-                                EmbeddingModel embeddingModel) {
+                                EmbeddingModel embeddingModel,
+                                RedisUtil redisUtil,
+                                ObjectMapper objectMapper) {
         this.documentLoader = documentLoader;
         this.originalVectorStore = vectorStore;
         this.aiProperties = aiProperties;
         this.embeddingModel = embeddingModel;
+        this.redisUtil = redisUtil;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -139,6 +157,99 @@ public class KnowledgeBaseService {
             saveToDisk();
         } catch (Exception e) {
             log.error("知识库重建失败（RAG 功能将降级为裸模型）: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 是否正在重建中
+     */
+    public boolean isRebuilding() {
+        return rebuilding.get();
+    }
+
+    /**
+     * 异步重建索引并在完成后发送通知
+     * <p>
+     * 使用 CompletableFuture 在后台线程执行重建，
+     * 完成后向触发者发送 KNOWLEDGE_REBUILT 通知（成功/失败均通知）。
+     * 通过 AtomicBoolean 防止并发重建。
+     *
+     * @param userId 触发重建的管理员用户 ID，用于定向发送通知
+     */
+    public void rebuildIndexAsync(Long userId) {
+        if (!rebuilding.compareAndSet(false, true)) {
+            log.warn("知识库正在重建中，跳过重复请求: userId={}", userId);
+            sendRebuildNotification(userId, false, 0, 0, "知识库正在重建中，请稍后再试");
+            return;
+        }
+
+        long startTime = System.currentTimeMillis();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("开始异步重建知识库... userId={}", userId);
+
+                List<Document> documents = documentLoader.loadSpeciesDocuments();
+
+                if (documents.isEmpty()) {
+                    log.warn("species 表为空，知识库未加载任何文档");
+                    sendRebuildNotification(userId, false, 0, 0, "物种数据为空，无法重建知识库");
+                    return;
+                }
+
+                SimpleVectorStore freshStore = SimpleVectorStore.builder(embeddingModel).build();
+                freshStore.add(documents);
+
+                rebuiltStore.set(freshStore);
+                this.indexedDocumentCount = documents.size();
+                saveToDisk();
+
+                long duration = (System.currentTimeMillis() - startTime) / 1000;
+                log.info("知识库异步重建完成: {} 个文档, 耗时 {} 秒", documents.size(), duration);
+
+                sendRebuildNotification(userId, true, documents.size(), duration, null);
+            } catch (Exception e) {
+                long duration = (System.currentTimeMillis() - startTime) / 1000;
+                log.error("知识库异步重建失败: {}", e.getMessage(), e);
+                sendRebuildNotification(userId, false, 0, duration, e.getMessage());
+            } finally {
+                rebuilding.set(false);
+            }
+        });
+    }
+
+    /**
+     * 发送知识库重建完成通知
+     */
+    private void sendRebuildNotification(Long userId, boolean success, int docCount, long durationSeconds, String errorMsg) {
+        if (userId == null) {
+            return;
+        }
+        try {
+            String title = success ? "知识库重建完成" : "知识库重建失败";
+            String content;
+            if (success) {
+                content = String.format("知识库已成功重建，共索引 %d 个物种文档，耗时 %d 秒。", docCount, durationSeconds);
+            } else {
+                content = errorMsg != null
+                        ? "知识库重建失败：" + errorMsg
+                        : "知识库重建失败，请查看日志。";
+            }
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("userId", userId);
+            payload.put("notificationType", CommonConstants.NOTIFY_KNOWLEDGE_REBUILT);
+            payload.put("title", title);
+            payload.put("content", content);
+
+            Map<String, String> fields = new HashMap<>();
+            fields.put(CommonConstants.FIELD_TYPE, CommonConstants.NOTIFY_KNOWLEDGE_REBUILT);
+            fields.put(CommonConstants.FIELD_PAYLOAD, objectMapper.writeValueAsString(payload));
+
+            redisUtil.xAdd(CommonConstants.STREAM_NOTIFICATION, fields);
+            log.info("知识库重建通知已发送: userId={}, success={}", userId, success);
+        } catch (Exception e) {
+            log.warn("知识库重建通知发送失败（不影响主流程）: userId={}", userId, e);
         }
     }
 

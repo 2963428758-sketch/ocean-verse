@@ -71,6 +71,8 @@ public final class CommonConstants {
     public static final String NOTIFY_COMMENT = "COMMENT";
     public static final String NOTIFY_SYSTEM = "SYSTEM";
     public static final String NOTIFY_AI_RESULT = "AI_RESULT";
+    public static final String NOTIFY_QUOTA_WARNING = "QUOTA_WARNING";
+    public static final String NOTIFY_KNOWLEDGE_REBUILT = "KNOWLEDGE_REBUILT";
 
     // ==================== 社区事件动作 ====================
     public static final String ACTION_POST_CREATED = "POST_CREATED";

@@ -1,6 +1,8 @@
 package com.oceanverse.ai.ratelimit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oceanverse.ai.config.AiProperties;
+import com.oceanverse.common.utils.RedisUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +29,12 @@ class AiRateLimiterTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
+    @Mock
+    private RedisUtil redisUtil;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
     private AiProperties aiProperties;
     private AiRateLimiter rateLimiter;
 
@@ -34,7 +42,7 @@ class AiRateLimiterTest {
     void setUp() {
         aiProperties = new AiProperties();
         // dailyChatLimit=50, dailyRecognitionLimit=10 (defaults)
-        rateLimiter = new AiRateLimiter(redisTemplate, aiProperties);
+        rateLimiter = new AiRateLimiter(redisTemplate, aiProperties, redisUtil, objectMapper);
     }
 
     @Test

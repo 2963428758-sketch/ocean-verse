@@ -31,6 +31,11 @@ public interface AiService {
     Page<ImageRecognition> getRecognitionHistory(Integer page, Integer size);
 
     /**
+     * 根据 ID 获取单条识别记录（通知跳转用）
+     */
+    ImageRecognition getRecognitionById(Long id);
+
+    /**
      * 问答历史
      */
     Page<QaHistory> getChatHistory(Integer page, Integer size);

@@ -1,4 +1,5 @@
 package com.oceanverse.message.service;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.oceanverse.common.constants.CommonConstants;
@@ -54,11 +55,20 @@ public class NotificationService {
         log.info("通知已入库: userId={}, type={}, title={}",
                 msg.getUserId(), msg.getNotificationType(), msg.getTitle());
 
-        // 2. WebSocket 推送
+        // 2. WebSocket 推送（携带未读数，前端无需额外 HTTP 请求）
         try {
-            String json = MAPPER.writeValueAsString(msg);
+            Long unreadCount = notificationMapper.selectCount(
+                    new LambdaQueryWrapper<SysNotification>()
+                            .eq(SysNotification::getUserId, msg.getUserId())
+                            .eq(SysNotification::getIsRead, 0));
+
+            Map<String, Object> pushPayload = new HashMap<>();
+            pushPayload.put("notification", msg);
+            pushPayload.put("unreadCount", unreadCount);
+
+            String json = MAPPER.writeValueAsString(pushPayload);
             NotificationWebSocket.sendToUser(msg.getUserId(), json);
-            log.debug("WebSocket 推送完成: userId={}", msg.getUserId());
+            log.debug("WebSocket 推送完成: userId={}, unreadCount={}", msg.getUserId(), unreadCount);
         } catch (Exception e) {
             log.warn("WebSocket 推送失败（不影响入库）: userId={}", msg.getUserId(), e);
         }

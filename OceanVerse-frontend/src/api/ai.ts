@@ -95,6 +95,10 @@ export const chatWithAIStream = (
 export const getRecognitionHistory = (params: any) =>
   http.get('/ai/recognition/history', { params })
 
+// 获取单条识别记录详情（通知跳转用）
+export const getRecognitionById = (id: number) =>
+  http.get(`/ai/recognition/${id}`)
+
 // 问答历史
 export const getChatHistory = (params: any) =>
   http.get('/ai/chat/history', { params })

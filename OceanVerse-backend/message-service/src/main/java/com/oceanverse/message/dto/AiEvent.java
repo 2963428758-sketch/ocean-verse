@@ -26,6 +26,9 @@ public class AiEvent {
     /** 识别记录编码（识别完成时） */
     private String recognitionCode;
 
+    /** 识别记录数据库 ID（用于通知关联跳转） */
+    private Long recognitionId;
+
     /** 识别结果物种名（识别完成时） */
     private String speciesName;
 

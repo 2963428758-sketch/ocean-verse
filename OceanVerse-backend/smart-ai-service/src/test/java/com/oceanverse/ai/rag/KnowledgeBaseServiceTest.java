@@ -1,6 +1,8 @@
 package com.oceanverse.ai.rag;
 
 import com.oceanverse.ai.config.AiProperties;
+import com.oceanverse.common.utils.RedisUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,6 +46,12 @@ class KnowledgeBaseServiceTest {
     @Mock
     private EmbeddingModel embeddingModel;
 
+    @Mock
+    private RedisUtil redisUtil;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
     private AiProperties aiProperties;
     private KnowledgeBaseService knowledgeBaseService;
 
@@ -51,7 +59,7 @@ class KnowledgeBaseServiceTest {
     void setUp() {
         aiProperties = new AiProperties();
         aiProperties.setVectorStorePath("target/test-vector-store/nonexistent.json");
-        knowledgeBaseService = new KnowledgeBaseService(documentLoader, vectorStore, aiProperties, embeddingModel);
+        knowledgeBaseService = new KnowledgeBaseService(documentLoader, vectorStore, aiProperties, embeddingModel, redisUtil, objectMapper);
     }
 
     // ==================== 初始化测试 ====================
@@ -96,7 +104,7 @@ class KnowledgeBaseServiceTest {
         props.setVectorStorePath(storeFile.toString());
 
         SimpleVectorStore mockSimpleStore = mock(SimpleVectorStore.class);
-        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel);
+        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel, redisUtil, objectMapper);
 
         when(documentLoader.countSpecies()).thenReturn(5L);
 
@@ -117,7 +125,7 @@ class KnowledgeBaseServiceTest {
         props.setVectorStorePath(storeFile.toString());
 
         SimpleVectorStore mockSimpleStore = mock(SimpleVectorStore.class);
-        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel);
+        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel, redisUtil, objectMapper);
 
         when(documentLoader.countSpecies()).thenReturn(8L);
         when(documentLoader.loadSpeciesDocuments()).thenReturn(List.of(new Document("新物种")));
@@ -160,7 +168,7 @@ class KnowledgeBaseServiceTest {
         props.setVectorStorePath(storeFile.toString());
 
         SimpleVectorStore mockSimpleStore = mock(SimpleVectorStore.class);
-        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel);
+        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel, redisUtil, objectMapper);
 
         when(documentLoader.countSpecies()).thenReturn(19L);
         svc.initKnowledgeBase(); // 磁盘加载 → indexedDocumentCount = 19
@@ -187,7 +195,7 @@ class KnowledgeBaseServiceTest {
         props.setVectorStorePath(storeFile.toString());
 
         SimpleVectorStore mockSimpleStore = mock(SimpleVectorStore.class);
-        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel);
+        KnowledgeBaseService svc = new KnowledgeBaseService(documentLoader, mockSimpleStore, props, embeddingModel, redisUtil, objectMapper);
 
         when(documentLoader.countSpecies()).thenReturn(7L);
         svc.initKnowledgeBase();

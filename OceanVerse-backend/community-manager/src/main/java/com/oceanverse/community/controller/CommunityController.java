@@ -165,6 +165,19 @@ public class    CommunityController {
         return Result.success();
     }
 
+    @DeleteMapping("/notification/{id}")
+    public Result<Void> deleteNotification(@PathVariable Long id,
+                                            @RequestHeader("Authorization") String token) {
+        communityService.deleteNotification(id, token);
+        return Result.success();
+    }
+
+    @DeleteMapping("/notification/read")
+    public Result<Void> deleteAllReadNotifications(@RequestHeader("Authorization") String token) {
+        communityService.deleteAllReadNotifications(token);
+        return Result.success();
+    }
+
     // ==================== 头像 ====================
 
     @PutMapping("/avatar")

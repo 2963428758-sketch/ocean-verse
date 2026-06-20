@@ -96,6 +96,16 @@ public class AiProperties {
      */
     private Integer dailyRecognitionLimit = 10;
 
+    /**
+     * 识别配额预警阈值（剩余次数 ≤ 此值时触发通知）
+     */
+    private Integer recognitionWarningThreshold = 2;
+
+    /**
+     * 对话配额预警阈值（剩余次数 ≤ 此值时触发通知）
+     */
+    private Integer chatWarningThreshold = 5;
+
     // ==================== 路径规范化 ====================
 
     /**

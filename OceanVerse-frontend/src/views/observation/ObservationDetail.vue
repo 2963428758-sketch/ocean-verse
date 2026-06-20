@@ -308,7 +308,8 @@ const typeOptions = [
   { value: 'DIVE', label: '潜水观测' },
   { value: 'SURVEY', label: '科学调查' },
   { value: 'SIGHTING', label: '目视观测' },
-  { value: 'TRACKING', label: '追踪观测' }
+  { value: 'TRACKING', label: '追踪观测' },
+  { value: 'AI_RECOGNITION', label: 'AI 识别' }
 ]
 
 // 编辑对话框

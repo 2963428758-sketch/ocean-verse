@@ -41,8 +41,6 @@ export interface Species {
   morphology?: string
   ecology?: string
   videoUrl?: string
-  longitude?: number
-  latitude?: number
   conservationStatusId?: number
   isEndemic?: number
   isInvasive?: number
@@ -230,6 +228,10 @@ export interface ObservationStatistics {
   byEcosystem: Record<string, number>
   recentCount: number
   avgDuration?: number
+  thisMonthCount?: number
+  thisYearCount?: number
+  avgWaterTemperature?: number
+  avgSalinity?: number
 }
 
 export interface ObservationLocation {

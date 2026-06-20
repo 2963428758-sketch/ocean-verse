@@ -25,6 +25,8 @@ public interface CommunityService {
     Object getUnreadCount(String token);
     void markNotificationRead(Long notificationId, String token);
     void markAllRead(String token);
+    void deleteNotification(Long id, String token);
+    void deleteAllReadNotifications(String token);
     String uploadAvatar(org.springframework.web.multipart.MultipartFile file, String token);
     void deleteComment(Long commentId, String token);
 }

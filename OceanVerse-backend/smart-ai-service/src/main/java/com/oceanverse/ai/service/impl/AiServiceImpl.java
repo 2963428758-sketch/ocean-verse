@@ -99,12 +99,25 @@ public class AiServiceImpl implements AiService {
     private static final String RECOGNITION_PROMPT = """
             请识别这张图片中的海洋生物，返回以下 JSON 格式（只返回 JSON，不要其他文字）：
             {
-              "speciesName": "中文物种名（无法识别时写\"未知\"）",
+              "speciesName": "中文物种名（无法识别时写\\"未知\\"）",
               "scientificName": "拉丁学名",
+              "commonName": "英文通用名",
               "confidence": "识别的置信度（0.0~1.0 之间，图片清晰且特征明显时偏高，模糊或特征不明时偏低）",
               "description": "简要描述（50字以内）",
+              "morphology": "形态特征描述（100字以内，包括体型、颜色、显著特征等）",
+              "ecology": "生态习性（食性、活动规律、社会行为等，100字以内）",
               "habitat": "主要栖息地",
-              "conservationStatus": "保护等级"
+              "kingdom": "界（如 Animalia）",
+              "phylum": "门（如 Chordata）",
+              "className": "纲（如 Mammalia）",
+              "orderName": "目（如 Sirenia）",
+              "family": "科（如 Dugongidae）",
+              "genus": "属（如 Dugong）",
+              "species": "种加词（如 dugon）",
+              "iucnStatus": "IUCN等级（EX/EW/CR/EN/VU/NT/LC 之一，不确定写 null）",
+              "protectionLevel": "中国保护等级（1=一级,2=二级,3=三级,不确定写 null）",
+              "isEndemic": "是否特有种（0或1，不确定写0）",
+              "isInvasive": "是否入侵物种（0或1，不确定写0）"
             }
             """;;
 
@@ -136,6 +149,8 @@ public class AiServiceImpl implements AiService {
         record.setCreateTime(LocalDateTime.now());
         record.setUpdateTime(LocalDateTime.now());
 
+        JsonNode parsed = null;
+
         try {
             // 3. 调用 qwen-vl-max 多模态视觉模型
             //    withMultiModel(true) 强制走多模态端点，.media(MimeType, URL) 传入图片
@@ -158,12 +173,12 @@ public class AiServiceImpl implements AiService {
 
             // 4. 解析模型返回的 JSON（兼容 markdown code block 包裹）
             String jsonContent = extractJson(response);
-            JsonNode result = objectMapper.readTree(jsonContent);
+            parsed = objectMapper.readTree(jsonContent);
 
-            record.setPredictedSpeciesName(result.path("speciesName").asText("未知"));
+            record.setPredictedSpeciesName(parsed.path("speciesName").asText("未知"));
 
             // 安全解析置信度：使用 asDouble 避免 NumberFormatException
-            double confidenceValue = result.path("confidence").asDouble(DEFAULT_CONFIDENCE);
+            double confidenceValue = parsed.path("confidence").asDouble(DEFAULT_CONFIDENCE);
             record.setConfidenceScore(BigDecimal.valueOf(confidenceValue));
             record.setRecognitionResult(response);
             record.setAiModelVersion(aiProperties.getImageModel());
@@ -239,6 +254,12 @@ public class AiServiceImpl implements AiService {
                     "observationTime", LocalDateTime.now(),
                     "confidence", record.getConfidenceScore()
             ));
+
+            // 7.7 高置信度 + 未匹配物种 → 建议录入新物种
+            if (record.getPredictedSpeciesId() == null && parsed != null) {
+                result.put("suggestNewSpecies", true);
+                result.put("speciesPrefill", buildSpeciesPrefill(parsed));
+            }
         }
 
         log.info("图像识别完成: code={}, species={}, confidence={}, 耗时={}ms",
@@ -250,6 +271,78 @@ public class AiServiceImpl implements AiService {
             result.put("recognition", record);
         }
         return result;
+    }
+
+    /**
+     * 从 AI 识别结果构建物种新增表单预填数据。
+     * 对模型未返回的字段做容错：取不到就跳过，前端留空让用户手动填写。
+     */
+    private Map<String, Object> buildSpeciesPrefill(JsonNode parsed) {
+        Map<String, Object> prefill = new java.util.HashMap<>();
+
+        putIfPresent(prefill, "scientificName", parsed, "scientificName");
+        putIfPresent(prefill, "chineseName", parsed, "speciesName");
+        putIfPresent(prefill, "commonName", parsed, "commonName");
+        putIfPresent(prefill, "description", parsed, "description");
+        putIfPresent(prefill, "morphology", parsed, "morphology");
+        putIfPresent(prefill, "ecology", parsed, "ecology");
+        putIfPresent(prefill, "kingdom", parsed, "kingdom");
+        putIfPresent(prefill, "phylum", parsed, "phylum");
+        putIfPresent(prefill, "className", parsed, "className");
+        putIfPresent(prefill, "orderName", parsed, "orderName");
+        putIfPresent(prefill, "family", parsed, "family");
+        putIfPresent(prefill, "genus", parsed, "genus");
+        putIfPresent(prefill, "species", parsed, "species");
+        putIfPresent(prefill, "source", parsed, null); // 固定值
+
+        // IUCN 等级：仅接受标准枚举值，否则跳过
+        String iucn = getTextOrNull(parsed, "iucnStatus");
+        if (iucn != null && java.util.Set.of("EX", "EW", "CR", "EN", "VU", "NT", "LC").contains(iucn)) {
+            prefill.put("iucnStatus", iucn);
+        }
+
+        // 保护等级：仅接受 "1"/"2"/"3"，否则跳过
+        String protLevel = getTextOrNull(parsed, "protectionLevel");
+        if (protLevel != null) {
+            // 规范化：AI 可能返回 "国家二级"、"二级"、"2" 等格式
+            String normalized = protLevel.replaceAll("[^0-9]", "");
+            if (normalized.isEmpty()) {
+                // 尝试中文数字映射
+                if (protLevel.contains("一")) normalized = "1";
+                else if (protLevel.contains("二")) normalized = "2";
+                else if (protLevel.contains("三")) normalized = "3";
+            }
+            if (java.util.Set.of("1", "2", "3").contains(normalized)) {
+                prefill.put("protectionLevel", normalized);
+            }
+        }
+
+        // 布尔标记：默认 0
+        prefill.put("isEndemic", parsed.path("isEndemic").asInt(0));
+        prefill.put("isInvasive", parsed.path("isInvasive").asInt(0));
+
+        // 固定数据来源标记
+        prefill.put("source", "AI 图像识别自动生成");
+
+        return prefill;
+    }
+
+    private void putIfPresent(Map<String, Object> target, String targetKey, JsonNode source, String sourceKey) {
+        if (sourceKey == null) return; // 固定值由调用方直接设置
+        JsonNode node = source.get(sourceKey);
+        if (node != null && !node.isNull() && !node.isMissingNode()) {
+            String text = node.asText().trim();
+            if (!text.isEmpty() && !"null".equalsIgnoreCase(text)) {
+                target.put(targetKey, text);
+            }
+        }
+    }
+
+    private String getTextOrNull(JsonNode source, String key) {
+        JsonNode node = source.get(key);
+        if (node == null || node.isNull() || node.isMissingNode()) return null;
+        String text = node.asText().trim();
+        return text.isEmpty() || "null".equalsIgnoreCase(text) ? null : text;
     }
 
     // ==================== 智能问答 SSE 流式（第二层：Prompt模板 + RAG + 多轮对话）====================
@@ -387,6 +480,11 @@ public class AiServiceImpl implements AiService {
                 new LambdaQueryWrapper<ImageRecognition>()
                         .orderByDesc(ImageRecognition::getCreateTime)
         );
+    }
+
+    @Override
+    public ImageRecognition getRecognitionById(Long id) {
+        return recognitionMapper.selectById(id);
     }
 
     @Override
@@ -558,6 +656,7 @@ public class AiServiceImpl implements AiService {
                     "action", CommonConstants.ACTION_RECOGNITION_COMPLETE,
                     "userId", record.getUserId() != null ? record.getUserId() : 0L,
                     "recognitionCode", record.getRecognitionCode(),
+                    "recognitionId", record.getId() != null ? record.getId() : 0L,
                     "speciesName", record.getPredictedSpeciesName() != null
                             ? record.getPredictedSpeciesName() : "待确认",
                     "confidence", record.getConfidenceScore() != null
