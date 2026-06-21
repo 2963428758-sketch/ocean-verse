@@ -269,12 +269,24 @@ public class KnowledgeBaseService {
      * @return 相关文档列表
      */
     public List<Document> search(String query, int topK) {
+        return search(query, topK, aiProperties.getSimilarityThreshold());
+    }
+
+    /**
+     * 根据用户问题检索相关知识（自定义相似度阈值）
+     *
+     * @param query              用户问题
+     * @param topK               返回最相关的 K 个文档
+     * @param similarityThreshold 相似度阈值（0-1），越高越严格
+     * @return 相关文档列表
+     */
+    public List<Document> search(String query, int topK, double similarityThreshold) {
         try {
             return activeStore().similaritySearch(
                     SearchRequest.builder()
                             .query(query)
                             .topK(topK)
-                            .similarityThreshold(aiProperties.getSimilarityThreshold())
+                            .similarityThreshold(similarityThreshold)
                             .build()
             );
         } catch (Exception e) {

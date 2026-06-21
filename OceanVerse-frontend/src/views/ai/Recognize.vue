@@ -30,7 +30,7 @@
             <span class="scan-text">AI 正在分析...</span>
           </div>
           <button v-if="!loading" class="change-btn" @click="triggerUpload">更换图片</button>
-          <button v-if="!loading && result" class="re-recognize-btn" @click="doRecognize">重新识别</button>
+          <button v-if="!loading && result && file" class="re-recognize-btn" @click="doRecognize">重新识别</button>
           <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="handleInputChange" />
         </div>
 
@@ -95,44 +95,44 @@
             </div>
           </div>
 
-          <!-- 置信度 + 保护等级 -->
-          <div class="metrics-row">
-            <div class="metric-card confidence">
-              <svg class="gauge" viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r="34" fill="none" stroke="var(--neutral-100)" stroke-width="6"/>
-                <circle cx="40" cy="40" r="34" fill="none"
-                  :stroke="confidenceColor"
-                  stroke-width="6"
-                  stroke-linecap="round"
-                  :stroke-dasharray="gaugeArc"
-                  :stroke-dashoffset="gaugeArc"
-                  transform="rotate(-90 40 40)"
-                  class="gauge-fill"/>
-              </svg>
-              <div class="gauge-label">
-                <span class="gauge-value">{{ confidencePercent }}%</span>
-                <span class="gauge-desc">置信度</span>
+          <!-- 描述/栖息环境 + 置信度 两栏 -->
+          <div class="info-metrics-grid" :class="{ 'no-info': !hasInfoContent }">
+            <div class="info-column">
+              <div v-if="parsedResult.description" class="detail-section">
+                <h4>📋 物种描述</h4>
+                <p class="detail-text">{{ parsedResult.description }}</p>
+              </div>
+              <div v-if="parsedResult.habitat" class="detail-section">
+                <h4>🌊 栖息环境</h4>
+                <p class="detail-text">{{ parsedResult.habitat }}</p>
               </div>
             </div>
-            <div v-if="parsedResult.conservationStatus" class="metric-card status">
-              <div class="status-icon">🛡️</div>
-              <div class="status-info">
-                <span class="status-label">保护等级</span>
-                <span class="status-value">{{ parsedResult.conservationStatus }}</span>
+            <div class="metrics-column">
+              <div class="metric-card confidence">
+                <svg class="gauge" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="34" fill="none" stroke="var(--neutral-100)" stroke-width="6"/>
+                  <circle cx="40" cy="40" r="34" fill="none"
+                    :stroke="confidenceColor"
+                    stroke-width="6"
+                    stroke-linecap="round"
+                    :stroke-dasharray="gaugeDasharray"
+                    :stroke-dashoffset="gaugeDashoffset"
+                    transform="rotate(-90 40 40)"
+                    class="gauge-fill"/>
+                </svg>
+                <div class="gauge-label">
+                  <span class="gauge-value">{{ confidencePercent }}%</span>
+                  <span class="gauge-desc">置信度</span>
+                </div>
+              </div>
+              <div v-if="parsedResult.conservationStatus" class="metric-card status">
+                <div class="status-icon">🛡️</div>
+                <div class="status-info">
+                  <span class="status-label">保护等级</span>
+                  <span class="status-value">{{ parsedResult.conservationStatus }}</span>
+                </div>
               </div>
             </div>
-          </div>
-
-          <!-- 描述 -->
-          <div v-if="parsedResult.description" class="detail-section">
-            <h4>📋 物种描述</h4>
-            <p class="detail-text">{{ parsedResult.description }}</p>
-          </div>
-
-          <!-- 栖息地 -->
-          <div v-if="parsedResult.habitat" class="detail-section">
-            <h4>🌊 栖息环境</h4>
-            <p class="detail-text">{{ parsedResult.habitat }}</p>
           </div>
 
           <!-- 物种知识卡片（任务 3.4：识别结果关联 species 表） -->
@@ -188,9 +188,10 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'AiRecognize' })
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { recognizeImage, getRecognitionById } from '@/api/ai'
+import { getSpeciesDetail } from '@/api/species'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -215,13 +216,14 @@ const showNewSpeciesSuggestion = computed(() => {
     && !!speciesPrefillData.value
 })
 
+// 是否有描述/栖息环境内容，用于决定置信度放左还是放右
+const hasInfoContent = computed(() => !!(parsedResult.value.description || parsedResult.value.habitat))
+
 // 解析 recognitionResult（后端存储的 AI 原始 JSON 响应）
-const parsedResult = computed(() => {
-  if (!result.value?.recognitionResult) return {}
+/** 解析 AI 返回的 JSON（兼容 markdown code block 包裹） */
+function parseAiJson(raw: string): any {
   try {
-    const raw = result.value.recognitionResult.trim()
-    // 兼容 markdown code block 包裹
-    let json = raw
+    let json = raw.trim()
     if (json.startsWith('```')) {
       const firstNl = json.indexOf('\n')
       const lastFence = json.lastIndexOf('```')
@@ -232,8 +234,13 @@ const parsedResult = computed(() => {
     if (first >= 0 && last > first) json = json.substring(first, last + 1)
     return JSON.parse(json)
   } catch {
-    return {}
+    return null
   }
+}
+
+const parsedResult = computed(() => {
+  if (!result.value?.recognitionResult) return {}
+  return parseAiJson(result.value.recognitionResult) || {}
 })
 
 const confidencePercent = computed(() => {
@@ -248,12 +255,13 @@ const confidenceColor = computed(() => {
   return 'var(--el-color-danger)'
 })
 
-// SVG 圆弧：半径 34，周长 ≈ 213.6，只取 75% 弧（约 160）
-const gaugeArc = computed(() => {
-  const circumference = 2 * Math.PI * 34
-  const arc = circumference * 0.75
-  const offset = arc - (arc * Number(confidencePercent.value)) / 100
-  return `${arc} ${circumference}`
+// SVG 圆弧：半径 34，完整圆周 ≈ 213.6
+const gaugeCircumference = 2 * Math.PI * 34
+
+const gaugeDasharray = computed(() => `${gaugeCircumference}`)
+
+const gaugeDashoffset = computed(() => {
+  return gaugeCircumference * (1 - Number(confidencePercent.value) / 100)
 })
 
 function triggerUpload() {
@@ -300,6 +308,11 @@ function resetAll() {
 async function doRecognize() {
   if (!file.value) return
   loading.value = true
+  // 立即重置上次识别的状态，避免重新识别时旧横幅残留
+  speciesCard.value = null
+  hasObservationSuggestion.value = false
+  observationData.value = null
+  speciesPrefillData.value = null
   sessionStorage.removeItem('lastRecognitionId')
   try {
     const res: any = await recognizeImage(file.value)
@@ -363,62 +376,106 @@ function createSpeciesFromAi() {
   router.push('/species/list')
 }
 
-// 从通知跳转过来时，通过 ?id= 加载识别结果
-// 或从 sessionStorage 恢复上次识别结果（如从物种列表返回时）
+// 当前加载的识别记录 ID，用于 keep-alive 激活时检测路由变化
+const currentLoadedId = ref<number | null>(null)
+
+/**
+ * 根据 ID 加载识别记录并重建页面状态
+ */
+async function loadRecognitionById(id: number) {
+  loading.value = true
+  // 重置上次识别的状态
+  speciesCard.value = null
+  hasObservationSuggestion.value = false
+  observationData.value = null
+  speciesPrefillData.value = null
+  try {
+    const res: any = await getRecognitionById(id)
+    if (res.data) {
+      result.value = res.data
+      previewUrl.value = res.data.imageUrl || null
+      currentLoadedId.value = id
+      // 如果 predictedSpeciesId 存在说明匹配到了物种，拉取完整物种信息
+      if (res.data.predictedSpeciesId) {
+        try {
+          const speciesRes: any = await getSpeciesDetail(res.data.predictedSpeciesId)
+          const sp = speciesRes.data
+          speciesCard.value = {
+            id: sp.id,
+            commonName: sp.commonName,
+            scientificName: sp.scientificName,
+            iucnStatus: sp.iucnStatus,
+            protectionLevel: sp.protectionLevel,
+            morphology: sp.morphology,
+            ecology: sp.ecology,
+            description: sp.description
+          }
+        } catch {
+          speciesCard.value = { id: res.data.predictedSpeciesId }
+        }
+      }
+      // 从 recognitionResult JSON 重建 speciesPrefillData
+      if (res.data.recognitionResult && res.data.confidenceScore >= 0.8 && !res.data.predictedSpeciesId) {
+        const parsed = parseAiJson(res.data.recognitionResult)
+        if (parsed) {
+          speciesPrefillData.value = {
+            scientificName: parsed.scientificName || '',
+            chineseName: parsed.speciesName || '',
+            commonName: parsed.commonName || '',
+            description: parsed.description || '',
+            morphology: parsed.morphology || '',
+            ecology: parsed.ecology || '',
+            kingdom: parsed.kingdom || '',
+            phylum: parsed.phylum || '',
+            className: parsed.className || '',
+            orderName: parsed.orderName || '',
+            family: parsed.family || '',
+            genus: parsed.genus || '',
+            species: parsed.species || '',
+            iucnStatus: parsed.iucnStatus || '',
+            protectionLevel: parsed.protectionLevel || '',
+            isEndemic: parsed.isEndemic || 0,
+            isInvasive: parsed.isInvasive || 0,
+            source: 'AI 图像识别自动生成'
+          }
+        }
+      }
+      hasObservationSuggestion.value = res.data.confidenceScore >= 0.8
+      // 从识别记录重建观测数据（坐标未持久化，默认 0.0）
+      observationData.value = hasObservationSuggestion.value ? {
+        speciesId: res.data.predictedSpeciesId || 0,
+        speciesName: res.data.predictedSpeciesName || '未知',
+        latitude: 0.0,
+        longitude: 0.0,
+        observationTime: res.data.createTime,
+        confidence: res.data.confidenceScore
+      } : null
+    } else {
+      ElMessage.warning('未找到该识别记录')
+    }
+  } catch (e: any) {
+    if (!e?.message) ElMessage.error('加载识别记录失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 首次挂载：从通知 ?id= 或 sessionStorage 恢复
 onMounted(async () => {
   const queryId = route.query.id
   const savedId = sessionStorage.getItem('lastRecognitionId')
   const id = queryId || savedId
   if (id && !isNaN(Number(id))) {
-    loading.value = true
-    try {
-      const res: any = await getRecognitionById(Number(id))
-      if (res.data) {
-        result.value = res.data
-        previewUrl.value = res.data.imageUrl || null
-        // 根据识别记录重建 speciesCard 和 speciesPrefillData
-        // 如果 predictedSpeciesId 存在说明匹配到了物种
-        if (res.data.predictedSpeciesId) {
-          speciesCard.value = { id: res.data.predictedSpeciesId }
-        } else {
-          speciesCard.value = null
-        }
-        // 从 recognitionResult JSON 重建 speciesPrefillData
-        if (res.data.recognitionResult && res.data.confidenceScore >= 0.8 && !res.data.predictedSpeciesId) {
-          try {
-            const parsed = JSON.parse(res.data.recognitionResult)
-            speciesPrefillData.value = {
-              scientificName: parsed.scientificName || '',
-              chineseName: parsed.speciesName || '',
-              commonName: parsed.commonName || '',
-              description: parsed.description || '',
-              morphology: parsed.morphology || '',
-              ecology: parsed.ecology || '',
-              kingdom: parsed.kingdom || '',
-              phylum: parsed.phylum || '',
-              className: parsed.className || '',
-              orderName: parsed.orderName || '',
-              family: parsed.family || '',
-              genus: parsed.genus || '',
-              species: parsed.species || '',
-              iucnStatus: parsed.iucnStatus || '',
-              protectionLevel: parsed.protectionLevel || '',
-              isEndemic: parsed.isEndemic || 0,
-              isInvasive: parsed.isInvasive || 0,
-              source: 'AI 图像识别自动生成'
-            }
-          } catch { speciesPrefillData.value = null }
-        }
-        hasObservationSuggestion.value = res.data.confidenceScore >= 0.8
-        observationData.value = null // 历史记录无法重建观测数据
-      } else {
-        ElMessage.warning('未找到该识别记录')
-      }
-    } catch (e: any) {
-      if (!e?.message) ElMessage.error('加载识别记录失败')
-    } finally {
-      loading.value = false
-    }
+    await loadRecognitionById(Number(id))
+  }
+})
+
+// keep-alive 激活：检测路由 query.id 是否变化（如从通知点击不同的识别记录）
+onActivated(async () => {
+  const queryId = route.query.id
+  if (queryId && !isNaN(Number(queryId)) && Number(queryId) !== currentLoadedId.value) {
+    file.value = null // 从通知跳转没有文件引用
+    await loadRecognitionById(Number(queryId))
   }
 })
 </script>
@@ -712,11 +769,30 @@ onMounted(async () => {
 }
 
 /* 置信度 + 保护等级 */
-.metrics-row {
+.info-metrics-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: 1fr 200px;
+  gap: 20px;
   margin-bottom: 20px;
+
+  &.no-info {
+    grid-template-columns: 200px 1fr;
+    .info-column { order: 2; }
+    .metrics-column { order: 1; }
+  }
+}
+
+.info-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.metrics-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: center;
 }
 
 .metric-card {
@@ -732,9 +808,6 @@ onMounted(async () => {
       width: 60px;
       height: 60px;
       flex-shrink: 0;
-      .gauge-fill {
-        transition: stroke-dashoffset 0.8s ease;
-      }
     }
   }
 
@@ -953,7 +1026,7 @@ onMounted(async () => {
   .recognize-layout {
     grid-template-columns: 1fr;
   }
-  .metrics-row {
+  .info-metrics-grid {
     grid-template-columns: 1fr;
   }
 }

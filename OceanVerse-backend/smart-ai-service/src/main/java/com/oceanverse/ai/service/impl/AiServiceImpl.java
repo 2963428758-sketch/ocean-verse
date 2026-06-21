@@ -203,18 +203,59 @@ public class AiServiceImpl implements AiService {
         // 7. 发布识别完成事件到 Redis Stream（任务 1.4）
         publishRecognitionEvent(record);
 
-        // 7.5 识别成功后关联物种表（任务 3.4）
+        // 7.5 识别成功后关联物种表 — 三层递进匹配
         Map<String, Object> result = null;
         if (record.getPredictedSpeciesName() != null && !"识别失败".equals(record.getPredictedSpeciesName())) {
+            String predictedName = record.getPredictedSpeciesName();
+
+            // Tier 1: 精确匹配（commonName / scientificName / chineseName）
             Species species = speciesMapper.selectOne(
                     new LambdaQueryWrapper<Species>()
-                            .eq(Species::getCommonName, record.getPredictedSpeciesName())
+                            .eq(Species::getCommonName, predictedName)
                             .or()
-                            .eq(Species::getScientificName, record.getPredictedSpeciesName())
+                            .eq(Species::getScientificName, predictedName)
                             .or()
-                            .eq(Species::getChineseName, record.getPredictedSpeciesName())
+                            .eq(Species::getChineseName, predictedName)
                             .last("LIMIT 1")
             );
+
+            // Tier 2: 模糊包含匹配（双向 LIKE，要求名称长度 ≥ 2）
+            if (species == null && predictedName.length() >= 2) {
+                species = speciesMapper.selectOne(
+                        new LambdaQueryWrapper<Species>()
+                                .apply("chinese_name LIKE CONCAT('%', {0}, '%')", predictedName)
+                                .or()
+                                .apply("{0} LIKE CONCAT('%', chinese_name, '%')", predictedName)
+                                .or()
+                                .apply("common_name LIKE CONCAT('%', {0}, '%')", predictedName)
+                                .or()
+                                .apply("{0} LIKE CONCAT('%', common_name, '%')", predictedName)
+                                .last("LIMIT 1")
+                );
+                if (species != null) {
+                    log.info("物种模糊匹配成功: {} → {} (speciesId={})", predictedName, species.getChineseName(), species.getId());
+                }
+            }
+
+            // Tier 3: 向量语义匹配（利用已有知识库，高阈值 0.85 防误匹配）
+            if (species == null) {
+                try {
+                    List<Document> docs = knowledgeBaseService.search(predictedName, 1, 0.85);
+                    if (!docs.isEmpty()) {
+                        Document topDoc = docs.get(0);
+                        Object speciesIdObj = topDoc.getMetadata().get("speciesId");
+                        if (speciesIdObj instanceof Long speciesId) {
+                            Species vectorMatch = speciesMapper.selectById(speciesId);
+                            if (vectorMatch != null) {
+                                species = vectorMatch;
+                                log.info("物转向量匹配成功: {} → {} (speciesId={})", predictedName, vectorMatch.getChineseName(), speciesId);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("向量匹配异常，跳过: {}", e.getMessage());
+                }
+            }
 
             if (species != null) {
                 record.setPredictedSpeciesId(species.getId());
@@ -234,7 +275,9 @@ public class AiServiceImpl implements AiService {
                 result.put("recognition", record);
                 result.put("speciesCard", speciesCard);
 
-                log.info("物种匹配成功: {} → speciesId={}", record.getPredictedSpeciesName(), species.getId());
+                if (species.getChineseName() != null && !species.getChineseName().equals(predictedName)) {
+                    log.info("物种匹配: {} → speciesId={}", predictedName, species.getId());
+                }
             }
         }
 

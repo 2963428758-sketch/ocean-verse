@@ -81,10 +81,23 @@ export const chatWithAIStream = (
             return
           }
           // 普通文本 chunk（JSON 编码的字符串）
-          if (typeof parsed === 'string' && parsed) onChunk(parsed)
+          if (typeof parsed === 'string') {
+            // 二次解析检测：后端 writeValueAsString 会把元数据 JSON 字符串再编码一次
+            // 导致 JSON.parse 结果是字符串 '{"qaId":N}' 而非对象，这里做兜底拦截
+            try {
+              const inner = JSON.parse(parsed)
+              if (inner && typeof inner === 'object' && 'qaId' in inner) {
+                if (onMeta) onMeta(inner)
+                return
+              }
+            } catch { /* 非二次编码的元数据，作为普通文本处理 */ }
+            if (parsed) onChunk(parsed)
+          }
         } catch {
-          // 降级：如果 JSON 解析失败，直接使用原始内容
-          if (content) onChunk(content)
+          // 降级：如果 JSON 解析失败，过滤掉元数据和合并的 SSE 事件
+          if (content && !content.includes('"qaId"') && !content.includes('data:')) {
+            onChunk(content)
+          }
         }
       }
     })

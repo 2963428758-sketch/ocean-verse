@@ -8,6 +8,8 @@ import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -96,7 +98,11 @@ public class DocumentLoader {
             content.append("中国保护等级: ").append(species.getProtectionLevel()).append("\n");
         }
 
-        return new Document(content.toString().trim());
+        return new Document(
+                UUID.randomUUID().toString(),
+                content.toString().trim(),
+                Map.of("speciesId", species.getId())
+        );
     }
 
     /**
