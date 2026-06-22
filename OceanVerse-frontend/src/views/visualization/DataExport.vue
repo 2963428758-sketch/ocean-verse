@@ -89,10 +89,7 @@
       </div>
 
       <div class="filter-actions">
-        <el-button @click="loadPreview" :loading="previewLoading" type="primary" plain>
-          <el-icon><Refresh /></el-icon>
-          刷新预览
-        </el-button>
+        <span class="auto-hint">筛选条件变化后预览自动刷新</span>
       </div>
     </el-card>
 
@@ -122,6 +119,10 @@
       <div class="step-title">
         <span class="step-num">4</span>
         <span>数据预览 <small style="color: var(--neutral-400); font-weight: 400">（前 {{ previewData.length }} 条）</small></span>
+        <el-button class="refresh-btn" size="small" :loading="previewLoading" @click="loadPreview">
+          <el-icon><Refresh /></el-icon>
+          刷新
+        </el-button>
       </div>
 
       <!-- 统计汇总时显示图表 -->
@@ -277,6 +278,16 @@ function selectType(key: string) {
 }
 
 // ==================== 加载预览数据 ====================
+let previewTimer: ReturnType<typeof setTimeout> | null = null
+
+/** 带防抖的预览刷新，筛选变化后 600ms 触发 */
+function debouncedLoadPreview() {
+  if (previewTimer) clearTimeout(previewTimer)
+  previewTimer = setTimeout(() => {
+    loadPreview()
+  }, 600)
+}
+
 async function loadPreview() {
   if (!selectedType.value) return
   previewLoading.value = true
@@ -327,6 +338,28 @@ async function loadPreview() {
     previewLoading.value = false
   }
 }
+
+// ==================== 筛选变化自动刷新预览 ====================
+// 深度监听 filters 所有字段
+watch(filters, () => {
+  if (selectedType.value && selectedType.value !== 'statistics') {
+    debouncedLoadPreview()
+  }
+}, { deep: true })
+
+// 统计汇总只需监听 period
+watch(() => filters.value.period, () => {
+  if (selectedType.value === 'statistics') {
+    debouncedLoadPreview()
+  }
+})
+
+// 日期范围单独监听（el-date-picker 的 v-model 是独立 ref）
+watch(dateRange, () => {
+  if (selectedType.value === 'observation') {
+    debouncedLoadPreview()
+  }
+})
 
 // ==================== 渲染图表 ====================
 function renderCharts(iucnData: any[], familyData: any[], trendData: any[]) {
@@ -599,6 +632,19 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
 .filter-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.auto-hint {
+  font-size: 12px;
+  color: var(--neutral-400);
+  margin-right: auto;
+}
+
+/* 预览区刷新按钮 */
+.refresh-btn {
+  margin-left: auto;
 }
 
 /* 格式选择 */
