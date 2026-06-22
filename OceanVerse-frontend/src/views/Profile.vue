@@ -259,10 +259,11 @@ async function handleAvatarFileChange(e: Event) {
 
   avatarUploading.value = true
   try {
-    const res: any = await uploadAvatar(file)
-    const url = res.data?.url || res.data
+    await uploadAvatar(file)
     ElMessage.success('头像上传成功')
     await loadUserInfo()
+  } catch {
+    // error handled by http interceptor
   } finally {
     avatarUploading.value = false
     input.value = ''

@@ -54,6 +54,12 @@ public class OperateLogAspect {
             Object[] args = pjp.getArgs();
             if (args != null && args.length > 0) {
                 String[] paramNames = signature.getParameterNames();
+                if (paramNames == null) {
+                    paramNames = new String[args.length];
+                    for (int i = 0; i < args.length; i++) {
+                        paramNames[i] = "arg" + i;
+                    }
+                }
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < args.length; i++) {
                     if (args[i] instanceof HttpServletRequest) continue;

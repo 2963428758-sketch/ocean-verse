@@ -193,17 +193,20 @@ public class RoleServiceImpl implements RoleService {
         // 先删后插（全量替换）
         rolePermissionMapper.deleteByRoleId(dto.getRoleId());
 
-        for (Long permId : dto.getPermissionIds()) {
-            SysRolePermission rp = new SysRolePermission();
-            rp.setRoleId(dto.getRoleId());
-            rp.setPermissionId(permId);
-            rolePermissionMapper.insert(rp);
+        if (dto.getPermissionIds() != null && !dto.getPermissionIds().isEmpty()) {
+            for (Long permId : dto.getPermissionIds()) {
+                SysRolePermission rp = new SysRolePermission();
+                rp.setRoleId(dto.getRoleId());
+                rp.setPermissionId(permId);
+                rolePermissionMapper.insert(rp);
+            }
         }
 
         // 清除该角色下所有用户的权限缓存
         clearRoleUsersCache(dto.getRoleId());
 
-        log.info("角色分配权限: roleId={}, permCount={}", dto.getRoleId(), dto.getPermissionIds().size());
+        int permCount = dto.getPermissionIds() != null ? dto.getPermissionIds().size() : 0;
+        log.info("角色分配权限: roleId={}, permCount={}", dto.getRoleId(), permCount);
     }
 
     /**

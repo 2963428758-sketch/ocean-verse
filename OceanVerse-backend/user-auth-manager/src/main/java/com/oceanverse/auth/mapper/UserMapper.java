@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.oceanverse.pojo.entity.User;
 import org.apache.ibatis.annotations.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -48,4 +49,22 @@ public interface UserMapper extends BaseMapper<User> {
     @Insert("INSERT INTO sys_user_role (user_id, role_id) " +
             "SELECT #{userId}, r.id FROM sys_role r WHERE r.role_code = #{roleCode} AND r.deleted = 0")
     int insertUserRole(@Param("userId") Long userId, @Param("roleCode") String roleCode);
+
+    /**
+     * 查询过期注销用户（绕过 @TableLogic，用于定时物理清理）
+     */
+    @Select("SELECT * FROM sys_user WHERE deleted = 1 AND update_time <= #{cutoffTime}")
+    List<User> selectExpiredDeletedUsers(@Param("cutoffTime") LocalDateTime cutoffTime);
+
+    /**
+     * 物理删除用户（绕过 @TableLogic）
+     */
+    @Delete("DELETE FROM sys_user WHERE id = #{id}")
+    int physicalDeleteById(@Param("id") Long id);
+
+    /**
+     * 统计用户名数量（绕过 @TableLogic，含已注销用户）
+     */
+    @Select("SELECT COUNT(*) FROM sys_user WHERE username = #{username}")
+    long countByUsernameIgnoreDeleted(@Param("username") String username);
 }
