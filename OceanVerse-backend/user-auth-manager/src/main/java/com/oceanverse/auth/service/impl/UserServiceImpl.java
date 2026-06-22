@@ -92,11 +92,20 @@ public class UserServiceImpl implements UserService {
                         .eq(User::getDeleted, CommonConstants.NOT_DELETED)
         );
 
-        if (user == null || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
-            // 密码错误 → 记录失败计数
+        // 用户不存在 → 二次检查是否已注销
+        if (user == null) {
+            long deletedCount = userMapper.countByUsernameIgnoreDeleted(dto.getUsername());
+            if (deletedCount > 0) {
+                throw new BusinessException("该账号已注销，30天后可重新注册");
+            }
+            throw new BusinessException("该用户不存在，请先注册");
+        }
+
+        // 密码错误
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             recordFailedAttempt(dto.getUsername(), failKey, user);
-            recordLoginLog(user, dto.getUsername(), clientIp, userAgent, 0, "用户名或密码错误");
-            throw new BusinessException("用户名或密码错误");
+            recordLoginLog(user, dto.getUsername(), clientIp, userAgent, 0, "密码错误");
+            throw new BusinessException("密码错误");
         }
 
         // 账号已禁用
