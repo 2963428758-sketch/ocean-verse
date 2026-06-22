@@ -1,7 +1,7 @@
 <template>
   <el-container class="main-layout">
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar">
+    <el-aside :width="isCollapse ? '80px' : '220px'" class="sidebar">
       <div class="logo" @click="router.push('/')">
         <span class="logo-icon">🌊</span>
         <span v-if="!isCollapse" class="logo-text">OceanVerse</span>
@@ -16,20 +16,24 @@
         active-text-color="var(--sidebar-text-active)"
       >
         <template v-for="item in menuItems" :key="item.path">
-          <el-sub-menu v-if="item.children" :index="item.path">
-            <template #title>
-              <el-icon><component :is="item.icon" /></el-icon>
+          <div class="menu-group">
+            <!-- 分组标题（仅展开态显示） -->
+            <div v-if="item.children && !isCollapse" class="group-header">
               <span>{{ item.title }}</span>
-            </template>
-            <el-menu-item v-for="child in item.children" :key="child.path" :index="child.path">
-              <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
-              <span>{{ child.title }}</span>
+            </div>
+            <!-- 无子菜单 -->
+            <el-menu-item v-if="!item.children" :index="item.path">
+              <el-icon><component :is="item.icon" /></el-icon>
+              <span class="menu-item-label">{{ item.title }}</span>
             </el-menu-item>
-          </el-sub-menu>
-          <el-menu-item v-else :index="item.path">
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span>{{ item.title }}</span>
-          </el-menu-item>
+            <!-- 有子菜单：平铺子项 -->
+            <template v-else>
+              <el-menu-item v-for="child in item.children" :key="child.path" :index="child.path">
+                <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
+                <span class="menu-item-label">{{ child.title }}</span>
+              </el-menu-item>
+            </template>
+          </div>
         </template>
       </el-menu>
 
@@ -345,24 +349,90 @@ async function doLogout() {
     .el-icon { font-size: 19px; }
   }
 
-  /* 折叠态：图标居中 */
+  /* 展开态：标签正常内联显示 */
+  :deep(.menu-item-label) {
+    margin-left: 8px;
+    font-size: 14px;
+  }
+
+  /* 分组标题 */
+  .group-header {
+    padding: 18px 20px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    user-select: none;
+  }
+
+  /* 收起态：图标居中 + 中文标签 */
   &.el-menu--collapse {
-    :deep(.el-menu-item),
-    :deep(.el-sub-menu__title) {
-      margin: 4px 8px;
-      padding: 0 !important;
-      display: flex !important;
-      align-items: center;
-      justify-content: center;
-    }
+    /* 菜单容器撑满侧边栏宽度，去掉内边距 */
+    width: 100% !important;
+    padding: 0 !important;
 
-    :deep(.el-sub-menu) > .el-sub-menu__title .el-icon,
-    :deep(.el-menu-item .el-icon) {
-      margin-right: 0 !important;
-    }
-
-    :deep(.el-sub-menu__icon-arrow) {
+    /* 收起态隐藏分组标题 */
+    .group-header {
       display: none;
+    }
+
+    /* 分组之间加横线分隔 */
+    .menu-group + .menu-group {
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      margin-top: 4px;
+      padding-top: 4px;
+    }
+
+    /* 菜单项：grid 布局保证精确居中 */
+    :deep(.el-menu-item) {
+      display: grid !important;
+      grid-template-rows: auto auto !important;
+      justify-items: center !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      height: auto !important;
+      min-height: 56px !important;
+      line-height: normal !important;
+      text-align: center !important;
+      overflow: visible !important;
+      box-sizing: border-box !important;
+    }
+
+    /* 图标放大、去掉默认 margin */
+    :deep(.el-menu-item .el-icon) {
+      margin: 0 !important;
+      font-size: 24px !important;
+      justify-content: center !important;
+    }
+
+    /* 强制显示 span 文字（Element Plus 收起态默认隐藏） */
+    :deep(.el-menu-item span) {
+      display: block !important;
+      width: auto !important;
+      overflow: visible !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      height: auto !important;
+      font-size: 10px !important;
+      line-height: 1.2 !important;
+      white-space: nowrap !important;
+      text-align: center !important;
+      margin: 0 !important;
+      padding: 0 0 4px !important;
+    }
+
+    /* tooltip 触发器撑满并居中 */
+    :deep(.el-tooltip__trigger) {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      height: 100% !important;
     }
   }
 
@@ -373,20 +443,6 @@ async function doLogout() {
 
   :deep(.el-menu-item:hover) {
     background: rgba(255, 255, 255, 0.10) !important;
-  }
-
-  :deep(.el-sub-menu__title) {
-    margin: 2px 8px;
-    border-radius: var(--radius-sm);
-    height: 42px;
-    line-height: 42px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.10) !important;
-    }
   }
 }
 
@@ -539,11 +595,9 @@ async function doLogout() {
 </style>
 
 <style lang="scss">
-/* 折叠侧边栏 tooltip 文字颜色修复：el-menu 的 text-color(白色) 会被继承到 popper 内部 */
-.el-popper {
-  &, * {
-    color: #000 !important;
-  }
+/* 隐藏 el-menu 折叠态自动生成的 tooltip 弹出层（现在用内联文字标签替代） */
+.el-popper.is-el-menu-tooltip {
+  display: none !important;
 }
 
 /* Popover 菜单样式（teleported 到 body，需要全局样式） */
