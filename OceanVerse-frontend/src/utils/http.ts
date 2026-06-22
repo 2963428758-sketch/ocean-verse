@@ -28,6 +28,21 @@ http.interceptors.request.use(config => {
 
 http.interceptors.response.use(
   response => {
+    // Blob 响应（文件下载）— 直接返回原始 response，不做业务码检查
+    if (response.config.responseType === 'blob') {
+      // 如果后端返回的是 JSON（如错误信息），需要特殊处理
+      const contentType = String(response.headers['content-type'] || '')
+      if (contentType.includes('application/json')) {
+        // 后端返回了 JSON 错误信息，转换为文本后走正常错误流程
+        return response.data.text().then((text: string) => {
+          const res = JSON.parse(text)
+          ElMessage.error(res.message || '导出失败')
+          return Promise.reject(new Error(res.message))
+        })
+      }
+      return response
+    }
+
     const res = response.data
     if (res.code && res.code !== 200) {
       ElMessage.error(res.message || '请求失败')

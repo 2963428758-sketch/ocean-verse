@@ -213,7 +213,8 @@ const menuItems = computed(() => {
     { path: '/visualization', title: '数据可视化', icon: 'DataAnalysis', children: [
       { path: '/visualization/statistics', title: '数据统计', icon: 'TrendCharts' },
       { path: '/visualization/map', title: '分布地图', icon: 'MapLocation' },
-      { path: '/visualization/observation-map', title: '观测地图', icon: 'LocationFilled' }
+      { path: '/visualization/observation-map', title: '观测地图', icon: 'LocationFilled' },
+      { path: '/visualization/export', title: '数据导出', icon: 'Download' }
     ]},
     { path: '/ai', title: 'AI 服务', icon: 'MagicStick', children: [
       { path: '/ai/recognize', title: '图像识别', icon: 'Camera' },

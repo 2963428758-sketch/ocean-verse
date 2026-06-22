@@ -8,8 +8,8 @@ public interface VisualService {
     /** 仪表盘聚合统计 */
     Map<String, Object> getDashboardData();
 
-    /** 物种地理分布 */
-    List<Map<String, Object>> getSpeciesDistribution(Long speciesId);
+    /** 物种地理分布（支持 IUCN / 科筛选） */
+    List<Map<String, Object>> getSpeciesDistribution(Long speciesId, String iucnStatus, String family);
 
     /** 观测趋势 */
     List<Map<String, Object>> getObservationTrend(String period);

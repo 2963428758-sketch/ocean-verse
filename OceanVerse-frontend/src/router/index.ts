@@ -20,7 +20,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'visualization', name: 'Visualization', redirect: '/visualization/statistics', meta: { title: '数据可视化', icon: 'DataAnalysis' }, children: [
         { path: 'statistics', name: 'Statistics', component: () => import('@/views/visualization/Statistics.vue'), meta: { title: '数据统计' } },
         { path: 'map', name: 'DistributionMap', component: () => import('@/views/visualization/DistributionMap.vue'), meta: { title: '分布地图' } },
-        { path: 'observation-map', name: 'ObservationMap', component: () => import('@/views/visualization/ObservationMap.vue'), meta: { title: '观测地图' } }
+        { path: 'observation-map', name: 'ObservationMap', component: () => import('@/views/visualization/ObservationMap.vue'), meta: { title: '观测地图' } },
+        { path: 'export', name: 'DataExport', component: () => import('@/views/visualization/DataExport.vue'), meta: { title: '数据导出' } }
       ]},
       { path: 'ai', name: 'AI', redirect: '/ai/recognize', meta: { title: 'AI 服务', icon: 'MagicStick' }, children: [
         { path: 'recognize', name: 'AIRecognize', component: () => import('@/views/ai/Recognize.vue'), meta: { title: '图像识别' } },

@@ -24,8 +24,11 @@ public class VisualController {
     }
 
     @GetMapping("/species/distribution")
-    public Result<List<Map<String, Object>>> speciesDistribution(@RequestParam(required = false) Long speciesId) {
-        return Result.success(visualService.getSpeciesDistribution(speciesId));
+    public Result<List<Map<String, Object>>> speciesDistribution(
+            @RequestParam(required = false) Long speciesId,
+            @RequestParam(required = false) String iucnStatus,
+            @RequestParam(required = false) String family) {
+        return Result.success(visualService.getSpeciesDistribution(speciesId, iucnStatus, family));
     }
 
     @GetMapping("/trend/observation")
