@@ -24,6 +24,9 @@ public interface VisualMapper extends BaseMapper<Species> {
     @Select("SELECT COUNT(*) FROM image_recognition WHERE deleted = 0")
     long countRecognitions();
 
+    @Select("SELECT COUNT(*) FROM community_post WHERE deleted = 0")
+    long countPosts();
+
     @Select("SELECT family, COUNT(*) as count FROM species WHERE deleted = 0 AND family IS NOT NULL GROUP BY family ORDER BY count DESC")
     List<Map<String, Object>> countSpeciesByFamily();
 

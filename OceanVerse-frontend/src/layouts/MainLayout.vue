@@ -34,13 +34,38 @@
       </el-menu>
 
       <!-- 底部用户模块 -->
-      <div class="sidebar-user">
-        <el-dropdown @command="handleCommand" placement="top-start" :teleported="true">
+      <div class="sidebar-user" :class="{ 'is-collapsed': isCollapse }">
+        <!-- 折叠态：手动控制弹出层，避免 el-dropdown 在窄侧边栏中的定位问题 -->
+        <el-popover
+          v-if="isCollapse"
+          :visible="userPopoverVisible"
+          placement="right-end"
+          :width="130"
+          :offset="8"
+          popper-class="sidebar-user-popover"
+        >
+          <template #reference>
+            <el-tooltip :content="userStore.nickname || userStore.username" placement="right" :show-after="300">
+              <div class="sidebar-user-trigger" @click="userPopoverVisible = !userPopoverVisible">
+                <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
+                  {{ userStore.username?.charAt(0)?.toUpperCase() }}
+                </el-avatar>
+              </div>
+            </el-tooltip>
+          </template>
+          <div class="user-popover-menu">
+            <div class="user-popover-item" @click="userPopoverVisible = false; router.push('/profile')">个人中心</div>
+            <div class="user-popover-divider" />
+            <div class="user-popover-item" @click="userPopoverVisible = false; doLogout()">退出登录</div>
+          </div>
+        </el-popover>
+        <!-- 展开态：标准下拉菜单 -->
+        <el-dropdown v-else @command="handleCommand" placement="top-start">
           <span class="sidebar-user-trigger">
-            <el-avatar :size="isCollapse ? 32 : 36" :src="userStore.avatarUrl || undefined">
+            <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
               {{ userStore.username?.charAt(0)?.toUpperCase() }}
             </el-avatar>
-            <span v-if="!isCollapse" class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
+            <span class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -108,7 +133,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
@@ -120,6 +145,8 @@ const router = useRouter()
 const userStore = useUserStore()
 const isCollapse = ref(false)
 const unreadCount = ref(0)
+const userPopoverVisible = ref(false)
+watch(isCollapse, (val) => { if (!val) userPopoverVisible.value = false })
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let ws: WebSocket | null = null
 let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -410,6 +437,12 @@ async function doLogout() {
   border-top: 1px solid rgba(255, 255, 255, 0.10);
   padding: 12px 0;
   flex-shrink: 0;
+
+  &.is-collapsed {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 }
 
 .sidebar-user-trigger {
@@ -422,6 +455,12 @@ async function doLogout() {
   transition: background 0.15s;
   outline: none;
   margin: 0 8px;
+
+  .is-collapsed & {
+    margin: 0;
+    padding: 0;
+    justify-content: center;
+  }
 
   &:hover {
     background: rgba(255, 255, 255, 0.12);
@@ -455,6 +494,47 @@ async function doLogout() {
   }
   .topbar-left {
     gap: 10px;
+  }
+}
+</style>
+
+<style lang="scss">
+/* 折叠侧边栏 tooltip 文字颜色修复：el-menu 的 text-color(白色) 会被继承到 popper 内部 */
+.el-popper {
+  &, * {
+    color: #000 !important;
+  }
+}
+
+/* Popover 菜单样式（teleported 到 body，需要全局样式） */
+.sidebar-user-popover {
+  padding: 4px 0 !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #000 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+.user-popover-menu {
+  .user-popover-item {
+    padding: 8px 16px !important;
+    font-size: 14px !important;
+    color: #000 !important;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+    line-height: 1.5 !important;
+
+    &:hover {
+      background: #f5f7fa !important;
+      color: #2980b9 !important;
+    }
+  }
+
+  .user-popover-divider {
+    height: 1px;
+    background: #e4e7ed;
+    margin: 4px 0;
   }
 }
 </style>

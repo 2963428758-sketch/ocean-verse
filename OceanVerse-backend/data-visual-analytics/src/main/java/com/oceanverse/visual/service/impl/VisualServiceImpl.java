@@ -27,6 +27,7 @@ public class VisualServiceImpl implements VisualService {
         data.put("totalObservations", visualMapper.countObservations());
         data.put("totalUsers", visualMapper.countUsers());
         data.put("totalRecognitions", visualMapper.countRecognitions());
+        data.put("totalPosts", visualMapper.countPosts());
         return data;
     }
 
