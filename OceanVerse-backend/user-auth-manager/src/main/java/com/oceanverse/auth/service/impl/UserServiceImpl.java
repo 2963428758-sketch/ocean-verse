@@ -16,12 +16,14 @@ import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.exception.BusinessException;
 import com.oceanverse.common.result.PageResult;
 import com.oceanverse.common.utils.JwtUtil;
+import com.oceanverse.common.utils.OssUtil;
 import com.oceanverse.common.utils.RedisUtil;
 import com.oceanverse.pojo.dto.AssignRolesDTO;
 import com.oceanverse.pojo.dto.LoginDTO;
 import com.oceanverse.pojo.dto.RegisterDTO;
 import com.oceanverse.pojo.dto.UpdatePasswordDTO;
 import com.oceanverse.pojo.dto.UpdateProfileDTO;
+import com.oceanverse.pojo.dto.UploadResult;
 import com.oceanverse.pojo.entity.SysLoginLog;
 import com.oceanverse.pojo.entity.SysRole;
 import com.oceanverse.pojo.entity.SysUserRole;
@@ -29,6 +31,7 @@ import com.oceanverse.pojo.entity.User;
 import com.oceanverse.pojo.vo.LoginVO;
 import com.oceanverse.pojo.vo.UserInfoVO;
 import com.oceanverse.pojo.vo.UserListVO;
+import org.springframework.web.multipart.MultipartFile;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -59,6 +62,8 @@ public class UserServiceImpl implements UserService {
     private final RedisUtil redisUtil;
     private final AuthEventPublisher authEventPublisher;
     private final CaptchaService captchaService;
+    private final OssUtil ossUtil;
+    private final TransactionTemplate transactionTemplate;
 
     /**
      * 手动创建 REQUIRES_NEW 事务模板，确保锁定/日志写入不被外层回滚
@@ -68,7 +73,6 @@ public class UserServiceImpl implements UserService {
         tt.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         return tt;
     }
-    private final TransactionTemplate transactionTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -177,8 +181,8 @@ public class UserServiceImpl implements UserService {
 
         User user = new User();
         user.setUsername(dto.getUsername());
+        user.setNickname(dto.getUsername());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setPhone(dto.getPhone());
         user.setStatus(CommonConstants.USER_STATUS_NORMAL);
         user.setDataScope(CommonConstants.DATA_SCOPE_SELF);
         user.setCreateTime(LocalDateTime.now());
@@ -262,22 +266,11 @@ public class UserServiceImpl implements UserService {
             throw BusinessException.notFound("用户");
         }
 
-        if (dto.getEmail() != null) {
-            Long count = userMapper.selectCount(
-                    new LambdaQueryWrapper<User>()
-                            .eq(User::getEmail, dto.getEmail())
-                            .ne(User::getId, userId)
-            );
-            if (count > 0) {
-                throw new BusinessException("邮箱已被其他用户使用");
-            }
-            user.setEmail(dto.getEmail());
+        if (dto.getNickname() != null) {
+            user.setNickname(dto.getNickname());
         }
         if (dto.getRealName() != null) {
             user.setRealName(dto.getRealName());
-        }
-        if (dto.getPhone() != null) {
-            user.setPhone(dto.getPhone());
         }
         if (dto.getAvatarUrl() != null) {
             user.setAvatarUrl(dto.getAvatarUrl());
@@ -519,6 +512,75 @@ public class UserServiceImpl implements UserService {
         authEventPublisher.publishForceLogout(userId, user.getUsername());
 
         log.info("强制下线: userId={}, username={}", userId, user.getUsername());
+    }
+
+    @Override
+    public UploadResult uploadAvatar(Long userId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("请选择图片文件");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessException("仅支持图片格式");
+        }
+        if (file.getSize() > 2 * 1024 * 1024) {
+            throw new BusinessException("头像大小不能超过2MB");
+        }
+
+        String url = ossUtil.upload(file);
+
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw BusinessException.notFound("用户");
+        }
+        user.setAvatarUrl(url);
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+
+        log.info("用户上传头像: userId={}, url={}", userId, url);
+        return UploadResult.of(url, file.getOriginalFilename(), file.getSize());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteAccount(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw BusinessException.notFound("用户");
+        }
+
+        // 软删除
+        user.setDeleted(1);
+        user.setUpdateTime(LocalDateTime.now());
+        userMapper.updateById(user);
+
+        // 清除所有 Redis 缓存
+        redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_PERMS + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_ROLES + userId);
+
+        // 当前 Token 加入黑名单
+        String accessToken = redisUtil.get(CommonConstants.REDIS_USER_TOKEN + userId);
+        if (accessToken != null) {
+            String tokenHash = DigestUtils.md5DigestAsHex(accessToken.getBytes());
+            long remaining = JwtUtil.getRemainingSeconds(accessToken);
+            if (remaining > 0) {
+                redisUtil.set(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash, "1", remaining);
+            }
+        }
+
+        log.info("用户注销账号: userId={}, username={}", userId, user.getUsername());
+    }
+
+    @Override
+    public PageResult<SysLoginLog> getLoginHistory(Long userId, int page, int size) {
+        Page<SysLoginLog> pageParam = new Page<>(page, size);
+        LambdaQueryWrapper<SysLoginLog> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SysLoginLog::getUserId, userId)
+                .orderByDesc(SysLoginLog::getLoginTime);
+        Page<SysLoginLog> result = loginLogMapper.selectPage(pageParam, wrapper);
+        return PageResult.of(result.getRecords(), result.getTotal(), page, size);
     }
 
     /**

@@ -58,7 +58,8 @@ public class OperateLogAspect {
                 for (int i = 0; i < args.length; i++) {
                     if (args[i] instanceof HttpServletRequest) continue;
                     if (i > 0) sb.append(", ");
-                    sb.append(paramNames[i]).append("=").append(args[i]);
+                    sb.append(paramNames[i]).append("=");
+                    sb.append(isSensitiveParam(paramNames[i]) ? "******" : args[i]);
                 }
                 String params = sb.toString();
                 logEntry.setRequestParams(params.length() > 500 ? params.substring(0, 500) + "..." : params);
@@ -80,6 +81,13 @@ public class OperateLogAspect {
         } catch (Exception e) {
             log.warn("操作日志记录失败: {}", e.getMessage());
         }
+    }
+
+    private boolean isSensitiveParam(String paramName) {
+        if (paramName == null) return false;
+        String lower = paramName.toLowerCase();
+        return lower.contains("password") || lower.contains("secret")
+                || lower.contains("token") || lower.contains("credential");
     }
 
     private String getClientIp(HttpServletRequest request) {

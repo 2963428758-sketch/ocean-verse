@@ -2,7 +2,7 @@ import http from '@/utils/http'
 
 export interface CaptchaVO {
   captchaKey: string
-  expression: string
+  imageBase64: string
   expireSeconds: number
 }
 

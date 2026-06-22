@@ -45,12 +45,19 @@
             <el-input
               v-model="form.captchaCode"
               prefix-icon="Key"
-              placeholder="验证码答案"
+              placeholder="验证码"
               size="large"
               class="captcha-input"
               @keyup.enter="handleLogin"
             />
-            <span class="captcha-expression">{{ captchaText }}</span>
+            <img
+              v-if="captchaImage"
+              :src="captchaImage"
+              alt="验证码"
+              class="captcha-img"
+              @click="refreshCaptcha"
+              title="点击刷新"
+            />
             <el-button class="captcha-refresh" size="large" @click="refreshCaptcha" :loading="captchaLoading">
               <el-icon><Refresh /></el-icon>
             </el-button>
@@ -97,7 +104,7 @@ const captchaLoading = ref(false)
 const rememberMe = ref(false)
 
 const form = reactive({ username: '', password: '', captchaKey: '', captchaCode: '' })
-const captchaText = ref('')
+const captchaImage = ref('')
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -110,7 +117,7 @@ async function refreshCaptcha() {
   try {
     const res: any = await getCaptcha()
     form.captchaKey = res.data.captchaKey
-    captchaText.value = res.data.expression
+    captchaImage.value = res.data.imageBase64
     form.captchaCode = ''
   } finally {
     captchaLoading.value = false
@@ -131,11 +138,14 @@ async function handleLogin() {
       refreshToken: res.data.refreshToken,
       userId: res.data.userId,
       username: res.data.username,
+      nickname: res.data.nickname,
       avatarUrl: res.data.avatarUrl,
       role: res.data.role
     })
     ElMessage.success('登录成功')
     router.push('/dashboard')
+  } catch {
+    refreshCaptcha()
   } finally {
     loading.value = false
   }
@@ -319,14 +329,13 @@ async function handleLogin() {
     flex: 1;
   }
 
-  .captcha-expression {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 16px;
-    font-weight: 600;
-    white-space: nowrap;
-    user-select: none;
-    letter-spacing: 1px;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  .captcha-img {
+    height: 44px;
+    width: 130px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
   }
 
   .captcha-refresh {
