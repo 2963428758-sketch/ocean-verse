@@ -32,6 +32,24 @@
           </el-menu-item>
         </template>
       </el-menu>
+
+      <!-- 底部用户模块 -->
+      <div class="sidebar-user">
+        <el-dropdown @command="handleCommand" placement="top-start" :teleported="true">
+          <span class="sidebar-user-trigger">
+            <el-avatar :size="isCollapse ? 32 : 36" :src="userStore.avatarUrl || undefined">
+              {{ userStore.username?.charAt(0)?.toUpperCase() }}
+            </el-avatar>
+            <span v-if="!isCollapse" class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
     </el-aside>
 
     <!-- 右侧内容 -->
@@ -52,17 +70,25 @@
               <Bell />
             </el-icon>
           </el-badge>
-          <el-dropdown @command="handleCommand">
-            <span class="user-info">
-              <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
-                {{ userStore.username?.charAt(0)?.toUpperCase() }}
-              </el-avatar>
-              <span class="username">{{ userStore.username }}</span>
+          <!-- 系统管理齿轮（仅管理员可见） -->
+          <el-dropdown v-if="isAdmin" trigger="click" class="settings-gear-dropdown">
+            <span class="settings-gear">
+              <el-icon :size="20"><Setting /></el-icon>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                <el-dropdown-item @click="router.push('/admin/users')">
+                  <el-icon><User /></el-icon>用户管理
+                </el-dropdown-item>
+                <el-dropdown-item @click="router.push('/admin/roles')">
+                  <el-icon><UserFilled /></el-icon>角色管理
+                </el-dropdown-item>
+                <el-dropdown-item @click="router.push('/admin/login-log')">
+                  <el-icon><Document /></el-icon>登录日志
+                </el-dropdown-item>
+                <el-dropdown-item @click="router.push('/admin/operation-log')">
+                  <el-icon><Tickets /></el-icon>操作日志
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -87,7 +113,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
 import { getUnreadCount } from '@/api/community'
-import { Bell } from '@element-plus/icons-vue'
+import { Bell, Setting, User, UserFilled, Document, Tickets } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -203,20 +229,12 @@ const menuItems = computed(() => {
   ]},
   ]
 
-  // 仅管理员可见系统管理菜单
-  if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
-    items.push({
-      path: '/admin', title: '系统管理', icon: 'Setting', children: [
-        { path: '/admin/users', title: '用户管理', icon: 'User' },
-        { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' },
-        { path: '/admin/login-log', title: '登录日志', icon: 'Document' },
-        { path: '/admin/operation-log', title: '操作日志', icon: 'Tickets' }
-      ]
-    })
-  }
-
   return items
 })
+
+const isAdmin = computed(() =>
+  userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+)
 
 const breadcrumbs = computed(() => {
   return route.matched.filter(r => r.meta?.title).map(r => r.meta.title as string)
@@ -241,9 +259,10 @@ async function doLogout() {
 .sidebar {
   background: linear-gradient(180deg, #1b5a80 0%, #2980b9 50%, #3da8d8 100%);
   transition: width 0.3s var(--ease-out);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   border-right: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {
@@ -266,6 +285,8 @@ async function doLogout() {
 
 .sidebar-menu {
   border-right: none;
+  flex: 1;
+  overflow-y: auto;
 
   :deep(.el-menu-item) {
     margin: 2px 8px;
@@ -364,25 +385,56 @@ async function doLogout() {
     }
   }
 
-  .user-info {
+  .settings-gear {
     display: flex;
     align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    padding: 4px 8px;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-sm);
-    transition: background 0.15s;
+    color: var(--neutral-500);
+    cursor: pointer;
+    transition: all 0.2s;
+    outline: none;
 
     &:hover {
-      background: var(--neutral-75);
+      color: var(--primary-main);
+      background: var(--primary-soft);
     }
   }
+}
 
-  .username {
-    font-size: 13px;
-    color: var(--neutral-600);
-    font-weight: 500;
+/* ── 侧边栏底部用户模块 ── */
+.sidebar-user {
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 12px 0;
+  flex-shrink: 0;
+}
+
+.sidebar-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 20px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+  outline: none;
+  margin: 0 8px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
   }
+}
+
+.sidebar-user-name {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
 }
 
 /* ── 主内容 ── */
@@ -402,9 +454,6 @@ async function doLogout() {
   }
   .topbar-left {
     gap: 10px;
-  }
-  .username {
-    display: none;
   }
 }
 </style>
