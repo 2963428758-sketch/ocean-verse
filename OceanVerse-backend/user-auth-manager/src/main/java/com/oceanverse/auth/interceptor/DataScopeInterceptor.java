@@ -18,21 +18,10 @@ import java.util.regex.Pattern;
 
 /**
  * 数据权限拦截器 — MyBatis-Plus InnerInterceptor
- * <p>
- * 根据 UserContext 中的 dataScope 动态拼接 SQL 条件：
- * - dataScope = ALL（2）：不过滤
- * - dataScope = SELF（1）：追加 AND user_id = {当前用户ID}
- * - 超级管理员：不过滤
- * <p>
- * 仅拦截 SELECT 语句，且仅对配置的目标表生效。
  */
 @Slf4j
 public class DataScopeInterceptor implements InnerInterceptor {
 
-    /**
-     * 需要数据权限过滤的表名 → 用户ID列名
-     * 按需扩展：其他模块的表加入此 Map 即可生效
-     */
     private static final Map<String, String> TABLE_USER_COLUMN = Map.of(
             "community_post", "user_id",
             "community_comment", "user_id",
@@ -42,7 +31,6 @@ public class DataScopeInterceptor implements InnerInterceptor {
             "species", "create_by"
     );
 
-    /** 预编译表名匹配正则以避免子串误匹配（如 species 误匹配 species_distribution） */
     private static final Map<String, Pattern> TABLE_PATTERNS = TABLE_USER_COLUMN.keySet().stream()
             .collect(java.util.stream.Collectors.toMap(
                     t -> t,
@@ -53,32 +41,37 @@ public class DataScopeInterceptor implements InnerInterceptor {
     public void beforeQuery(Executor executor, MappedStatement ms,
                             Object parameter, RowBounds rowBounds,
                             ResultHandler resultHandler, BoundSql boundSql) throws SQLException {
-        // 仅拦截 SELECT
         if (ms.getSqlCommandType() != SqlCommandType.SELECT) {
             return;
         }
 
-        // 获取当前用户信息
+        // 跳过 COUNT 查询
+        String sql = boundSql.getSql().trim();
+        if (sql.toUpperCase().startsWith("SELECT COUNT")) {
+            return;
+        }
+
+        // 跳过单条记录查询（selectById、selectOne等）
+        if (isSingleRecordQuery(ms)) {
+            return;
+        }
+
         UserContext.UserInfo userInfo = UserContext.get();
         if (userInfo == null || userInfo.getUserId() == null) {
             return;
         }
 
-        // 超级管理员不过滤（使用完整角色列表判断，而非单一 JWT role 字段）
         if (UserContext.isSuperAdmin()) {
             return;
         }
 
-        // dataScope = ALL 不过滤
         Integer dataScope = userInfo.getDataScope();
         if (dataScope == null || dataScope == CommonConstants.DATA_SCOPE_ALL) {
             return;
         }
 
-        // 获取原始 SQL
         String originalSql = boundSql.getSql();
 
-        // 使用单词边界正则精确匹配表名（避免 species 误匹配 species_distribution）
         boolean matched = false;
         for (Map.Entry<String, Pattern> entry : TABLE_PATTERNS.entrySet()) {
             if (entry.getValue().matcher(originalSql).find()) {
@@ -90,7 +83,6 @@ public class DataScopeInterceptor implements InnerInterceptor {
             return;
         }
 
-        // 拼接数据权限条件
         StringBuilder newSql = new StringBuilder();
         newSql.append("SELECT * FROM (");
         newSql.append(originalSql);
@@ -98,15 +90,28 @@ public class DataScopeInterceptor implements InnerInterceptor {
 
         for (Map.Entry<String, String> entry : TABLE_USER_COLUMN.entrySet()) {
             if (TABLE_PATTERNS.get(entry.getKey()).matcher(originalSql).find()) {
+                // 对于 community_comment 表，如果 SQL 中已有 post_id 条件，跳过 user_id 过滤
+                if ("community_comment".equals(entry.getKey())
+                        && Pattern.compile("\\bpost_id\\b", Pattern.CASE_INSENSITIVE).matcher(originalSql).find()) {
+                    continue;
+                }
                 newSql.append(" AND ").append(entry.getValue())
                         .append(" = ").append(userInfo.getUserId());
             }
         }
 
-        // 通过 MyBatis-Plus PluginUtils 修改 BoundSql 中的 SQL
         PluginUtils.MPBoundSql mpBoundSql = PluginUtils.mpBoundSql(boundSql);
         mpBoundSql.sql(newSql.toString());
 
         log.debug("数据权限拦截生效: userId={}, dataScope={}", userInfo.getUserId(), dataScope);
+    }
+
+    private boolean isSingleRecordQuery(MappedStatement ms) {
+        String id = ms.getId();
+        int lastDot = id.lastIndexOf('.');
+        String methodName = id.substring(lastDot + 1);
+        return methodName.startsWith("selectById")
+                || methodName.startsWith("selectOne")
+                || methodName.startsWith("selectByMap");
     }
 }

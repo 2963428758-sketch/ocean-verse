@@ -20,5 +20,7 @@ public class SysNotification {
     private String type;
     private Integer isRead;
     private Long relatedId;
+    private Long targetPostId;
+    private Long fromUserId;
     private LocalDateTime createTime;
 }

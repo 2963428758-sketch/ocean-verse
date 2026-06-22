@@ -97,9 +97,19 @@ async function handleRead(item: CommunityNotification) {
       window.dispatchEvent(new Event('notification-changed'))
     } catch (e) { console.error(e) }
   }
-  // AI_RESULT 通知点击跳转到识别结果页
+  // 根据通知类型跳转
   if (item.type === 'AI_RESULT' && item.relatedId) {
+    // AI识别结果通知 -> 识别结果页
     router.push({ path: '/ai/recognize', query: { id: String(item.relatedId) } })
+  } else if (item.type === 'COMMENT' && item.targetPostId) {
+    // 评论通知 -> 帖子详情页，定位到具体评论
+    router.push({ path: `/community/post/${item.targetPostId}`, query: { comment: String(item.relatedId) } })
+  } else if (item.type === 'LIKE' && item.targetPostId) {
+    // 点赞通知 -> 帖子详情页
+    router.push({ path: `/community/post/${item.targetPostId}` })
+  } else if (item.type === 'FOLLOW' && item.relatedId) {
+    // 关注通知 -> 用户主页
+    router.push({ path: `/community/user/${item.relatedId}` })
   }
 }
 

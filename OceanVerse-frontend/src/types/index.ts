@@ -144,6 +144,8 @@ export interface CommunityNotification {
   type: string
   isRead: number
   relatedId?: number
+  targetPostId?: number
+  fromUserId?: number
   createTime: string
 }
 

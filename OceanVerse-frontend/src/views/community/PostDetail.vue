@@ -103,7 +103,7 @@
         <div v-if="comments.length === 0 && !loadingComments" class="empty-comments">
           暂无评论，快来抢沙发吧 ~
         </div>
-        <div v-for="comment in comments" :key="comment.id" class="comment-item">
+        <div v-for="comment in comments" :key="comment.id" :id="`comment-${comment.id}`" class="comment-item">
           <div class="comment-avatar" @click="$router.push(`/community/user/${comment.userId}`)">
             {{ comment.username?.charAt(0)?.toUpperCase() || 'U' }}
           </div>
@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -191,6 +191,17 @@ async function loadComments() {
     const res: any = await getCommentList(postId, { page: 1, size: 50 })
     const records = res.data?.records || res.data || []
     comments.value = records.map((c: CommunityComment) => ({ ...c, isLiked: false }))
+    // 如果有 comment 参数，定位到该评论
+    const commentId = route.query.comment
+    if (commentId) {
+      nextTick(() => {
+        const el = document.getElementById(`comment-${commentId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('highlight')
+        }
+      })
+    }
   } catch (e) { console.error(e) }
   finally { loadingComments.value = false }
 }
@@ -606,6 +617,16 @@ onMounted(() => {
   & + .comment-item {
     border-top: 1px solid var(--neutral-75);
   }
+
+  &.highlight {
+    background: #e8f4f8;
+    animation: highlightFade 2s ease-out;
+  }
+}
+
+@keyframes highlightFade {
+  0% { background: #b3e5fc; }
+  100% { background: transparent; }
 }
 
 .comment-avatar {

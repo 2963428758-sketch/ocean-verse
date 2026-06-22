@@ -186,6 +186,38 @@ public class    CommunityController {
         return Result.success("头像更新成功", communityService.uploadAvatar(file, token));
     }
 
+    // ==================== 个人资料 ====================
+
+    @PutMapping("/profile")
+    public Result<Void> updateProfile(@RequestParam String nickname,
+                                       @RequestHeader("Authorization") String token) {
+        communityService.updateProfile(nickname, token);
+        return Result.success();
+    }
+
+    @PutMapping("/bio")
+    public Result<Void> updateBio(@RequestParam String bio,
+                                   @RequestHeader("Authorization") String token) {
+        communityService.updateBio(bio, token);
+        return Result.success();
+    }
+
+    @PutMapping("/background")
+    public Result<String> uploadBackground(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+                                            @RequestHeader("Authorization") String token) {
+        return Result.success("背景更新成功", communityService.uploadBackground(file, token));
+    }
+
+    @GetMapping("/following")
+    public Result<Object> getFollowingList(@RequestHeader("Authorization") String token) {
+        return Result.success(communityService.getFollowingList(token));
+    }
+
+    @GetMapping("/follower")
+    public Result<Object> getFollowerList(@RequestHeader("Authorization") String token) {
+        return Result.success(communityService.getFollowerList(token));
+    }
+
     // ==================== 排行榜 ====================
 
     @GetMapping("/leaderboard")

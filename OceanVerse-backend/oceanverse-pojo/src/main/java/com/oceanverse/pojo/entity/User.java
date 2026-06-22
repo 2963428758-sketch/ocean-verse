@@ -18,6 +18,8 @@ public class User {
     private String password;
     private String realName;
     private String avatarUrl;
+    private String backgroundUrl;
+    private String bio;
     /** 状态: 0-禁用, 1-正常, 2-锁定 */
     private Integer status;
     /** 数据权限范围: 1-仅本人, 2-全部 */

@@ -110,7 +110,7 @@ public class CommunityServiceImpl implements CommunityService {
         postMapper.updateById(post);
         // 通知发布者
         sendNotification(post.getUserId(), "SYSTEM", "帖子审核通过",
-                "你的动态已通过审核，已发布到广场", post.getId());
+                "你的动态已通过审核，已发布到广场", post.getId(), post.getId(), null);
     }
 
     @Override
@@ -124,7 +124,7 @@ public class CommunityServiceImpl implements CommunityService {
         postMapper.updateById(post);
         // 通知发布者
         sendNotification(post.getUserId(), "SYSTEM", "帖子审核未通过",
-                "你的动态未通过审核，如有疑问请联系管理员", post.getId());
+                "你的动态未通过审核，如有疑问请联系管理员", post.getId(), post.getId(), null);
     }
 
     @Override
@@ -217,7 +217,7 @@ public class CommunityServiceImpl implements CommunityService {
             User actor = userMapper.selectById(userId);
             String actorName = actor != null ? actor.getUsername() : "有人";
             sendNotification(post.getUserId(), "COMMENT", "新评论",
-                    actorName + " 评论了你的帖子", dto.getPostId());
+                    actorName + " 评论了你的帖子", comment.getId(), dto.getPostId(), userId);
         }
         if (dto.getParentId() != null) {
             CommunityComment parentComment = commentMapper.selectById(dto.getParentId());
@@ -226,7 +226,7 @@ public class CommunityServiceImpl implements CommunityService {
                 User actor = userMapper.selectById(userId);
                 String actorName = actor != null ? actor.getUsername() : "有人";
                 sendNotification(parentComment.getUserId(), "COMMENT", "新回复",
-                        actorName + " 回复了你的评论", dto.getPostId());
+                        actorName + " 回复了你的评论", comment.getId(), dto.getPostId(), userId);
             }
         }
     }
@@ -279,7 +279,7 @@ public class CommunityServiceImpl implements CommunityService {
                     User actor = userMapper.selectById(userId);
                     String actorName = actor != null ? actor.getUsername() : "有人";
                     sendNotification(post.getUserId(), "LIKE", "点赞通知",
-                            actorName + " 赞了你的帖子", targetId);
+                            actorName + " 赞了你的帖子", null, targetId, userId);
                 }
             }
             return "点赞成功";
@@ -433,6 +433,8 @@ public class CommunityServiceImpl implements CommunityService {
         profile.put("userId", user.getId());
         profile.put("username", user.getUsername());
         profile.put("avatarUrl", user.getAvatarUrl());
+        profile.put("backgroundUrl", user.getBackgroundUrl());
+        profile.put("bio", user.getBio());
         profile.put("postCount", postCount);
         profile.put("followerCount", followerCount);
         profile.put("followCount", followCount);
@@ -525,6 +527,93 @@ public class CommunityServiceImpl implements CommunityService {
                 .setSql("comment_count = GREATEST(comment_count - 1, 0)"));
     }
 
+    @Override
+    @Transactional
+    public void updateProfile(String nickname, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw BusinessException.notFound("用户");
+        }
+        if (nickname != null && !nickname.isBlank()) {
+            user.setNickname(nickname);
+        }
+        userMapper.updateById(user);
+    }
+
+    @Override
+    @Transactional
+    public void updateBio(String bio, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw BusinessException.notFound("用户");
+        }
+        user.setBio(bio);
+        userMapper.updateById(user);
+    }
+
+    @Override
+    public String uploadBackground(org.springframework.web.multipart.MultipartFile file, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        String url = ossUtil.upload(file);
+        userMapper.update(null,
+                new LambdaUpdateWrapper<User>()
+                        .eq(User::getId, userId)
+                        .set(User::getBackgroundUrl, url));
+        return url;
+    }
+
+    @Override
+    public Object getFollowingList(String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        List<CommunityFollow> follows = followMapper.selectList(
+                new LambdaQueryWrapper<CommunityFollow>()
+                        .eq(CommunityFollow::getUserId, userId)
+                        .orderByDesc(CommunityFollow::getCreateTime));
+        if (follows.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        List<Long> targetIds = follows.stream()
+                .map(CommunityFollow::getFollowUserId).collect(Collectors.toList());
+        List<User> users = userMapper.selectBatchIds(targetIds);
+        Map<Long, User> userMap = users.stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        return targetIds.stream().map(id -> {
+            User u = userMap.get(id);
+            Map<String, Object> item = new HashMap<>();
+            item.put("userId", id);
+            item.put("username", u != null ? u.getUsername() : "用户");
+            item.put("avatarUrl", u != null ? u.getAvatarUrl() : null);
+            return item;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    public Object getFollowerList(String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        List<CommunityFollow> followers = followMapper.selectList(
+                new LambdaQueryWrapper<CommunityFollow>()
+                        .eq(CommunityFollow::getFollowUserId, userId)
+                        .orderByDesc(CommunityFollow::getCreateTime));
+        if (followers.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        List<Long> userIds = followers.stream()
+                .map(CommunityFollow::getUserId).collect(Collectors.toList());
+        List<User> users = userMapper.selectBatchIds(userIds);
+        Map<Long, User> userMap = users.stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        return userIds.stream().map(id -> {
+            User u = userMap.get(id);
+            Map<String, Object> item = new HashMap<>();
+            item.put("userId", id);
+            item.put("username", u != null ? u.getUsername() : "用户");
+            item.put("avatarUrl", u != null ? u.getAvatarUrl() : null);
+            return item;
+        }).collect(Collectors.toList());
+    }
+
     private void fillPostUsername(CommunityPost post) {
         User user = userMapper.selectById(post.getUserId());
         post.setUsername(user != null ? user.getUsername() : "用户");
@@ -582,7 +671,8 @@ public class CommunityServiceImpl implements CommunityService {
         comments.forEach(c -> c.setUsername(usernameMap.getOrDefault(c.getUserId(), "用户")));
     }
 
-    private void sendNotification(Long targetUserId, String type, String title, String content, Long relatedId) {
+    private void sendNotification(Long targetUserId, String type, String title, String content, 
+                                    Long relatedId, Long targetPostId, Long fromUserId) {
         SysNotification notification = new SysNotification();
         notification.setUserId(targetUserId);
         notification.setTitle(title);
@@ -590,6 +680,8 @@ public class CommunityServiceImpl implements CommunityService {
         notification.setType(type);
         notification.setIsRead(0);
         notification.setRelatedId(relatedId);
+        notification.setTargetPostId(targetPostId);
+        notification.setFromUserId(fromUserId);
         notification.setCreateTime(LocalDateTime.now());
         notificationMapper.insert(notification);
 

@@ -49,6 +49,24 @@ export const toggleFollow = (userId: number) => http.post(`/community/follow/${u
 
 export const getUserProfile = (userId: number) => http.get(`/community/user/${userId}`)
 
+export const updateProfile = (data: any) => http.put('/community/profile', data)
+
+export const updateBio = (data: any) => http.put('/community/bio', data)
+
+export const getFollowingList = () => http.get('/community/following')
+
+export const getFollowerList = () => http.get('/community/follower')
+
+// ==================== 背景图 ====================
+
+export const uploadBackground = (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.put('/community/background', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
 // ==================== 通知 ====================
 
 export const getNotificationList = (params?: any) =>

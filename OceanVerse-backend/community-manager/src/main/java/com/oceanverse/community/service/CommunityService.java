@@ -29,4 +29,9 @@ public interface CommunityService {
     void deleteAllReadNotifications(String token);
     String uploadAvatar(org.springframework.web.multipart.MultipartFile file, String token);
     void deleteComment(Long commentId, String token);
+    void updateProfile(String nickname, String token);
+    void updateBio(String bio, String token);
+    String uploadBackground(org.springframework.web.multipart.MultipartFile file, String token);
+    Object getFollowingList(String token);
+    Object getFollowerList(String token);
 }
