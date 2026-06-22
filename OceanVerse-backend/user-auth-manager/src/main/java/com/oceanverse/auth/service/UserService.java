@@ -6,9 +6,12 @@ import com.oceanverse.pojo.dto.LoginDTO;
 import com.oceanverse.pojo.dto.RegisterDTO;
 import com.oceanverse.pojo.dto.UpdatePasswordDTO;
 import com.oceanverse.pojo.dto.UpdateProfileDTO;
+import com.oceanverse.pojo.dto.UploadResult;
+import com.oceanverse.pojo.entity.SysLoginLog;
 import com.oceanverse.pojo.vo.LoginVO;
 import com.oceanverse.pojo.vo.UserInfoVO;
 import com.oceanverse.pojo.vo.UserListVO;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
 
@@ -39,4 +42,19 @@ public interface UserService {
      * 强制下线：清除缓存 + Token 黑名单 + 推送通知
      */
     void forceLogout(Long userId);
+
+    /**
+     * 上传头像：校验文件 → OSS 上传 → 更新 User.avatarUrl
+     */
+    UploadResult uploadAvatar(Long userId, MultipartFile file);
+
+    /**
+     * 注销账号：软删除 + 清缓存 + Token 黑名单
+     */
+    void deleteAccount(Long userId);
+
+    /**
+     * 查询当前用户的登录历史
+     */
+    PageResult<SysLoginLog> getLoginHistory(Long userId, int page, int size);
 }

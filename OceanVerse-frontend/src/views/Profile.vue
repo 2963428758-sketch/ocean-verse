@@ -14,8 +14,7 @@
           </div>
           <el-descriptions :column="1" class="mt-16">
             <el-descriptions-item label="用户名">{{ userStore.username }}</el-descriptions-item>
-            <el-descriptions-item label="邮箱">{{ userStore.email || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="手机">{{ userStore.phone || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="昵称">{{ userStore.nickname || '-' }}</el-descriptions-item>
             <el-descriptions-item label="真实姓名">{{ userStore.realName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="注册时间">{{ userStore.createTime || '-' }}</el-descriptions-item>
           </el-descriptions>
@@ -27,17 +26,22 @@
           <el-tabs v-model="activeTab">
             <el-tab-pane label="编辑资料" name="profile">
               <el-form ref="profileFormRef" :model="profileForm" :rules="profileRules" label-width="100px" style="max-width: 500px; margin-top: 16px;">
+                <el-form-item label="头像">
+                  <div class="avatar-upload-row">
+                    <el-avatar :size="60" :src="userStore.avatarUrl || undefined">
+                      {{ userStore.username?.charAt(0)?.toUpperCase() }}
+                    </el-avatar>
+                    <el-button size="small" type="primary" :loading="avatarUploading" @click="triggerAvatarUpload">
+                      上传头像
+                    </el-button>
+                    <input ref="avatarInputRef" type="file" accept="image/*" style="display: none" @change="handleAvatarFileChange" />
+                  </div>
+                </el-form-item>
+                <el-form-item label="昵称" prop="nickname">
+                  <el-input v-model="profileForm.nickname" placeholder="请输入昵称" maxlength="30" />
+                </el-form-item>
                 <el-form-item label="真实姓名" prop="realName">
                   <el-input v-model="profileForm.realName" placeholder="请输入真实姓名" maxlength="50" />
-                </el-form-item>
-                <el-form-item label="邮箱" prop="email">
-                  <el-input v-model="profileForm.email" placeholder="请输入邮箱" />
-                </el-form-item>
-                <el-form-item label="手机号" prop="phone">
-                  <el-input v-model="profileForm.phone" placeholder="请输入手机号" />
-                </el-form-item>
-                <el-form-item label="头像URL" prop="avatarUrl">
-                  <el-input v-model="profileForm.avatarUrl" placeholder="请输入头像链接地址" />
                 </el-form-item>
                 <el-form-item>
                   <el-button type="primary" :loading="profileLoading" @click="handleUpdateProfile">保存修改</el-button>
@@ -61,7 +65,58 @@
                 </el-form-item>
               </el-form>
             </el-tab-pane>
+
+            <el-tab-pane label="登录历史" name="loginHistory">
+              <el-table :data="loginHistory" stripe style="margin-top: 16px;" v-loading="loginHistoryLoading">
+                <el-table-column prop="loginTime" label="登录时间" width="180" />
+                <el-table-column prop="ipAddress" label="IP地址" width="150" />
+                <el-table-column prop="userAgent" label="设备/浏览器" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="status" label="状态" width="80">
+                  <template #default="{ row }">
+                    <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
+                      {{ row.status === 1 ? '成功' : '失败' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="message" label="备注" min-width="120" show-overflow-tooltip />
+              </el-table>
+              <div class="pagination-wrap">
+                <el-pagination
+                  v-model:current-page="loginHistoryPage"
+                  :page-size="loginHistorySize"
+                  :total="loginHistoryTotal"
+                  layout="prev, pager, next"
+                  @current-change="loadLoginHistory"
+                />
+              </div>
+            </el-tab-pane>
           </el-tabs>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-row style="margin-top: 24px;">
+      <el-col :span="24">
+        <el-card>
+          <template #header>
+            <span class="danger-title">危险操作</span>
+          </template>
+          <div class="danger-zone">
+            <div>
+              <p><strong>注销账号</strong></p>
+              <p class="danger-desc">注销后账号将被禁用，无法登录。数据保留30天后彻底删除。</p>
+            </div>
+            <el-popconfirm
+              title="确定要注销账号吗？注销后无法登录。"
+              confirm-button-text="确认注销"
+              cancel-button-text="取消"
+              @confirm="handleDeleteAccount"
+            >
+              <template #reference>
+                <el-button type="danger" :loading="deleteLoading">注销账号</el-button>
+              </template>
+            </el-popconfirm>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -69,23 +124,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getProfile, updateProfile, updatePassword } from '@/api/user'
+import { getProfile, updateProfile, updatePassword, uploadAvatar, deleteAccount, getLoginHistory } from '@/api/user'
 import { ElMessage } from 'element-plus'
 
+const router = useRouter()
 const userStore = useUserStore()
 const activeTab = ref('profile')
 const profileFormRef = ref()
 const passwordFormRef = ref()
+const avatarInputRef = ref<HTMLInputElement>()
 const profileLoading = ref(false)
 const passwordLoading = ref(false)
+const avatarUploading = ref(false)
+const deleteLoading = ref(false)
 
 const profileForm = reactive({
-  realName: '',
-  email: '',
-  phone: '',
-  avatarUrl: ''
+  nickname: '',
+  realName: ''
 })
 
 const passwordForm = reactive({
@@ -95,7 +153,7 @@ const passwordForm = reactive({
 })
 
 const profileRules = {
-  email: [{ type: 'email' as const, message: '邮箱格式不正确', trigger: 'blur' }],
+  nickname: [{ max: 30, message: '昵称长度不超过30', trigger: 'blur' }],
   realName: [{ max: 50, message: '真实姓名长度不超过50', trigger: 'blur' }]
 }
 
@@ -119,6 +177,14 @@ const passwordRules = {
   ]
 }
 
+// -- login history --
+const loginHistory = ref<any[]>([])
+const loginHistoryLoading = ref(false)
+const loginHistoryPage = ref(1)
+const loginHistorySize = ref(10)
+const loginHistoryTotal = ref(0)
+
+// -- role display --
 const roleMap: Record<string, string> = {
   SUPER_ADMIN: '超级管理员',
   ADMIN: '管理员',
@@ -139,10 +205,8 @@ async function loadUserInfo() {
     const res: any = await getProfile()
     if (res.code === 200 && res.data) {
       userStore.setUserInfo(res.data)
+      profileForm.nickname = res.data.nickname || ''
       profileForm.realName = res.data.realName || ''
-      profileForm.email = res.data.email || ''
-      profileForm.phone = res.data.phone || ''
-      profileForm.avatarUrl = res.data.avatarUrl || ''
     }
   } catch {
     // ignore
@@ -175,8 +239,67 @@ async function handleUpdatePassword() {
   }
 }
 
+function triggerAvatarUpload() {
+  avatarInputRef.value?.click()
+}
+
+async function handleAvatarFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    ElMessage.error('仅支持图片格式')
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.error('头像大小不能超过2MB')
+    return
+  }
+
+  avatarUploading.value = true
+  try {
+    const res: any = await uploadAvatar(file)
+    const url = res.data?.url || res.data
+    ElMessage.success('头像上传成功')
+    await loadUserInfo()
+  } finally {
+    avatarUploading.value = false
+    input.value = ''
+  }
+}
+
+async function loadLoginHistory() {
+  loginHistoryLoading.value = true
+  try {
+    const res: any = await getLoginHistory(loginHistoryPage.value, loginHistorySize.value)
+    loginHistory.value = res.data?.records || []
+    loginHistoryTotal.value = res.data?.total || 0
+  } finally {
+    loginHistoryLoading.value = false
+  }
+}
+
+async function handleDeleteAccount() {
+  deleteLoading.value = true
+  try {
+    await deleteAccount()
+    ElMessage.success('账号已注销')
+    userStore.logout()
+    router.push('/login')
+  } finally {
+    deleteLoading.value = false
+  }
+}
+
 onMounted(() => {
   loadUserInfo()
+})
+
+watch(activeTab, (tab) => {
+  if (tab === 'loginHistory') {
+    loadLoginHistory()
+  }
 })
 </script>
 
@@ -206,5 +329,40 @@ onMounted(() => {
 
 .mt-16 {
   margin-top: 16px;
+}
+
+.avatar-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.danger-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-color-danger);
+}
+
+.danger-zone {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  p {
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  .danger-desc {
+    font-size: 13px;
+    color: var(--neutral-500);
+    margin-top: 4px;
+  }
 }
 </style>

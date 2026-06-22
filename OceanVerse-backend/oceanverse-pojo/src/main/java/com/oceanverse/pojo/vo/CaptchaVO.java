@@ -10,10 +10,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Schema(description = "验证码响应")
 public class CaptchaVO {
-    @Schema(description = "验证码唯一标识，提交登录/注册时需回传此 key", example = "a1b2c3d4-e5f6-7890-abcd-ef1234567890")
+    @Schema(description = "验证码唯一标识，提交登录/注册时需回传此 key")
     private String captchaKey;
-    @Schema(description = "验证码算式（文本形式），例如 3 + 5 = ?", example = "3 + 5 = ?")
-    private String expression;
-    @Schema(description = "验证码过期时间（秒）", example = "300")
+    @Schema(description = "验证码图片，Base64 编码的 PNG 格式，前缀 data:image/png;base64,")
+    private String imageBase64;
+    @Schema(description = "验证码过期时间（秒）")
     private Long expireSeconds;
 }

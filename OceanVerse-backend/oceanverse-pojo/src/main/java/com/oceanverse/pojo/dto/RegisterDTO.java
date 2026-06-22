@@ -15,8 +15,6 @@ public class RegisterDTO {
     @Size(min = 6, max = 50, message = "密码长度6-50")
     @Schema(description = "密码（6-50字符）")
     private String password;
-    @Schema(description = "手机号")
-    private String phone;
     @NotBlank(message = "验证码标识不能为空")
     @Schema(description = "验证码 Key（调用 /api/captcha 获取）")
     private String captchaKey;

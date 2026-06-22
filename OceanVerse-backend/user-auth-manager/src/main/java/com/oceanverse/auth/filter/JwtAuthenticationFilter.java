@@ -1,17 +1,21 @@
 package com.oceanverse.auth.filter;
 
+import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.utils.JwtUtil;
+import com.oceanverse.common.utils.RedisUtil;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.DigestUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -25,7 +29,10 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final RedisUtil redisUtil;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -53,13 +60,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 3. 解析 JWT
+            // 3. 校验 Token 黑名单
+            String tokenHash = DigestUtils.md5DigestAsHex(token.getBytes());
+            if (Boolean.TRUE.equals(redisUtil.hasKey(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash))) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // 4. 解析 JWT
             Claims claims = JwtUtil.parseToken(token);
             Long userId = Long.parseLong(claims.getSubject());
             String username = claims.get("username", String.class);
             String role = claims.get("role", String.class);
 
-            // 4. 构建 Authentication 对象
+            // 5. 构建 Authentication 对象
             List<SimpleGrantedAuthority> authorities = role != null
                     ? List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
                     : Collections.emptyList();
