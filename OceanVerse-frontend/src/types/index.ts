@@ -14,8 +14,6 @@ export interface PageResult<T = any> {
 export interface User {
   id: number
   username: string
-  email: string
-  phone?: string
   realName?: string
   avatarUrl?: string
   status: number

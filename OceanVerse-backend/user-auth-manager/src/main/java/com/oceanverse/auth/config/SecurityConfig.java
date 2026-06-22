@@ -51,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/register",
+                                "/api/auth/refresh",
                                 "/api/captcha"
                         ).permitAll()
                         // 公开查询接口（无需认证）
@@ -58,9 +59,12 @@ public class SecurityConfig {
                                 "/api/species/list",
                                 "/api/species/*",
                                 "/api/species/statistics",
+                                "/api/species/*/distributions",
                                 "/api/community/post/list",
                                 "/api/community/post/*",
-                                "/api/visual/**"
+                                "/api/visual/**",
+                                "/api/message/test/**",
+                                "/api/ai/**"
                         ).permitAll()
                         // WebSocket 端点
                         .requestMatchers("/ws/**").permitAll()

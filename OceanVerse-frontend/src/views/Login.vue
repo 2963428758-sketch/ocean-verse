@@ -64,10 +64,6 @@
           </div>
         </el-form-item>
 
-        <div class="form-options">
-          <el-checkbox v-model="rememberMe" label="记住我" />
-        </div>
-
         <el-form-item>
           <el-button
             class="login-btn"
@@ -101,10 +97,9 @@ const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
 const captchaLoading = ref(false)
-const rememberMe = ref(false)
+const captchaImage = ref('')
 
 const form = reactive({ username: '', password: '', captchaKey: '', captchaCode: '' })
-const captchaImage = ref('')
 
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -129,9 +124,9 @@ onMounted(() => {
 })
 
 async function handleLogin() {
-  await formRef.value?.validate()
   loading.value = true
   try {
+    await formRef.value?.validate()
     const res: any = await login(form)
     userStore.setLoginInfo({
       accessToken: res.data.accessToken,
@@ -293,29 +288,6 @@ async function handleLogin() {
 
   :deep(.el-form-item) {
     margin-bottom: 20px;
-  }
-}
-
-/* ===== 记住我 ===== */
-.form-options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-
-  :deep(.el-checkbox__label) {
-    color: rgba(255, 255, 255, 0.65) !important;
-    font-size: 13px;
-  }
-
-  :deep(.el-checkbox__inner) {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.3);
-  }
-
-  :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-    background: rgba(100, 180, 255, 0.7);
-    border-color: rgba(100, 180, 255, 0.8);
   }
 }
 

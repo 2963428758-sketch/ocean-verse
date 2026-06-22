@@ -1,6 +1,7 @@
 package com.oceanverse.auth.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.auth.mapper.LoginLogMapper;
 import com.oceanverse.auth.mapper.PermissionMapper;
@@ -172,9 +173,7 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(vr.getMessage());
         }
 
-        Long count = userMapper.selectCount(
-                new LambdaQueryWrapper<User>().eq(User::getUsername, dto.getUsername())
-        );
+        long count = userMapper.countByUsernameIgnoreDeleted(dto.getUsername());
         if (count > 0) {
             throw new BusinessException("用户名已存在");
         }
@@ -183,6 +182,7 @@ public class UserServiceImpl implements UserService {
         user.setUsername(dto.getUsername());
         user.setNickname(dto.getUsername());
         user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        user.setRealName("");
         user.setStatus(CommonConstants.USER_STATUS_NORMAL);
         user.setDataScope(CommonConstants.DATA_SCOPE_SELF);
         user.setCreateTime(LocalDateTime.now());
@@ -215,7 +215,7 @@ public class UserServiceImpl implements UserService {
             redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
             log.info("用户退出登录: userId={}, token已加入黑名单", userId);
         } catch (Exception e) {
-            log.warn("退出登录处理异常: {}", e.getMessage());
+            log.warn("退出登录处理异常: {}", e.getMessage(), e);
         }
     }
 
@@ -245,8 +245,6 @@ public class UserServiceImpl implements UserService {
         vo.setId(user.getId());
         vo.setUsername(user.getUsername());
         vo.setNickname(user.getNickname());
-        vo.setEmail(user.getEmail());
-        vo.setPhone(user.getPhone());
         vo.setRealName(user.getRealName());
         vo.setAvatarUrl(user.getAvatarUrl());
         vo.setRole(roleCode);
@@ -316,7 +314,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public LoginVO refreshToken(String refreshToken) {
         if (!JwtUtil.validate(refreshToken)) {
             throw new BusinessException(401, "RefreshToken 已过期或无效");
@@ -368,10 +365,10 @@ public class UserServiceImpl implements UserService {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         if (keyword != null && !keyword.isBlank()) {
             wrapper.and(w -> w.like(User::getUsername, keyword)
-                    .or().like(User::getRealName, keyword)
-                    .or().like(User::getEmail, keyword));
+                    .or().like(User::getRealName, keyword));
         }
         wrapper.orderByDesc(User::getCreateTime);
+        wrapper.eq(User::getDeleted, CommonConstants.NOT_DELETED);
         Page<User> result = userMapper.selectPage(pageParam, wrapper);
 
         List<User> records = result.getRecords();
@@ -394,8 +391,6 @@ public class UserServiceImpl implements UserService {
             vo.setId(user.getId());
             vo.setUsername(user.getUsername());
             vo.setNickname(user.getNickname());
-            vo.setEmail(user.getEmail());
-            vo.setPhone(user.getPhone());
             vo.setRealName(user.getRealName());
             vo.setAvatarUrl(user.getAvatarUrl());
             vo.setStatus(user.getStatus());
@@ -515,6 +510,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public UploadResult uploadAvatar(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException("请选择图片文件");
@@ -549,18 +545,14 @@ public class UserServiceImpl implements UserService {
             throw BusinessException.notFound("用户");
         }
 
-        // 软删除
-        user.setDeleted(1);
-        user.setUpdateTime(LocalDateTime.now());
-        userMapper.updateById(user);
+        // 软删除（绕过 @TableLogic 对 updateById 的拦截，显式写入 deleted）
+        userMapper.update(null,
+                new LambdaUpdateWrapper<User>()
+                        .eq(User::getId, userId)
+                        .set(User::getDeleted, CommonConstants.DELETED)
+                        .set(User::getUpdateTime, LocalDateTime.now()));
 
-        // 清除所有 Redis 缓存
-        redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + userId);
-        redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
-        redisUtil.delete(CommonConstants.REDIS_USER_PERMS + userId);
-        redisUtil.delete(CommonConstants.REDIS_USER_ROLES + userId);
-
-        // 当前 Token 加入黑名单
+        // 当前 Token 加入黑名单（必须在 delete 之前）
         String accessToken = redisUtil.get(CommonConstants.REDIS_USER_TOKEN + userId);
         if (accessToken != null) {
             String tokenHash = DigestUtils.md5DigestAsHex(accessToken.getBytes());
@@ -569,6 +561,12 @@ public class UserServiceImpl implements UserService {
                 redisUtil.set(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash, "1", remaining);
             }
         }
+
+        // 清除所有 Redis 缓存
+        redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_PERMS + userId);
+        redisUtil.delete(CommonConstants.REDIS_USER_ROLES + userId);
 
         log.info("用户注销账号: userId={}, username={}", userId, user.getUsername());
     }

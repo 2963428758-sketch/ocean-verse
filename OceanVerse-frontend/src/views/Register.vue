@@ -46,6 +46,10 @@
               <span :class="checks.hasDigit ? 'pass' : 'fail'">{{ checks.hasDigit ? '✓' : '✗' }} 包含数字</span>
               <span :class="checks.hasSpecial ? 'pass' : 'fail'">{{ checks.hasSpecial ? '✓' : '✗' }} 包含特殊字符</span>
               <span :class="checks.enoughTypes ? 'pass' : 'fail'">{{ checks.enoughTypes ? '✓' : '✗' }} 至少满足以上3种</span>
+              <span v-if="!checks.noWeakDict" class="fail">✗ 常见弱密码</span>
+              <span v-if="!checks.noUsername" class="fail">✗ 不能包含用户名</span>
+              <span v-if="!checks.noConsecutive" class="fail">✗ 不能含连续字符</span>
+              <span v-if="!checks.noRepeated" class="fail">✗ 不能含重复字符</span>
             </div>
           </div>
         </el-form-item>
@@ -125,10 +129,18 @@ const UPPER = /[A-Z]/
 const LOWER = /[a-z]/
 const DIGIT = /[0-9]/
 const SPECIAL = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/
+const CONSECUTIVE = /(?:abcdef|bcdefg|cdefgh|defghi|efghij|fghijk|ghijkl|hijklm|ijklmn|jklmno|klmnop|lmnopq|mnopqr|nopqrs|opqrst|pqrstu|qrstuv|rstuvw|stuvwx|tuvwxy|uvwxyz|123456|234567|345678|456789|567890|654321|765432|876543|987654)/i
+const REPEATED = /(.)\1{3,}/
+const WEAK_DICT = new Set([
+  '123456','password','123456789','12345678','12345','1234567890','1234567',
+  'qwerty','abc123','111111','123123','admin','password1','iloveyou','welcome',
+  'monkey','dragon','master','football','baseball','sunshine','princess',
+  '1234','123','000000','666666','888888','qwerty123','1q2w3e4r','passw0rd'
+])
 
 const checks = computed(() => {
   const pwd = form.password
-  if (!pwd) return { minLength: false, hasUpper: false, hasLower: false, hasDigit: false, hasSpecial: false, enoughTypes: false }
+  if (!pwd) return { minLength: false, hasUpper: false, hasLower: false, hasDigit: false, hasSpecial: false, enoughTypes: false, noWeakDict: true, noConsecutive: true, noRepeated: true, noUsername: true }
 
   const hasUpper = UPPER.test(pwd)
   const hasLower = LOWER.test(pwd)
@@ -136,11 +148,16 @@ const checks = computed(() => {
   const hasSpecial = SPECIAL.test(pwd)
   const typeCount = [hasUpper, hasLower, hasDigit, hasSpecial].filter(Boolean).length
   const minLength = pwd.length >= 8
-  const isDigitOnly = DIGIT.test(pwd) && !hasUpper && !hasLower && !hasSpecial
-  const isLetterOnly = (hasUpper || hasLower) && !hasDigit && !hasSpecial
+  const isDigitOnly = /^\d+$/.test(pwd)
+  const isLetterOnly = /^[a-zA-Z]+$/.test(pwd)
   const enoughTypes = typeCount >= 3 && !isDigitOnly && !isLetterOnly
+  const noWeakDict = !WEAK_DICT.has(pwd.toLowerCase())
+  const noConsecutive = !CONSECUTIVE.test(pwd)
+  const noRepeated = !REPEATED.test(pwd)
+  const username = form.username
+  const noUsername = !username || !pwd.toLowerCase().includes(username.toLowerCase())
 
-  return { minLength, hasUpper, hasLower, hasDigit, hasSpecial, enoughTypes }
+  return { minLength, hasUpper, hasLower, hasDigit, hasSpecial, enoughTypes, noWeakDict, noConsecutive, noRepeated, noUsername }
 })
 
 const strengthLabel = computed(() => {
@@ -181,14 +198,30 @@ const validatePassword = (_rule: any, value: string, callback: any) => {
     return
   }
   const chk = checks.value
-  const digitsOnly = DIGIT.test(value) && !chk.hasUpper && !chk.hasLower && !chk.hasSpecial
-  const lettersOnly = (chk.hasUpper || chk.hasLower) && !chk.hasDigit && !chk.hasSpecial
+  const digitsOnly = /^\d+$/.test(value)
+  const lettersOnly = /^[a-zA-Z]+$/.test(value)
   if (digitsOnly) {
     callback(new Error('密码不能为纯数字'))
     return
   }
   if (lettersOnly) {
     callback(new Error('密码不能为纯字母'))
+    return
+  }
+  if (!chk.noWeakDict) {
+    callback(new Error('该密码为常见弱密码，请更换'))
+    return
+  }
+  if (!chk.noUsername) {
+    callback(new Error('密码不能包含用户名'))
+    return
+  }
+  if (!chk.noConsecutive) {
+    callback(new Error('密码包含连续字符（如123456、abcdef）'))
+    return
+  }
+  if (!chk.noRepeated) {
+    callback(new Error('密码包含过多重复字符'))
     return
   }
   if (!chk.enoughTypes) {
@@ -224,13 +257,13 @@ onMounted(() => {
 })
 
 async function handleRegister() {
-  await formRef.value?.validate()
   if (form.password !== form.confirmPassword) {
     ElMessage.error('两次密码不一致')
     return
   }
   loading.value = true
   try {
+    await formRef.value?.validate()
     await register({ username: form.username, password: form.password, captchaKey: form.captchaKey, captchaCode: form.captchaCode })
     ElMessage.success('注册成功，请登录')
     router.push('/login')

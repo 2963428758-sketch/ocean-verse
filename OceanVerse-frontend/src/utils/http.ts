@@ -4,8 +4,7 @@ import router from '@/router'
 
 const http = axios.create({
   baseURL: '/api',
-  timeout: 30000,
-  headers: { 'Content-Type': 'application/json' }
+  timeout: 30000
 })
 
 let isRefreshing = false
@@ -94,6 +93,7 @@ http.interceptors.response.use(
           throw new Error('refresh failed')
         }
       } catch {
+        pendingRequests = []
         clearAuth()
         ElMessage.error('登录已过期，请重新登录')
         return Promise.reject(error)

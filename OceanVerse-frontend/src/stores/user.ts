@@ -9,9 +9,7 @@ export const useUserStore = defineStore('user', () => {
     localStorage.getItem('userId') ? Number(localStorage.getItem('userId')) : null
   )
   const username = ref(localStorage.getItem('username') || '')
-  const nickname = ref('')
-  const email = ref('')
-  const phone = ref('')
+  const nickname = ref(localStorage.getItem('nickname') || '')
   const realName = ref('')
   const avatarUrl = ref(localStorage.getItem('avatarUrl') || '')
   const role = ref(localStorage.getItem('role') || '')
@@ -32,17 +30,17 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('refreshToken', data.refreshToken)
     localStorage.setItem('userId', String(data.userId))
     localStorage.setItem('username', data.username)
+    localStorage.setItem('nickname', data.nickname || '')
     if (data.avatarUrl) localStorage.setItem('avatarUrl', data.avatarUrl)
     if (data.role) localStorage.setItem('role', data.role)
     infoLoaded.value = true
   }
 
-  function setUserInfo(data: { id?: number; userId?: number; username?: string; nickname?: string; email?: string; phone?: string; realName?: string; avatarUrl?: string; role?: string; createTime?: string }) {
+  function setUserInfo(data: { id?: number; userId?: number; username?: string; nickname?: string; realName?: string; avatarUrl?: string; role?: string; createTime?: string }) {
     userId.value = data.id ?? data.userId ?? userId.value
     username.value = data.username ?? username.value
     nickname.value = data.nickname ?? ''
-    email.value = data.email ?? ''
-    phone.value = data.phone ?? ''
+    if (data.nickname) localStorage.setItem('nickname', data.nickname)
     realName.value = data.realName ?? ''
     avatarUrl.value = data.avatarUrl ?? avatarUrl.value
     role.value = data.role ?? role.value
@@ -72,8 +70,6 @@ export const useUserStore = defineStore('user', () => {
     userId.value = null
     username.value = ''
     nickname.value = ''
-    email.value = ''
-    phone.value = ''
     realName.value = ''
     avatarUrl.value = ''
     role.value = ''
@@ -83,9 +79,10 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('userId')
     localStorage.removeItem('username')
+    localStorage.removeItem('nickname')
     localStorage.removeItem('avatarUrl')
     localStorage.removeItem('role')
   }
 
-  return { token, refreshToken, userId, username, nickname, email, phone, realName, avatarUrl, role, createTime, isLoggedIn, infoLoaded, setLoginInfo, setUserInfo, fetchUserInfo, logout }
+  return { token, refreshToken, userId, username, nickname, realName, avatarUrl, role, createTime, isLoggedIn, infoLoaded, setLoginInfo, setUserInfo, fetchUserInfo, logout }
 })
