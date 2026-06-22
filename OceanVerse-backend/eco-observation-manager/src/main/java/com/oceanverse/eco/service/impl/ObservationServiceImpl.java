@@ -190,6 +190,15 @@ public class ObservationServiceImpl implements ObservationService {
         );
     }
 
+    @Override
+    public List<Observation> getMapData() {
+        LambdaQueryWrapper<Observation> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(Observation::getLatitude)
+               .isNotNull(Observation::getLongitude)
+               .orderByDesc(Observation::getObservationDate);
+        return observationMapper.selectList(wrapper);
+    }
+
     private String generateObservationCode() {
         LambdaQueryWrapper<Observation> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(Observation::getId).last("LIMIT 1");

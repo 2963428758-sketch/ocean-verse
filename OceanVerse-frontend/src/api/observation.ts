@@ -23,3 +23,6 @@ export const getObservationLocations = () => http.get('/observation/locations')
 
 // 生态系统列表（下拉用）
 export const getObservationEcosystems = () => http.get('/observation/ecosystems')
+
+// 观测地图数据（返回有经纬度的观测记录）
+export const getObservationMapData = () => http.get('/observation/map')

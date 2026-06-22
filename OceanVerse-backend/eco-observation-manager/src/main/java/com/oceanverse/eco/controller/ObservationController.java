@@ -72,4 +72,9 @@ public class ObservationController {
     public Result<List<Ecosystem>> ecosystems() {
         return Result.success(observationService.listEcosystems());
     }
+
+    @GetMapping("/map")
+    public Result<List<Observation>> mapData() {
+        return Result.success(observationService.getMapData());
+    }
 }

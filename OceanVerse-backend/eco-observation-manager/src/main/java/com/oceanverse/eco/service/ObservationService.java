@@ -16,4 +16,5 @@ public interface ObservationService {
     void delete(Long id);
     Map<String, Object> getStatistics();
     List<Ecosystem> listEcosystems();
+    List<Observation> getMapData();
 }
