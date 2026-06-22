@@ -39,19 +39,19 @@
         <el-popover
           v-if="isCollapse"
           :visible="userPopoverVisible"
-          placement="right-end"
+          placement="right-start"
           :width="130"
           :offset="8"
+          :teleported="true"
+          trigger="click"
           popper-class="sidebar-user-popover"
         >
           <template #reference>
-            <el-tooltip :content="userStore.nickname || userStore.username" placement="right" :show-after="300">
-              <div class="sidebar-user-trigger" @click="userPopoverVisible = !userPopoverVisible">
-                <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
-                  {{ userStore.username?.charAt(0)?.toUpperCase() }}
-                </el-avatar>
-              </div>
-            </el-tooltip>
+            <div class="sidebar-user-trigger" @click.stop="userPopoverVisible = !userPopoverVisible">
+              <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
+                {{ userStore.username?.charAt(0)?.toUpperCase() }}
+              </el-avatar>
+            </div>
           </template>
           <div class="user-popover-menu">
             <div class="user-popover-item" @click="userPopoverVisible = false; router.push('/profile')">个人中心</div>
@@ -60,7 +60,7 @@
           </div>
         </el-popover>
         <!-- 展开态：标准下拉菜单 -->
-        <el-dropdown v-else @command="handleCommand" placement="top-start">
+        <el-dropdown v-else @command="handleCommand" placement="top-end">
           <span class="sidebar-user-trigger">
             <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
               {{ userStore.username?.charAt(0)?.toUpperCase() }}
@@ -147,6 +147,16 @@ const isCollapse = ref(false)
 const unreadCount = ref(0)
 const userPopoverVisible = ref(false)
 watch(isCollapse, (val) => { if (!val) userPopoverVisible.value = false })
+
+// 点击页面其他区域关闭折叠态 popover
+function handleGlobalClick(e: MouseEvent) {
+  if (userPopoverVisible.value && isCollapse.value) {
+    const target = e.target as HTMLElement
+    if (!target.closest('.sidebar-user-popover') && !target.closest('.sidebar-user-trigger')) {
+      userPopoverVisible.value = false
+    }
+  }
+}
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let ws: WebSocket | null = null
 let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -212,6 +222,7 @@ onMounted(() => {
     window.addEventListener('notification-changed', fetchUnreadCount)
     document.addEventListener('visibilitychange', onVisibilityChange)
   }
+  document.addEventListener('click', handleGlobalClick)
 })
 
 onUnmounted(() => {
@@ -220,6 +231,7 @@ onUnmounted(() => {
   ws?.close()
   window.removeEventListener('notification-changed', fetchUnreadCount)
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  document.removeEventListener('click', handleGlobalClick)
 })
 
 function onVisibilityChange() {
@@ -311,6 +323,11 @@ async function doLogout() {
   }
 }
 
+/* 折叠态：logo 图标居中 */
+.sidebar.is-collapsed .logo {
+  padding: 0 !important;
+}
+
 .sidebar-menu {
   border-right: none;
   flex: 1;
@@ -324,6 +341,29 @@ async function doLogout() {
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s ease;
+
+    .el-icon { font-size: 19px; }
+  }
+
+  /* 折叠态：图标居中 */
+  &.el-menu--collapse {
+    :deep(.el-menu-item),
+    :deep(.el-sub-menu__title) {
+      margin: 4px 8px;
+      padding: 0 !important;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :deep(.el-sub-menu) > .el-sub-menu__title .el-icon,
+    :deep(.el-menu-item .el-icon) {
+      margin-right: 0 !important;
+    }
+
+    :deep(.el-sub-menu__icon-arrow) {
+      display: none;
+    }
   }
 
   :deep(.el-menu-item.is-active) {
