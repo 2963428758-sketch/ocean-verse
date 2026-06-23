@@ -94,6 +94,10 @@
           </el-breadcrumb>
         </div>
         <div class="topbar-right">
+          <!-- AI 图像识别 -->
+          <el-icon class="topbar-icon" @click="router.push('/ai/recognize')" title="AI 图像识别">
+            <MagicStick />
+          </el-icon>
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
             <el-icon class="notification-bell" @click="router.push('/community/notifications')">
               <Bell />
@@ -143,7 +147,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
 import { getUnreadCount } from '@/api/community'
-import { Bell, Setting, User, UserFilled, Document, Tickets } from '@element-plus/icons-vue'
+import { Bell, Setting, User, UserFilled, Document, Tickets, MagicStick } from '@element-plus/icons-vue'
 import GlobalChatDrawer from '@/components/GlobalChatDrawer.vue'
 
 const route = useRoute()
@@ -269,7 +273,6 @@ const menuItems = computed(() => {
       { path: '/visualization/observation-map', title: '观测地图', icon: 'LocationFilled' },
       { path: '/visualization/export', title: '数据导出', icon: 'Download' }
     ]},
-    { path: '/ai/recognize', title: 'AI 服务', icon: 'MagicStick' },
   ]
 
   return items
@@ -479,6 +482,24 @@ async function doLogout() {
   display: flex;
   align-items: center;
   gap: 12px;
+
+  .topbar-icon {
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--neutral-500);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+
+    &:hover {
+      color: var(--primary-main);
+      background: var(--primary-soft);
+    }
+  }
 
   .notification-badge {
     display: inline-flex;
