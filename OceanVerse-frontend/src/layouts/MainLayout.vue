@@ -578,12 +578,13 @@ async function doLogout() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px 6px 20px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
   outline: none;
   margin: 0 8px;
+  width: calc(100% - 16px);
 
   .is-collapsed & {
     margin: 0;
