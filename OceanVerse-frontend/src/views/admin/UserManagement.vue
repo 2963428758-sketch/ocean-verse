@@ -4,7 +4,7 @@
 
     <el-card>
       <div class="toolbar">
-        <el-input v-model="keyword" placeholder="搜索用户名/姓名/邮箱" clearable style="width: 280px;" @keyup.enter="loadData" @clear="loadData">
+        <el-input v-model="keyword" placeholder="搜索用户名/姓名" clearable style="width: 280px;" @keyup.enter="loadData" @clear="loadData">
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
         <el-button type="primary" @click="loadData">搜索</el-button>
@@ -15,10 +15,6 @@
         <el-table-column prop="username" label="用户名" width="120" />
         <el-table-column prop="realName" label="真实姓名" width="120">
           <template #default="{ row }">{{ row.realName || '-' }}</template>
-        </el-table-column>
-        <el-table-column prop="email" label="邮箱" min-width="180" />
-        <el-table-column prop="phone" label="手机" width="130">
-          <template #default="{ row }">{{ row.phone || '-' }}</template>
         </el-table-column>
         <el-table-column prop="role" label="角色" width="120">
           <template #default="{ row }">

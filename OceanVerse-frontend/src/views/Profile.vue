@@ -50,46 +50,43 @@
             </el-tab-pane>
 
             <el-tab-pane label="修改密码" name="password">
-              <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px" style="max-width: 500px; margin-top: 16px;">
-                <el-form-item label="旧密码" prop="oldPassword">
-                  <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入旧密码" />
-                </el-form-item>
-                <el-form-item label="新密码" prop="newPassword">
-                  <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码 (6-50位)" />
-                </el-form-item>
-                <el-form-item label="确认密码" prop="confirmPassword">
-                  <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
-                </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" :loading="passwordLoading" @click="handleUpdatePassword">修改密码</el-button>
-                </el-form-item>
-              </el-form>
-            </el-tab-pane>
-
-            <el-tab-pane label="登录历史" name="loginHistory">
-              <el-table :data="loginHistory" stripe style="margin-top: 16px;" v-loading="loginHistoryLoading">
-                <el-table-column prop="loginTime" label="登录时间" width="180" />
-                <el-table-column prop="ipAddress" label="IP地址" width="150" />
-                <el-table-column prop="userAgent" label="设备/浏览器" min-width="200" show-overflow-tooltip />
-                <el-table-column prop="status" label="状态" width="80">
-                  <template #default="{ row }">
-                    <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-                      {{ row.status === 1 ? '成功' : '失败' }}
-                    </el-tag>
+              <div class="password-section" style="max-width: 500px; margin-top: 16px;">
+                <el-alert type="info" :closable="false" show-icon class="mb-16">
+                  <template #title>
+                    密码需包含字母、数字，长度 6-50 位
                   </template>
-                </el-table-column>
-                <el-table-column prop="message" label="备注" min-width="120" show-overflow-tooltip />
-              </el-table>
-              <div class="pagination-wrap">
-                <el-pagination
-                  v-model:current-page="loginHistoryPage"
-                  :page-size="loginHistorySize"
-                  :total="loginHistoryTotal"
-                  layout="prev, pager, next"
-                  @current-change="loadLoginHistory"
-                />
+                </el-alert>
+                <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
+                  <el-form-item label="旧密码" prop="oldPassword">
+                    <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入旧密码" />
+                  </el-form-item>
+                  <el-form-item label="新密码" prop="newPassword">
+                    <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" @input="checkPasswordStrength" />
+                    <div v-if="passwordStrength.text" class="password-strength mt-8">
+                      <div class="strength-bar">
+                        <div :class="['strength-fill', passwordStrength.level]" :style="{ width: passwordStrength.percent + '%' }" />
+                      </div>
+                      <span :class="['strength-text', passwordStrength.level]">{{ passwordStrength.text }}</span>
+                    </div>
+                    <div class="password-hints mt-8">
+                      <div :class="['hint', passwordForm.newPassword && /.{6,}/.test(passwordForm.newPassword) ? 'met' : '']">✓ 至少 6 位字符</div>
+                      <div :class="['hint', passwordForm.newPassword && /[a-zA-Z]/.test(passwordForm.newPassword) ? 'met' : '']">✓ 包含字母</div>
+                      <div :class="['hint', passwordForm.newPassword && /\d/.test(passwordForm.newPassword) ? 'met' : '']">✓ 包含数字</div>
+                    </div>
+                  </el-form-item>
+                  <el-form-item label="确认密码" prop="confirmPassword">
+                    <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+                    <div v-if="passwordForm.confirmPassword && passwordForm.confirmPassword === passwordForm.newPassword" class="match-hint success mt-8">✓ 两次密码一致</div>
+                    <div v-else-if="passwordForm.confirmPassword && passwordForm.confirmPassword !== passwordForm.newPassword" class="match-hint error mt-8">✗ 两次密码不一致</div>
+                  </el-form-item>
+                  <el-form-item>
+                    <el-button type="primary" :loading="passwordLoading" @click="handleUpdatePassword">修改密码</el-button>
+                    <el-button @click="resetPasswordForm">重置</el-button>
+                  </el-form-item>
+                </el-form>
               </div>
             </el-tab-pane>
+
           </el-tabs>
         </el-card>
       </el-col>
@@ -124,10 +121,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getProfile, updateProfile, updatePassword, uploadAvatar, deleteAccount, getLoginHistory } from '@/api/user'
+import { getProfile, updateProfile, updatePassword, uploadAvatar, deleteAccount } from '@/api/user'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -177,12 +174,32 @@ const passwordRules = {
   ]
 }
 
-// -- login history --
-const loginHistory = ref<any[]>([])
-const loginHistoryLoading = ref(false)
-const loginHistoryPage = ref(1)
-const loginHistorySize = ref(10)
-const loginHistoryTotal = ref(0)
+// -- password strength --
+const passwordStrength = reactive({ text: '', level: '', percent: 0 })
+
+function checkPasswordStrength() {
+  const pwd = passwordForm.newPassword
+  if (!pwd) { passwordStrength.text = ''; passwordStrength.level = ''; passwordStrength.percent = 0; return }
+  let score = 0
+  if (pwd.length >= 6) score++
+  if (pwd.length >= 10) score++
+  if (/[a-zA-Z]/.test(pwd)) score++
+  if (/\d/.test(pwd)) score++
+  if (/[^a-zA-Z0-9]/.test(pwd)) score++
+  if (score <= 1) { passwordStrength.text = '弱'; passwordStrength.level = 'weak'; passwordStrength.percent = 20 }
+  else if (score <= 3) { passwordStrength.text = '中'; passwordStrength.level = 'medium'; passwordStrength.percent = 60 }
+  else { passwordStrength.text = '强'; passwordStrength.level = 'strong'; passwordStrength.percent = 100 }
+}
+
+function resetPasswordForm() {
+  passwordFormRef.value?.resetFields()
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+  passwordStrength.text = ''
+  passwordStrength.level = ''
+  passwordStrength.percent = 0
+}
 
 // -- role display --
 const roleMap: Record<string, string> = {
@@ -270,17 +287,6 @@ async function handleAvatarFileChange(e: Event) {
   }
 }
 
-async function loadLoginHistory() {
-  loginHistoryLoading.value = true
-  try {
-    const res: any = await getLoginHistory(loginHistoryPage.value, loginHistorySize.value)
-    loginHistory.value = res.data?.records || []
-    loginHistoryTotal.value = res.data?.total || 0
-  } finally {
-    loginHistoryLoading.value = false
-  }
-}
-
 async function handleDeleteAccount() {
   deleteLoading.value = true
   try {
@@ -295,12 +301,6 @@ async function handleDeleteAccount() {
 
 onMounted(() => {
   loadUserInfo()
-})
-
-watch(activeTab, (tab) => {
-  if (tab === 'loginHistory') {
-    loadLoginHistory()
-  }
 })
 </script>
 
@@ -365,5 +365,60 @@ watch(activeTab, (tab) => {
     color: var(--neutral-500);
     margin-top: 4px;
   }
+}
+
+.password-section {
+  .mb-16 { margin-bottom: 16px; }
+  .mt-8 { margin-top: 8px; }
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 5px;
+  background: var(--neutral-100);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  &.weak { background: var(--el-color-danger); }
+  &.medium { background: var(--el-color-warning); }
+  &.strong { background: var(--el-color-success); }
+}
+
+.strength-text {
+  font-size: 13px;
+  font-weight: 500;
+  &.weak { color: var(--el-color-danger); }
+  &.medium { color: var(--el-color-warning); }
+  &.strong { color: var(--el-color-success); }
+}
+
+.password-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--neutral-400);
+  transition: color 0.2s;
+  &.met { color: var(--el-color-success); }
+}
+
+.match-hint {
+  font-size: 12px;
+  &.success { color: var(--el-color-success); }
+  &.error { color: var(--el-color-danger); }
 }
 </style>

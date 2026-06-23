@@ -78,10 +78,6 @@
               <Bell />
             </el-icon>
           </el-badge>
-          <!-- 系统管理齿轮（仅管理员可见） -->
-          <span v-if="isAdmin" class="settings-gear">
-            <el-icon :size="20"><Setting /></el-icon>
-          </span>
           <!-- 用户头像下拉菜单 -->
           <el-dropdown @command="handleCommand" placement="bottom-end">
             <span class="topbar-avatar">
@@ -122,7 +118,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
 import { getUnreadCount } from '@/api/community'
-import { Bell, Setting, User, UserFilled, Document, Tickets, MagicStick, SwitchButton } from '@element-plus/icons-vue'
+import { Bell, User, SwitchButton } from '@element-plus/icons-vue'
 import GlobalChatDrawer from '@/components/GlobalChatDrawer.vue'
 
 const route = useRoute()
@@ -215,11 +211,17 @@ function onVisibilityChange() {
 const menuItems = computed(() => {
   if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
     return [
-      { path: '/admin/users', title: '用户管理', icon: 'User' },
-      { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' },
-      { path: '/community/approval', title: '帖子审核', icon: 'Stamp' },
-      { path: '/admin/login-log', title: '登录日志', icon: 'Document' },
-      { path: '/admin/operation-log', title: '操作日志', icon: 'Tickets' },
+      { title: '系统管理', children: [
+        { path: '/admin/users', title: '用户管理', icon: 'User' },
+        { path: '/admin/roles', title: '角色管理', icon: 'Stamp' },
+      ]},
+      { title: '系统日志', children: [
+        { path: '/admin/login-log', title: '登录日志', icon: 'Tickets' },
+        { path: '/admin/operation-log', title: '操作日志', icon: 'Document' },
+      ]},
+      { title: '社区管理', children: [
+        { path: '/community/approval', title: '帖子审核', icon: 'CircleCheck' },
+      ]},
     ]
   }
 
@@ -436,24 +438,6 @@ async function doLogout() {
     border-radius: var(--radius-sm);
     transition: all 0.2s;
     vertical-align: middle;
-
-    &:hover {
-      color: var(--primary-main);
-      background: var(--primary-soft);
-    }
-  }
-
-  .settings-gear {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-sm);
-    color: var(--neutral-500);
-    cursor: pointer;
-    transition: all 0.2s;
-    outline: none;
 
     &:hover {
       color: var(--primary-main);
