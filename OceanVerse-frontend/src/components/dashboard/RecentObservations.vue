@@ -82,7 +82,7 @@ const formatDate = (date: string) => {
   if (days === 0) return '今天'
   if (days === 1) return '昨天'
   if (days < 7) return `${days} 天前`
-  return `${d.getMonth() + 1}月${d.getDate()}日`
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
 }
 
 async function loadRecentObservations() {

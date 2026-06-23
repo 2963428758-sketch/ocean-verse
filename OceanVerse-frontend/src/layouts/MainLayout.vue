@@ -9,6 +9,7 @@
       <el-menu
         :default-active="route.path"
         :collapse="isCollapse"
+        :collapse-transition="false"
         router
         class="sidebar-menu"
         background-color="transparent"
@@ -22,63 +23,41 @@
               <span>{{ item.title }}</span>
             </div>
             <!-- 无子菜单 -->
-            <el-menu-item v-if="!item.children" :index="item.path">
-              <el-icon><component :is="item.icon" /></el-icon>
-              <span class="menu-item-label">{{ item.title }}</span>
-            </el-menu-item>
+            <el-tooltip
+              v-if="!item.children"
+              :content="item.title"
+              placement="right"
+              :show-after="300"
+              :disabled="!isCollapse"
+              append-to-body
+              popper-class="sidebar-tooltip"
+            >
+              <el-menu-item :index="item.path">
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span class="menu-item-label">{{ item.title }}</span>
+              </el-menu-item>
+            </el-tooltip>
             <!-- 有子菜单：平铺子项 -->
             <template v-else>
-              <el-menu-item v-for="child in item.children" :key="child.path" :index="child.path">
-                <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
-                <span class="menu-item-label">{{ child.title }}</span>
-              </el-menu-item>
+              <el-tooltip
+                v-for="child in item.children"
+                :key="child.path"
+                :content="child.title"
+                placement="right"
+                :show-after="300"
+                :disabled="!isCollapse"
+                append-to-body
+                popper-class="sidebar-tooltip"
+              >
+                <el-menu-item :index="child.path">
+                  <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
+                  <span class="menu-item-label">{{ child.title }}</span>
+                </el-menu-item>
+              </el-tooltip>
             </template>
           </div>
         </template>
       </el-menu>
-
-      <!-- 底部用户模块 -->
-      <div class="sidebar-user" :class="{ 'is-collapsed': isCollapse }">
-        <!-- 折叠态：手动控制弹出层，避免 el-dropdown 在窄侧边栏中的定位问题 -->
-        <el-popover
-          v-if="isCollapse"
-          :visible="userPopoverVisible"
-          placement="right-start"
-          :width="130"
-          :offset="8"
-          :teleported="true"
-          trigger="click"
-          popper-class="sidebar-user-popover"
-        >
-          <template #reference>
-            <div class="sidebar-user-trigger" @click.stop="userPopoverVisible = !userPopoverVisible">
-              <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
-                {{ userStore.username?.charAt(0)?.toUpperCase() }}
-              </el-avatar>
-            </div>
-          </template>
-          <div class="user-popover-menu">
-            <div class="user-popover-item" @click="userPopoverVisible = false; router.push('/profile')">个人中心</div>
-            <div class="user-popover-divider" />
-            <div class="user-popover-item" @click="userPopoverVisible = false; doLogout()">退出登录</div>
-          </div>
-        </el-popover>
-        <!-- 展开态：标准下拉菜单 -->
-        <el-dropdown v-else @command="handleCommand" placement="top-end">
-          <span class="sidebar-user-trigger">
-            <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
-              {{ userStore.username?.charAt(0)?.toUpperCase() }}
-            </el-avatar>
-            <span class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
     </el-aside>
 
     <!-- 右侧内容 -->
@@ -100,7 +79,7 @@
             </el-icon>
           </el-badge>
           <!-- 系统管理齿轮（仅管理员可见） -->
-          <el-dropdown v-if="isAdmin" trigger="click" class="settings-gear-dropdown">
+          <el-dropdown v-if="isAdmin" trigger="hover" class="settings-gear-dropdown">
             <span class="settings-gear">
               <el-icon :size="20"><Setting /></el-icon>
             </span>
@@ -121,6 +100,24 @@
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          <!-- 用户头像下拉菜单 -->
+          <el-dropdown @command="handleCommand" placement="bottom-end">
+            <span class="topbar-avatar">
+              <el-avatar :size="32" :src="userStore.avatarUrl || undefined">
+                {{ userStore.username?.charAt(0)?.toUpperCase() }}
+              </el-avatar>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="profile">
+                  <el-icon><User /></el-icon>个人中心
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
 
@@ -131,6 +128,7 @@
             <component :is="Component" />
           </keep-alive>
         </router-view>
+        <GlobalChatDrawer />
       </el-main>
     </el-container>
   </el-container>
@@ -142,25 +140,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
 import { getUnreadCount } from '@/api/community'
-import { Bell, Setting, User, UserFilled, Document, Tickets } from '@element-plus/icons-vue'
+import { Bell, Setting, User, UserFilled, Document, Tickets, MagicStick, SwitchButton } from '@element-plus/icons-vue'
+import GlobalChatDrawer from '@/components/GlobalChatDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const isCollapse = ref(false)
 const unreadCount = ref(0)
-const userPopoverVisible = ref(false)
-watch(isCollapse, (val) => { if (!val) userPopoverVisible.value = false })
 
-// 点击页面其他区域关闭折叠态 popover
-function handleGlobalClick(e: MouseEvent) {
-  if (userPopoverVisible.value && isCollapse.value) {
-    const target = e.target as HTMLElement
-    if (!target.closest('.sidebar-user-popover') && !target.closest('.sidebar-user-trigger')) {
-      userPopoverVisible.value = false
-    }
-  }
-}
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let ws: WebSocket | null = null
 let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -226,7 +214,6 @@ onMounted(() => {
     window.addEventListener('notification-changed', fetchUnreadCount)
     document.addEventListener('visibilitychange', onVisibilityChange)
   }
-  document.addEventListener('click', handleGlobalClick)
 })
 
 onUnmounted(() => {
@@ -235,7 +222,6 @@ onUnmounted(() => {
   ws?.close()
   window.removeEventListener('notification-changed', fetchUnreadCount)
   document.removeEventListener('visibilitychange', onVisibilityChange)
-  document.removeEventListener('click', handleGlobalClick)
 })
 
 function onVisibilityChange() {
@@ -245,18 +231,16 @@ function onVisibilityChange() {
 }
 
 const menuItems = computed(() => {
-  if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
-    return [
-      { path: '/admin/users', title: '用户管理', icon: 'User' },
-      { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' },
-      { path: '/community/approval', title: '帖子审核', icon: 'Stamp' },
-      { path: '/admin/login-log', title: '登录日志', icon: 'Document' },
-      { path: '/admin/operation-log', title: '操作日志', icon: 'Tickets' },
-    ]
-  }
-
   const items = [
     { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
+  { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
+    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
+    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
+    ...(userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+      ? [{ path: '/community/approval', title: '帖子审核', icon: 'Stamp' }]
+      : [])
+  ]},
     { path: '/species', title: '物种百科', icon: 'Collection', children: [
       { path: '/species/list', title: '物种列表', icon: 'Collection' }
     ]},
@@ -269,15 +253,9 @@ const menuItems = computed(() => {
       { path: '/visualization/observation-map', title: '观测地图', icon: 'LocationFilled' },
       { path: '/visualization/export', title: '数据导出', icon: 'Download' }
     ]},
-    { path: '/ai', title: 'AI 服务', icon: 'MagicStick', children: [
-      { path: '/ai/recognize', title: '图像识别', icon: 'Camera' },
-      { path: '/ai/chat', title: '智能问答', icon: 'ChatLineSquare' }
+    { path: '/ai', title: 'AI 工具', icon: 'MagicStick', children: [
+      { path: '/ai/recognize', title: '图像识别', icon: 'MagicStick' }
     ]},
-  { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
-    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
-    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
-    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
-  ]},
   ]
 
   return items
@@ -309,11 +287,12 @@ async function doLogout() {
 /* ── 侧边栏 ── */
 .sidebar {
   background: linear-gradient(180deg, #1b5a80 0%, #2980b9 50%, #3da8d8 100%);
-  transition: width 0.3s var(--ease-out);
+  transition: width 0.2s ease-out;
   overflow: hidden;
   border-right: none;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .logo {
@@ -331,6 +310,7 @@ async function doLogout() {
     font-weight: 600;
     white-space: nowrap;
     letter-spacing: -0.02em;
+    overflow: hidden;
   }
 }
 
@@ -343,6 +323,7 @@ async function doLogout() {
   border-right: none;
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
 
   :deep(.el-menu-item) {
     margin: 2px 8px;
@@ -351,7 +332,7 @@ async function doLogout() {
     line-height: 42px;
     font-size: 14px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: none;
 
     .el-icon { font-size: 19px; }
   }
@@ -360,6 +341,7 @@ async function doLogout() {
   :deep(.menu-item-label) {
     margin-left: 8px;
     font-size: 14px;
+    transition: none;
   }
 
   /* 分组标题 */
@@ -373,15 +355,19 @@ async function doLogout() {
     user-select: none;
   }
 
-  /* 收起态：图标居中 + 中文标签 */
+  /* 收起态：图标 + hover tooltip */
   &.el-menu--collapse {
-    /* 菜单容器撑满侧边栏宽度，去掉内边距 */
+    /* 菜单容器撑满侧边栏宽度 */
     width: 100% !important;
-    padding: 0 !important;
 
     /* 收起态隐藏分组标题 */
     .group-header {
       display: none;
+    }
+
+    /* 收起态隐藏菜单标签文字，只显示图标 */
+    .menu-item-label {
+      display: none !important;
     }
 
     /* 分组之间加横线分隔 */
@@ -389,57 +375,6 @@ async function doLogout() {
       border-top: 1px solid rgba(255, 255, 255, 0.15);
       margin-top: 4px;
       padding-top: 4px;
-    }
-
-    /* 菜单项：grid 布局保证精确居中 */
-    :deep(.el-menu-item) {
-      display: grid !important;
-      grid-template-rows: auto auto !important;
-      justify-items: center !important;
-      align-items: center !important;
-      justify-content: center !important;
-      width: 100% !important;
-      padding: 0 !important;
-      margin: 0 !important;
-      height: auto !important;
-      min-height: 56px !important;
-      line-height: normal !important;
-      text-align: center !important;
-      overflow: visible !important;
-      box-sizing: border-box !important;
-    }
-
-    /* 图标放大、去掉默认 margin */
-    :deep(.el-menu-item .el-icon) {
-      margin: 0 !important;
-      font-size: 24px !important;
-      justify-content: center !important;
-    }
-
-    /* 强制显示 span 文字（Element Plus 收起态默认隐藏） */
-    :deep(.el-menu-item span) {
-      display: block !important;
-      width: auto !important;
-      overflow: visible !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      height: auto !important;
-      font-size: 10px !important;
-      line-height: 1.2 !important;
-      white-space: nowrap !important;
-      text-align: center !important;
-      margin: 0 !important;
-      padding: 0 0 4px !important;
-    }
-
-    /* tooltip 触发器撑满并居中 */
-    :deep(.el-tooltip__trigger) {
-      display: flex !important;
-      flex-direction: column !important;
-      align-items: center !important;
-      justify-content: center !important;
-      width: 100% !important;
-      height: 100% !important;
     }
   }
 
@@ -533,19 +468,45 @@ async function doLogout() {
       background: var(--primary-soft);
     }
   }
+
+  .topbar-avatar {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+
+    :deep(.el-avatar) {
+      outline: none !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+
+    &:hover {
+      background: var(--primary-soft);
+    }
+  }
 }
 
-/* ── 侧边栏底部用户模块 ── */
-.sidebar-user {
-  border-top: 1px solid rgba(255, 255, 255, 0.10);
-  padding: 12px 0;
-  flex-shrink: 0;
+/* ── 侧边栏收起态 tooltip 样式 ── */
+.sidebar-tooltip {
+  background: #fff !important;
+  color: #303133 !important;
+  border: 1px solid #e4e7ed !important;
+  border-radius: 8px !important;
+  padding: 8px 14px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
 
-  &.is-collapsed {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+.sidebar-tooltip .el-popper__arrow::before {
+  background: #fff !important;
+  border-color: #e4e7ed !important;
 }
 
 .sidebar-user-trigger {
@@ -560,9 +521,12 @@ async function doLogout() {
   margin: 0 8px;
 
   .is-collapsed & {
-    margin: 0;
-    padding: 0;
-    justify-content: center;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8px 0 !important;
+    justify-content: center !important;
+    align-items: center !important;
+    display: flex !important;
   }
 
   &:hover {
@@ -597,45 +561,6 @@ async function doLogout() {
   }
   .topbar-left {
     gap: 10px;
-  }
-}
-</style>
-
-<style lang="scss">
-/* 隐藏 el-menu 折叠态自动生成的 tooltip 弹出层（现在用内联文字标签替代） */
-.el-popper.is-el-menu-tooltip {
-  display: none !important;
-}
-
-/* Popover 菜单样式（teleported 到 body，需要全局样式） */
-.sidebar-user-popover {
-  padding: 4px 0 !important;
-  border-radius: 8px !important;
-  background: #fff !important;
-  color: #000 !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
-}
-
-.user-popover-menu {
-  .user-popover-item {
-    padding: 8px 16px !important;
-    font-size: 14px !important;
-    color: #000 !important;
-    cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
-    line-height: 1.5 !important;
-
-    &:hover {
-      background: #f5f7fa !important;
-      color: #2980b9 !important;
-    }
-  }
-
-  .user-popover-divider {
-    height: 1px;
-    background: #e4e7ed;
-    margin: 4px 0;
   }
 }
 </style>

@@ -114,7 +114,6 @@ onMounted(() => {
   justify-content: space-between;
   background: var(--surface-card);
   border: 1px solid #f5c6c6;
-  border-left: 3px solid #c43535;
   border-radius: var(--radius-md);
   padding: 12px 18px;
   font-size: 14px;

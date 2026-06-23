@@ -12,6 +12,11 @@ let pendingRequests: Array<(token: string) => void> = []
 
 const NO_REFRESH_URLS = ['/auth/login', '/auth/register', '/auth/refresh']
 
+// 防止重复显示相同的 403 错误消息
+let lastPermissionWarning = ''
+let lastPermissionWarningTime = 0
+const PERMISSION_WARNING_INTERVAL = 3000 // 3秒内不重复显示相同错误
+
 function clearAuth() {
   localStorage.removeItem('token')
   localStorage.removeItem('refreshToken')
@@ -62,7 +67,15 @@ http.interceptors.response.use(
 
     // 403 Forbidden — 权限不足，不触发登录重定向
     if (error.response.status === 403) {
-      ElMessage.warning(error.response?.data?.message || '权限不足，无法执行此操作')
+      const message = error.response?.data?.message || '权限不足，无法执行此操作'
+      const now = Date.now()
+
+      // 3秒内不重复显示相同的错误消息
+      if (message !== lastPermissionWarning || now - lastPermissionWarningTime > PERMISSION_WARNING_INTERVAL) {
+        ElMessage.warning(message)
+        lastPermissionWarning = message
+        lastPermissionWarningTime = now
+      }
       return Promise.reject(error)
     }
 
