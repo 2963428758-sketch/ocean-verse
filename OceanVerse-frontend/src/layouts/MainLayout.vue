@@ -63,31 +63,21 @@
             <div class="user-popover-item" @click="userPopoverVisible = false; doLogout()">退出登录</div>
           </div>
         </el-popover>
-        <!-- 展开态：popover 菜单 -->
-        <el-popover
-          v-else
-          :visible="userPopoverVisible"
-          placement="top-start"
-          :width="130"
-          :offset="8"
-          :teleported="true"
-          trigger="click"
-          popper-class="sidebar-user-popover"
-        >
-          <template #reference>
-            <div class="sidebar-user-trigger" @click.stop="userPopoverVisible = !userPopoverVisible">
-              <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
-                {{ userStore.username?.charAt(0)?.toUpperCase() }}
-              </el-avatar>
-              <span class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
-            </div>
+        <!-- 展开态：标准下拉菜单 -->
+        <el-dropdown v-else @command="handleCommand" placement="top-end">
+          <span class="sidebar-user-trigger">
+            <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
+              {{ userStore.username?.charAt(0)?.toUpperCase() }}
+            </el-avatar>
+            <span class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            </el-dropdown-menu>
           </template>
-          <div class="user-popover-menu">
-            <div class="user-popover-item" @click="userPopoverVisible = false; router.push('/profile')">个人中心</div>
-            <div class="user-popover-divider" />
-            <div class="user-popover-item" @click="userPopoverVisible = false; doLogout()">退出登录</div>
-          </div>
-        </el-popover>
+        </el-dropdown>
       </div>
     </el-aside>
 
@@ -585,18 +575,15 @@ async function doLogout() {
 }
 
 .sidebar-user-trigger {
-  display: flex !important;
+  display: flex;
   align-items: center;
-  justify-content: center !important;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 6px 12px 6px 20px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
   outline: none;
   margin: 0 8px;
-  width: calc(100% - 16px);
-  text-align: center;
 
   .is-collapsed & {
     margin: 0;
@@ -644,12 +631,6 @@ async function doLogout() {
 /* 隐藏 el-menu 折叠态自动生成的 tooltip 弹出层（现在用内联文字标签替代） */
 .el-popper.is-el-menu-tooltip {
   display: none !important;
-}
-
-/* Popover 触发元素居中（el-popover 内部 wrapper 覆盖） */
-.sidebar-user .el-popover__reference {
-  display: flex !important;
-  justify-content: center !important;
 }
 
 /* Popover 菜单样式（teleported 到 body，需要全局样式） */
