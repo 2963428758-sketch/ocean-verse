@@ -88,7 +88,10 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">
-                  <el-icon><User /></el-icon>个人中心
+                  <el-icon><User /></el-icon>个人主页
+                </el-dropdown-item>
+                <el-dropdown-item command="settings">
+                  <el-icon><Setting /></el-icon>设置
                 </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>
                   <el-icon><SwitchButton /></el-icon>退出登录
@@ -229,8 +232,6 @@ const menuItems = computed(() => {
     { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
   { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
     { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
-    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
-    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
     ...(userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
       ? [{ path: '/community/approval', title: '帖子审核', icon: 'Stamp' }]
       : [])
@@ -265,6 +266,7 @@ const breadcrumbs = computed(() => {
 
 function handleCommand(cmd: string) {
   if (cmd === 'profile') router.push('/profile')
+  else if (cmd === 'settings') router.push('/settings')
   else if (cmd === 'logout') doLogout()
 }
 
