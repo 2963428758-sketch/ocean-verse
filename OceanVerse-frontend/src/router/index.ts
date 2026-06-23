@@ -23,7 +23,7 @@ const routes: RouteRecordRaw[] = [
         { path: 'observation-map', name: 'ObservationMap', component: () => import('@/views/visualization/ObservationMap.vue'), meta: { title: '观测地图' } },
         { path: 'export', name: 'DataExport', component: () => import('@/views/visualization/DataExport.vue'), meta: { title: '数据导出' } }
       ]},
-      { path: 'ai', name: 'AI', redirect: '/ai/recognize', meta: { icon: 'MagicStick' }, children: [
+      { path: 'ai', name: 'AI', redirect: '/ai/recognize', meta: { title: 'AI 工具', icon: 'MagicStick' }, children: [
         { path: 'recognize', name: 'AIRecognize', component: () => import('@/views/ai/Recognize.vue'), meta: { title: '图像识别' } },
         { path: 'chat', name: 'AIChat', redirect: '/dashboard' }
       ]},
