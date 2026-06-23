@@ -51,27 +51,29 @@
 
             <el-tab-pane label="修改密码" name="password">
               <div class="password-section" style="max-width: 500px; margin-top: 16px;">
-                <el-alert type="info" :closable="false" show-icon class="mb-16">
-                  <template #title>
-                    密码需包含字母、数字，长度 6-50 位
-                  </template>
-                </el-alert>
                 <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
                   <el-form-item label="旧密码" prop="oldPassword">
                     <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入旧密码" />
                   </el-form-item>
                   <el-form-item label="新密码" prop="newPassword">
-                    <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" @input="checkPasswordStrength" />
-                    <div v-if="passwordStrength.text" class="password-strength mt-8">
+                    <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" />
+                    <div v-if="passwordForm.newPassword" class="pwd-strength">
                       <div class="strength-bar">
-                        <div :class="['strength-fill', passwordStrength.level]" :style="{ width: passwordStrength.percent + '%' }" />
+                        <div class="strength-fill" :class="strengthClass" :style="{ width: strengthPercent }" />
                       </div>
-                      <span :class="['strength-text', passwordStrength.level]">{{ passwordStrength.text }}</span>
-                    </div>
-                    <div class="password-hints mt-8">
-                      <div :class="['hint', passwordForm.newPassword && /.{6,}/.test(passwordForm.newPassword) ? 'met' : '']">✓ 至少 6 位字符</div>
-                      <div :class="['hint', passwordForm.newPassword && /[a-zA-Z]/.test(passwordForm.newPassword) ? 'met' : '']">✓ 包含字母</div>
-                      <div :class="['hint', passwordForm.newPassword && /\d/.test(passwordForm.newPassword) ? 'met' : '']">✓ 包含数字</div>
+                      <span class="strength-label" :class="strengthClass">{{ strengthLabel }}</span>
+                      <div class="strength-checks">
+                        <span :class="pwChecks.minLength ? 'pass' : 'fail'">{{ pwChecks.minLength ? '✓' : '✗' }} 至少8位字符</span>
+                        <span :class="pwChecks.hasUpper ? 'pass' : 'fail'">{{ pwChecks.hasUpper ? '✓' : '✗' }} 包含大写字母</span>
+                        <span :class="pwChecks.hasLower ? 'pass' : 'fail'">{{ pwChecks.hasLower ? '✓' : '✗' }} 包含小写字母</span>
+                        <span :class="pwChecks.hasDigit ? 'pass' : 'fail'">{{ pwChecks.hasDigit ? '✓' : '✗' }} 包含数字</span>
+                        <span :class="pwChecks.hasSpecial ? 'pass' : 'fail'">{{ pwChecks.hasSpecial ? '✓' : '✗' }} 包含特殊字符</span>
+                        <span :class="pwChecks.enoughTypes ? 'pass' : 'fail'">{{ pwChecks.enoughTypes ? '✓' : '✗' }} 至少满足以上3种</span>
+                        <span v-if="!pwChecks.noWeakDict" class="fail">✗ 常见弱密码</span>
+                        <span v-if="!pwChecks.noUsername" class="fail">✗ 不能包含用户名</span>
+                        <span v-if="!pwChecks.noConsecutive" class="fail">✗ 不能含连续字符</span>
+                        <span v-if="!pwChecks.noRepeated" class="fail">✗ 不能含重复字符</span>
+                      </div>
                     </div>
                   </el-form-item>
                   <el-form-item label="确认密码" prop="confirmPassword">
@@ -162,43 +164,90 @@ const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
   }
 }
 
+// -- real-time password strength (与注册页一致) --
+const UPPER = /[A-Z]/
+const LOWER = /[a-z]/
+const DIGIT = /[0-9]/
+const SPECIAL = /[!@#\$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/
+const CONSECUTIVE = /(?:abcdef|bcdefg|cdefgh|defghi|efghij|fghijk|ghijkl|hijklm|ijklmn|jklmno|klmnop|lmnopq|mnopqr|nopqrs|opqrst|pqrstu|qrstuv|rstuvw|stuvwx|tuvwxy|uvwxyz|123456|234567|345678|456789|567890|654321|765432|876543|987654)/i
+const REPEATED = /(.)\1{3,}/
+const WEAK_DICT = new Set([
+  '123456','password','123456789','12345678','12345','1234567890','1234567',
+  'qwerty','abc123','111111','123123','admin','password1','iloveyou','welcome',
+  'monkey','dragon','master','football','baseball','sunshine','princess',
+  '1234','123','000000','666666','888888','qwerty123','1q2w3e4r','passw0rd'
+])
+
+const pwChecks = computed(() => {
+  const pwd = passwordForm.newPassword
+  if (!pwd) return { minLength: false, hasUpper: false, hasLower: false, hasDigit: false, hasSpecial: false, enoughTypes: false, noWeakDict: true, noConsecutive: true, noRepeated: true, noUsername: true }
+  const hasUpper = UPPER.test(pwd)
+  const hasLower = LOWER.test(pwd)
+  const hasDigit = DIGIT.test(pwd)
+  const hasSpecial = SPECIAL.test(pwd)
+  const typeCount = [hasUpper, hasLower, hasDigit, hasSpecial].filter(Boolean).length
+  const minLength = pwd.length >= 8
+  const isDigitOnly = /^\d+$/.test(pwd)
+  const isLetterOnly = /^[a-zA-Z]+$/.test(pwd)
+  const enoughTypes = typeCount >= 3 && !isDigitOnly && !isLetterOnly
+  const noWeakDict = !WEAK_DICT.has(pwd.toLowerCase())
+  const noConsecutive = !CONSECUTIVE.test(pwd)
+  const noRepeated = !REPEATED.test(pwd)
+  const username = userStore.username
+  const noUsername = !username || !pwd.toLowerCase().includes(username.toLowerCase())
+  return { minLength, hasUpper, hasLower, hasDigit, hasSpecial, enoughTypes, noWeakDict, noConsecutive, noRepeated, noUsername }
+})
+
+const strengthLabel = computed(() => {
+  const { minLength } = pwChecks.value
+  const pwd = passwordForm.newPassword
+  if (!pwd || pwd.length < 3) return ''
+  const typeCount = [pwChecks.value.hasUpper, pwChecks.value.hasLower, pwChecks.value.hasDigit, pwChecks.value.hasSpecial].filter(Boolean).length
+  if (!minLength || typeCount < 2) return '弱'
+  if (minLength && typeCount >= 4 && pwd.length >= 12) return '强'
+  if (pwChecks.value.enoughTypes) return '中'
+  return '弱'
+})
+
+const strengthClass = computed(() => {
+  const label = strengthLabel.value
+  if (label === '强') return 'strong'
+  if (label === '中') return 'medium'
+  if (label === '弱') return 'weak'
+  return ''
+})
+
+const strengthPercent = computed(() => {
+  const label = strengthLabel.value
+  if (label === '强') return '100%'
+  if (label === '中') return '66%'
+  if (label === '弱') return '33%'
+  return '0%'
+})
+
+const validateNewPassword = (_rule: any, value: string, callback: any) => {
+  if (!value) { callback(new Error('请输入新密码')); return }
+  if (value.length < 8) { callback(new Error('密码长度至少8位')); return }
+  const chk = pwChecks.value
+  if (/^\d+$/.test(value)) { callback(new Error('密码不能为纯数字')); return }
+  if (/^[a-zA-Z]+$/.test(value)) { callback(new Error('密码不能为纯字母')); return }
+  if (!chk.noWeakDict) { callback(new Error('该密码为常见弱密码，请更换')); return }
+  if (!chk.noUsername) { callback(new Error('密码不能包含用户名')); return }
+  if (!chk.noConsecutive) { callback(new Error('密码包含连续字符（如123456、abcdef）')); return }
+  if (!chk.noRepeated) { callback(new Error('密码包含过多重复字符')); return }
+  if (!chk.enoughTypes) { callback(new Error('需包含大写、小写、数字、特殊字符中至少3种')); return }
+  callback()
+}
+
 const passwordRules = {
   oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
   newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 50, message: '密码长度6-50位', trigger: 'blur' }
+    { required: true, validator: validateNewPassword, trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
-}
-
-// -- password strength --
-const passwordStrength = reactive({ text: '', level: '', percent: 0 })
-
-function checkPasswordStrength() {
-  const pwd = passwordForm.newPassword
-  if (!pwd) { passwordStrength.text = ''; passwordStrength.level = ''; passwordStrength.percent = 0; return }
-  let score = 0
-  if (pwd.length >= 6) score++
-  if (pwd.length >= 10) score++
-  if (/[a-zA-Z]/.test(pwd)) score++
-  if (/\d/.test(pwd)) score++
-  if (/[^a-zA-Z0-9]/.test(pwd)) score++
-  if (score <= 1) { passwordStrength.text = '弱'; passwordStrength.level = 'weak'; passwordStrength.percent = 20 }
-  else if (score <= 3) { passwordStrength.text = '中'; passwordStrength.level = 'medium'; passwordStrength.percent = 60 }
-  else { passwordStrength.text = '强'; passwordStrength.level = 'strong'; passwordStrength.percent = 100 }
-}
-
-function resetPasswordForm() {
-  passwordFormRef.value?.resetFields()
-  passwordForm.oldPassword = ''
-  passwordForm.newPassword = ''
-  passwordForm.confirmPassword = ''
-  passwordStrength.text = ''
-  passwordStrength.level = ''
-  passwordStrength.percent = 0
 }
 
 // -- role display --
@@ -248,12 +297,17 @@ async function handleUpdatePassword() {
   try {
     await updatePassword({ oldPassword: passwordForm.oldPassword, newPassword: passwordForm.newPassword })
     ElMessage.success('密码修改成功')
-    passwordForm.oldPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
+    resetPasswordForm()
   } finally {
     passwordLoading.value = false
   }
+}
+
+function resetPasswordForm() {
+  passwordFormRef.value?.resetFields()
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
 }
 
 function triggerAvatarUpload() {
@@ -368,52 +422,48 @@ onMounted(() => {
 }
 
 .password-section {
-  .mb-16 { margin-bottom: 16px; }
   .mt-8 { margin-top: 8px; }
 }
 
-.password-strength {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+// 密码强度指示（与注册页一致）
+.pwd-strength {
+  margin-top: 8px;
 }
 
 .strength-bar {
-  flex: 1;
-  height: 5px;
+  height: 4px;
   background: var(--neutral-100);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
+  margin-bottom: 6px;
 }
 
 .strength-fill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.3s ease;
-  &.weak { background: var(--el-color-danger); }
-  &.medium { background: var(--el-color-warning); }
-  &.strong { background: var(--el-color-success); }
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease;
+  &.weak { background: #f56c6c; }
+  &.medium { background: #e6a23c; }
+  &.strong { background: #67c23a; }
 }
 
-.strength-text {
-  font-size: 13px;
-  font-weight: 500;
-  &.weak { color: var(--el-color-danger); }
-  &.medium { color: var(--el-color-warning); }
-  &.strong { color: var(--el-color-success); }
+.strength-label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: inline-block;
+  &.weak { color: #f56c6c; }
+  &.medium { color: #e6a23c; }
+  &.strong { color: #67c23a; }
 }
 
-.password-hints {
+.strength-checks {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--neutral-400);
-  transition: color 0.2s;
-  &.met { color: var(--el-color-success); }
+  gap: 4px 12px;
+  span { font-size: 11px; }
+  .pass { color: #67c23a; }
+  .fail { color: var(--neutral-400); }
 }
 
 .match-hint {
