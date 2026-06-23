@@ -63,21 +63,31 @@
             <div class="user-popover-item" @click="userPopoverVisible = false; doLogout()">退出登录</div>
           </div>
         </el-popover>
-        <!-- 展开态：标准下拉菜单 -->
-        <el-dropdown v-else @command="handleCommand" placement="top-end">
-          <span class="sidebar-user-trigger">
-            <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
-              {{ userStore.username?.charAt(0)?.toUpperCase() }}
-            </el-avatar>
-            <span class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
-            </el-dropdown-menu>
+        <!-- 展开态：popover 菜单 -->
+        <el-popover
+          v-else
+          :visible="userPopoverVisible"
+          placement="top-start"
+          :width="130"
+          :offset="8"
+          :teleported="true"
+          trigger="click"
+          popper-class="sidebar-user-popover"
+        >
+          <template #reference>
+            <div class="sidebar-user-trigger" @click.stop="userPopoverVisible = !userPopoverVisible">
+              <el-avatar :size="36" :src="userStore.avatarUrl || undefined">
+                {{ userStore.username?.charAt(0)?.toUpperCase() }}
+              </el-avatar>
+              <span class="sidebar-user-name">{{ userStore.nickname || userStore.username }}</span>
+            </div>
           </template>
-        </el-dropdown>
+          <div class="user-popover-menu">
+            <div class="user-popover-item" @click="userPopoverVisible = false; router.push('/profile')">个人中心</div>
+            <div class="user-popover-divider" />
+            <div class="user-popover-item" @click="userPopoverVisible = false; doLogout()">退出登录</div>
+          </div>
+        </el-popover>
       </div>
     </el-aside>
 
