@@ -577,6 +577,7 @@ async function doLogout() {
 .sidebar-user-trigger {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
