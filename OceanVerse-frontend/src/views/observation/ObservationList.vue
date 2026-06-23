@@ -146,7 +146,6 @@
         :style="{ animationDelay: `${idx * 0.04}s` }"
         @click="$router.push(`/observation/detail/${obs.id}`)"
       >
-        <div class="card-type-band" :style="{ background: typeColor(obs.observationType) }"></div>
         <div class="card-body">
           <div class="card-top">
             <span class="card-code">{{ obs.observationCode }}</span>
@@ -885,13 +884,6 @@ onMounted(() => {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
   }
-}
-
-.card-type-band {
-  height: 4px;
-  width: 100%;
-  transition: height var(--transition-smooth);
-  .observation-card:hover & { height: 6px; }
 }
 
 .card-body {

@@ -109,7 +109,6 @@
         >
           <el-icon><component :is="fmt.icon" /></el-icon>
           <span class="fmt-label">{{ fmt.label }}</span>
-          <span class="fmt-tag">{{ fmt.tag }}</span>
         </el-checkbox>
       </el-checkbox-group>
     </el-card>
@@ -210,10 +209,10 @@ const obsTypeOptions = [
 
 // ==================== 导出格式 ====================
 const allFormats = [
-  { value: 'excel', label: 'Excel', tag: '后端生成', icon: 'Document' },
-  { value: 'csv', label: 'CSV', tag: '后端生成', icon: 'Document' },
-  { value: 'pdf', label: 'PDF 报表', tag: '前端生成', icon: 'Document' },
-  { value: 'png', label: '图表 PNG', tag: '前端生成', icon: 'Picture' }
+  { value: 'excel', label: 'Excel', icon: 'Document' },
+  { value: 'csv', label: 'CSV', icon: 'Document' },
+  { value: 'pdf', label: 'PDF 报表', icon: 'Document' },
+  { value: 'png', label: '图表 PNG', icon: 'Picture' }
 ]
 const availableFormats = computed(() => {
   // 统计汇总支持所有格式；其他类型不支持 PNG（无图表）
@@ -664,15 +663,6 @@ onBeforeUnmount(() => window.removeEventListener('resize', handleResize))
     font-weight: 500;
   }
 
-  .fmt-tag {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 8px;
-    font-size: 11px;
-    border-radius: 50px;
-    background: var(--neutral-50);
-    color: var(--neutral-400);
-  }
 }
 
 /* 图表预览 */
