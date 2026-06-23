@@ -245,6 +245,16 @@ function onVisibilityChange() {
 }
 
 const menuItems = computed(() => {
+  if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
+    return [
+      { path: '/admin/users', title: '用户管理', icon: 'User' },
+      { path: '/admin/roles', title: '角色管理', icon: 'UserFilled' },
+      { path: '/community/approval', title: '帖子审核', icon: 'Stamp' },
+      { path: '/admin/login-log', title: '登录日志', icon: 'Document' },
+      { path: '/admin/operation-log', title: '操作日志', icon: 'Tickets' },
+    ]
+  }
+
   const items = [
     { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
     { path: '/species', title: '物种百科', icon: 'Collection', children: [
@@ -267,9 +277,6 @@ const menuItems = computed(() => {
     { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
     { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
     { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
-    ...(userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
-      ? [{ path: '/community/approval', title: '帖子审核', icon: 'Stamp' }]
-      : [])
   ]},
   ]
 

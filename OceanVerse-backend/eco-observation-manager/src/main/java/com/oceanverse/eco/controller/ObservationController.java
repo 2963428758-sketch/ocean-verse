@@ -2,6 +2,7 @@ package com.oceanverse.eco.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.annotation.OperateLog;
+import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.eco.service.ObservationLocationService;
 import com.oceanverse.eco.service.ObservationService;
@@ -36,6 +37,7 @@ public class ObservationController {
         return Result.success(observationService.getDetail(id));
     }
 
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER", "OBSERVER"})
     @OperateLog(module = "观测管理", type = OperateLog.OperateType.CREATE)
     @PostMapping
     public Result<Void> create(@RequestBody Observation observation) {
@@ -43,6 +45,7 @@ public class ObservationController {
         return Result.success();
     }
 
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER", "OBSERVER"})
     @OperateLog(module = "观测管理", type = OperateLog.OperateType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody Observation observation) {
@@ -51,6 +54,7 @@ public class ObservationController {
         return Result.success();
     }
 
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER", "OBSERVER"})
     @OperateLog(module = "观测管理", type = OperateLog.OperateType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {

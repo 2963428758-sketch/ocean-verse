@@ -3,6 +3,7 @@ package com.oceanverse.community.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.oceanverse.auth.context.UserContext;
 import com.oceanverse.auth.mapper.UserMapper;
 import com.oceanverse.common.constants.CommonConstants;
 import com.oceanverse.common.exception.BusinessException;
@@ -73,7 +74,10 @@ public class CommunityServiceImpl implements CommunityService {
     public void deletePost(Long id, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityPost post = postMapper.selectById(id);
-        if (post == null || !post.getUserId().equals(userId)) {
+        if (post == null) {
+            throw BusinessException.forbidden();
+        }
+        if (!post.getUserId().equals(userId) && !UserContext.hasAnyRole("SUPER_ADMIN", "ADMIN")) {
             throw BusinessException.forbidden();
         }
         postMapper.deleteById(id);
@@ -518,7 +522,10 @@ public class CommunityServiceImpl implements CommunityService {
     public void deleteComment(Long commentId, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityComment comment = commentMapper.selectById(commentId);
-        if (comment == null || !comment.getUserId().equals(userId)) {
+        if (comment == null) {
+            throw BusinessException.forbidden();
+        }
+        if (!comment.getUserId().equals(userId) && !UserContext.hasAnyRole("SUPER_ADMIN", "ADMIN")) {
             throw BusinessException.forbidden();
         }
         commentMapper.deleteById(commentId);

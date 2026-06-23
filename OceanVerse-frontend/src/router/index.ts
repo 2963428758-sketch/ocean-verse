@@ -61,17 +61,37 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  if (to.path === '/login' && token) {
-    next('/dashboard')
-    return
-  }
-
   if (token && requiresAuth) {
     const userStore = useUserStore()
     if (!userStore.infoLoaded) {
       await userStore.fetchUserInfo()
     }
 
+    const isAdmin = userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+    const adminAllowedPaths = [
+      '/admin/users', '/admin/roles', '/admin/login-log', '/admin/operation-log',
+      '/community/approval', '/profile'
+    ]
+
+    // 管理员只能访问管理相关页面
+    if (isAdmin) {
+      if (to.path === '/') {
+        next('/admin/users')
+        return
+      }
+      if (to.name === 'NotFound' || to.path === '/login' || to.path === '/register') {
+        next()
+        return
+      }
+      if (!adminAllowedPaths.includes(to.path)) {
+        next('/admin/users')
+        return
+      }
+      next()
+      return
+    }
+
+    // 非管理员：检查路由的角色限制
     const requiredRoles = to.matched
       .map(r => r.meta.roles as string[] | undefined)
       .find(r => r !== undefined)
@@ -80,6 +100,16 @@ router.beforeEach(async (to, _from, next) => {
       next('/dashboard')
       return
     }
+  }
+
+  if (to.path === '/login' && token) {
+    const userStore = useUserStore()
+    if (!userStore.infoLoaded) {
+      await userStore.fetchUserInfo()
+    }
+    const loginIsAdmin = userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+    next(loginIsAdmin ? '/admin/users' : '/dashboard')
+    return
   }
 
   next()

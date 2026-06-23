@@ -2,6 +2,7 @@ package com.oceanverse.species.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.annotation.OperateLog;
+import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.SpeciesQueryDTO;
 import com.oceanverse.pojo.entity.Species;
@@ -37,6 +38,7 @@ public class SpeciesController {
         return Result.success(speciesService.getSpeciesDetail(id));
     }
 
+    @RequirePermission("species:create")
     @OperateLog(module = "物种管理", type = OperateLog.OperateType.CREATE)
     @PostMapping
     public Result<Long> create(@RequestBody Species species) {
@@ -44,6 +46,7 @@ public class SpeciesController {
         return Result.success(species.getId());
     }
 
+    @RequirePermission("species:update")
     @OperateLog(module = "物种管理", type = OperateLog.OperateType.UPDATE)
     @PutMapping("/{id}")
     public Result<Void> update(@PathVariable Long id, @RequestBody Species species) {
@@ -52,6 +55,7 @@ public class SpeciesController {
         return Result.success();
     }
 
+    @RequirePermission("species:delete")
     @OperateLog(module = "物种管理", type = OperateLog.OperateType.DELETE)
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
@@ -74,6 +78,7 @@ public class SpeciesController {
     /**
      * 上传物种图片（支持批量上传）
      */
+    @RequirePermission("species:create")
     @PostMapping("/{id}/media")
     public Result<List<SpeciesMedia>> uploadMedia(
             @PathVariable Long id,
@@ -92,6 +97,7 @@ public class SpeciesController {
     /**
      * 删除媒体资源
      */
+    @RequirePermission("species:delete")
     @DeleteMapping("/media/{mediaId}")
     public Result<Void> deleteMedia(@PathVariable Long mediaId) {
         speciesMediaService.deleteMedia(mediaId);
@@ -101,6 +107,7 @@ public class SpeciesController {
     /**
      * 设置主图
      */
+    @RequirePermission("species:update")
     @PutMapping("/media/{mediaId}/primary")
     public Result<Void> setPrimary(@PathVariable Long mediaId) {
         speciesMediaService.setPrimaryMedia(mediaId);
