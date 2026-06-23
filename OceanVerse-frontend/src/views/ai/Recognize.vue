@@ -63,11 +63,13 @@
         <div v-if="!result && !loading" class="empty-state">
           <div class="empty-illustration">
             <svg viewBox="0 0 120 120" fill="none">
-              <circle cx="60" cy="60" r="50" stroke="var(--neutral-200)" stroke-width="2" stroke-dasharray="8 4"/>
-              <path d="M40 55c0-11 9-20 20-20s20 9 20 20" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="48" cy="65" r="3" fill="var(--neutral-300)"/>
-              <circle cx="72" cy="65" r="3" fill="var(--neutral-300)"/>
-              <path d="M50 78c4 4 16 4 20 0" stroke="var(--neutral-300)" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="60" cy="60" r="50" stroke="var(--primary-main)" stroke-width="2" stroke-dasharray="8 4" opacity="0.3"/>
+              <rect x="35" y="40" width="50" height="38" rx="6" stroke="var(--primary-main)" stroke-width="2" opacity="0.5"/>
+              <circle cx="60" cy="59" r="12" stroke="var(--primary-main)" stroke-width="2" opacity="0.5"/>
+              <circle cx="60" cy="59" r="7" fill="var(--primary-main)" opacity="0.15"/>
+              <rect x="68" y="44" width="8" height="5" rx="1.5" fill="var(--primary-main)" opacity="0.3"/>
+              <path d="M40 82c5 3 12 5 20 5s15-2 20-5" stroke="var(--primary-main)" stroke-width="1.8" stroke-linecap="round" opacity="0.25"/>
+              <path d="M48 88c4 2 8 3 12 3s8-1 12-3" stroke="var(--primary-main)" stroke-width="1.5" stroke-linecap="round" opacity="0.15"/>
             </svg>
           </div>
           <p class="empty-title">等待识别</p>
