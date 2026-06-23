@@ -585,9 +585,9 @@ async function doLogout() {
 }
 
 .sidebar-user-trigger {
-  display: flex;
+  display: flex !important;
   align-items: center;
-  justify-content: center;
+  justify-content: center !important;
   gap: 10px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
@@ -596,6 +596,7 @@ async function doLogout() {
   outline: none;
   margin: 0 8px;
   width: calc(100% - 16px);
+  text-align: center;
 
   .is-collapsed & {
     margin: 0;
@@ -643,6 +644,12 @@ async function doLogout() {
 /* 隐藏 el-menu 折叠态自动生成的 tooltip 弹出层（现在用内联文字标签替代） */
 .el-popper.is-el-menu-tooltip {
   display: none !important;
+}
+
+/* Popover 触发元素居中（el-popover 内部 wrapper 覆盖） */
+.sidebar-user .el-popover__reference {
+  display: flex !important;
+  justify-content: center !important;
 }
 
 /* Popover 菜单样式（teleported 到 body，需要全局样式） */
