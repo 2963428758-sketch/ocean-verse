@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { ref, reactive, nextTick, computed, watch, onMounted } from 'vue'
 import { marked } from 'marked'
 import { chatWithAIStream, clearSession, submitFeedback } from '@/api/ai'
 import { ElMessage } from 'element-plus'
@@ -235,8 +235,9 @@ function refreshSuggestions() {
 
 const suggestionCards = ref<typeof suggestionPool>([])
 
-onMounted(() => {
-  refreshSuggestions()
+// 每次打开抽屉时重新随机建议卡片
+watch(drawerVisible, (visible) => {
+  if (visible) refreshSuggestions()
 })
 
 function generateSessionId(): string {
