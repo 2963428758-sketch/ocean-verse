@@ -94,10 +94,11 @@
           </el-breadcrumb>
         </div>
         <div class="topbar-right">
-          <!-- AI 图像识别 -->
-          <el-icon class="topbar-icon" @click="router.push('/ai/recognize')" title="AI 图像识别">
-            <MagicStick />
-          </el-icon>
+          <!-- AI 物种识别 -->
+          <div class="topbar-icon-group" @click="router.push('/ai/recognize')">
+            <el-icon class="topbar-icon"><MagicStick /></el-icon>
+            <span class="topbar-icon-label">物种识别</span>
+          </div>
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
             <el-icon class="notification-bell" @click="router.push('/community/notifications')">
               <Bell />
@@ -483,22 +484,34 @@ async function doLogout() {
   align-items: center;
   gap: 12px;
 
-  .topbar-icon {
-    font-size: 20px;
-    cursor: pointer;
-    color: var(--neutral-500);
-    width: 36px;
-    height: 36px;
+  .topbar-icon-group {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 4px;
+    padding: 4px 10px 4px 6px;
     border-radius: var(--radius-sm);
+    cursor: pointer;
     transition: all 0.2s;
 
     &:hover {
-      color: var(--primary-main);
       background: var(--primary-soft);
+      .topbar-icon { color: var(--primary-main); }
+      .topbar-icon-label { color: var(--primary-main); }
     }
+  }
+
+  .topbar-icon {
+    font-size: 20px;
+    color: var(--neutral-500);
+    transition: color 0.2s;
+  }
+
+  .topbar-icon-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--neutral-500);
+    white-space: nowrap;
+    transition: color 0.2s;
   }
 
   .notification-badge {
