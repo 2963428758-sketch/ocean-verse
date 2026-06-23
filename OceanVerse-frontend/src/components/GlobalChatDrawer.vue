@@ -45,6 +45,13 @@
               </svg>
               <span>新对话</span>
             </button>
+            <button class="icon-btn" @click="handleRebuildKnowledge" :disabled="rebuilding" title="重建知识库">
+              <svg viewBox="0 0 20 20" fill="none" width="16" height="16" :class="{ spinning: rebuilding }">
+                <path d="M3 10a7 7 0 0112.9-3.7M17 10a7 7 0 01-12.9 3.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M16 3v4h-4M4 17v-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>知识库</span>
+            </button>
             <button class="icon-btn close-btn" @click="drawerVisible = false" title="关闭">
               <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
                 <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -170,7 +177,7 @@
 <script setup lang="ts">
 import { ref, reactive, nextTick, computed, watch, onMounted } from 'vue'
 import { marked } from 'marked'
-import { chatWithAIStream, clearSession, submitFeedback } from '@/api/ai'
+import { chatWithAIStream, clearSession, submitFeedback, rebuildKnowledgeBase } from '@/api/ai'
 import { ElMessage } from 'element-plus'
 
 marked.setOptions({ breaks: true, gfm: true })
@@ -186,6 +193,7 @@ const drawerSize = computed(() => window.innerWidth < 500 ? '100%' : 450)
 const messagesRef = ref<HTMLElement>()
 const input = ref('')
 const loading = ref(false)
+const rebuilding = ref(false)
 const questionType = ref('GENERAL')
 const sessionId = ref(generateSessionId())
 const messages = reactive<{ role: string; content: string; qaId?: number; feedback?: number | null; time?: string }[]>([])
@@ -257,6 +265,18 @@ async function handleNewConversation() {
   sessionId.value = generateSessionId()
   refreshSuggestions()
   ElMessage.success('已开始新对话')
+}
+
+async function handleRebuildKnowledge() {
+  rebuilding.value = true
+  try {
+    await rebuildKnowledgeBase()
+    ElMessage.success('知识库重建成功')
+  } catch {
+    ElMessage.error('知识库重建失败')
+  } finally {
+    rebuilding.value = false
+  }
 }
 
 async function handleFeedback(index: number, value: number) {
@@ -379,7 +399,9 @@ function scrollToBottom() {
   transition: all 0.15s;
   &:hover:not(:disabled) { border-color: var(--primary-main); color: var(--primary-main); }
   &:disabled { opacity: 0.5; cursor: not-allowed; }
+  .spinning { animation: spin 1s linear infinite; }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 .close-btn {
   padding: 6px;
   &:hover { border-color: var(--neutral-400); color: var(--neutral-700); }
