@@ -168,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, computed, onMounted } from 'vue'
+import { ref, reactive, nextTick, computed } from 'vue'
 import { marked } from 'marked'
 import { chatWithAIStream, clearSession, submitFeedback } from '@/api/ai'
 import { ElMessage } from 'element-plus'
@@ -220,8 +220,6 @@ const suggestionPool = [
   { emoji: '🛡️', label: '保护', text: '如何保护濒危海洋物种？' },
 ]
 
-const suggestionCards = ref<typeof suggestionPool>([])
-
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -235,9 +233,8 @@ function refreshSuggestions() {
   suggestionCards.value = shuffleArray(suggestionPool).slice(0, 4)
 }
 
-onMounted(() => {
-  refreshSuggestions()
-})
+// 直接初始化，不依赖 onMounted，避免 el-drawer 重新挂载时刷新
+const suggestionCards = ref(shuffleArray(suggestionPool).slice(0, 4))
 
 function generateSessionId(): string {
   return 'session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9)
