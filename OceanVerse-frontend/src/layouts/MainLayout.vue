@@ -97,7 +97,7 @@
           <!-- AI 物种识别 -->
           <div class="topbar-icon-group" @click="router.push('/ai/recognize')">
             <el-icon class="topbar-icon"><MagicStick /></el-icon>
-            <span class="topbar-icon-label">物种识别</span>
+            <span class="topbar-icon-label">图像识别</span>
           </div>
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99" class="notification-badge">
             <el-icon class="notification-bell" @click="router.push('/community/notifications')">
