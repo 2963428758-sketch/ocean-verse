@@ -131,6 +131,7 @@
             <component :is="Component" />
           </keep-alive>
         </router-view>
+        <GlobalChatDrawer />
       </el-main>
     </el-container>
   </el-container>
@@ -143,6 +144,7 @@ import { useUserStore } from '@/stores/user'
 import { logout as logoutApi } from '@/api/auth'
 import { getUnreadCount } from '@/api/community'
 import { Bell, Setting, User, UserFilled, Document, Tickets } from '@element-plus/icons-vue'
+import GlobalChatDrawer from '@/components/GlobalChatDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -247,6 +249,14 @@ function onVisibilityChange() {
 const menuItems = computed(() => {
   const items = [
     { path: '/dashboard', title: '仪表盘', icon: 'Odometer' },
+  { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
+    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
+    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
+    ...(userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+      ? [{ path: '/community/approval', title: '帖子审核', icon: 'Stamp' }]
+      : [])
+  ]},
     { path: '/species', title: '物种百科', icon: 'Collection', children: [
       { path: '/species/list', title: '物种列表', icon: 'Collection' }
     ]},
@@ -259,18 +269,7 @@ const menuItems = computed(() => {
       { path: '/visualization/observation-map', title: '观测地图', icon: 'LocationFilled' },
       { path: '/visualization/export', title: '数据导出', icon: 'Download' }
     ]},
-    { path: '/ai', title: 'AI 服务', icon: 'MagicStick', children: [
-      { path: '/ai/recognize', title: '图像识别', icon: 'Camera' },
-      { path: '/ai/chat', title: '智能问答', icon: 'ChatLineSquare' }
-    ]},
-  { path: '/community', title: '社区', icon: 'ChatDotRound', children: [
-    { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
-    { path: '/community/favorites', title: '我的收藏', icon: 'Star' },
-    { path: '/community/liked', title: '点赞记录', icon: 'CircleCheck' },
-    ...(userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
-      ? [{ path: '/community/approval', title: '帖子审核', icon: 'Stamp' }]
-      : [])
-  ]},
+    { path: '/ai/recognize', title: 'AI 服务', icon: 'MagicStick' },
   ]
 
   return items

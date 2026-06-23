@@ -25,7 +25,7 @@ const routes: RouteRecordRaw[] = [
       ]},
       { path: 'ai', name: 'AI', redirect: '/ai/recognize', meta: { title: 'AI 服务', icon: 'MagicStick' }, children: [
         { path: 'recognize', name: 'AIRecognize', component: () => import('@/views/ai/Recognize.vue'), meta: { title: '图像识别' } },
-        { path: 'chat', name: 'AIChat', component: () => import('@/views/ai/Chat.vue'), meta: { title: '智能问答' } }
+        { path: 'chat', name: 'AIChat', redirect: '/dashboard' }
       ]},
       { path: 'community', name: 'Community', redirect: '/community/feed', meta: { title: '社区', icon: 'ChatDotRound' }, children: [
         { path: 'feed', name: 'CommunityFeed', component: () => import('@/views/community/Feed.vue'), meta: { title: '动态广场' } },
