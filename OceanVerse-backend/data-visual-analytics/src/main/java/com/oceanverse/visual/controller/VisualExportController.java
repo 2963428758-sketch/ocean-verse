@@ -1,6 +1,7 @@
 package com.oceanverse.visual.controller;
 
 import com.oceanverse.auth.context.UserContext;
+import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.visual.dto.ExportQueryDTO;
 import com.oceanverse.visual.mapper.VisualMapper;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/visual/export")
 @RequiredArgsConstructor
+@RequireRole({"SUPER_ADMIN", "ADMIN", "RESEARCHER", "OBSERVER"})
 public class VisualExportController {
 
     private final VisualExportService visualExportService;
@@ -35,7 +37,6 @@ public class VisualExportController {
      */
     @GetMapping("/species")
     public void exportSpecies(ExportQueryDTO query, HttpServletResponse response) {
-        checkLogin();
         checkAllPermission(query);
         log.info("导出物种分布数据: userId={}, all={}", UserContext.getUserId(), query.getAll());
         visualExportService.exportSpecies(query, response);
@@ -46,7 +47,6 @@ public class VisualExportController {
      */
     @GetMapping("/observation")
     public void exportObservation(ExportQueryDTO query, HttpServletResponse response) {
-        checkLogin();
         checkAllPermission(query);
         log.info("导出观测记录数据: userId={}, all={}", UserContext.getUserId(), query.getAll());
         visualExportService.exportObservation(query, response);
@@ -57,7 +57,6 @@ public class VisualExportController {
      */
     @GetMapping("/statistics")
     public void exportStatistics(ExportQueryDTO query, HttpServletResponse response) {
-        checkLogin();
         log.info("导出统计汇总数据: userId={}", UserContext.getUserId());
         visualExportService.exportStatistics(query, response);
     }
@@ -87,15 +86,6 @@ public class VisualExportController {
     }
 
     // ==================== 鉴权校验 ====================
-
-    /**
-     * 检查是否登录
-     */
-    private void checkLogin() {
-        if (UserContext.getUserId() == null) {
-            throw new com.oceanverse.common.exception.BusinessException(401, "请先登录后再导出数据");
-        }
-    }
 
     /**
      * 检查全量导出权限：all=true 时仅管理员可用

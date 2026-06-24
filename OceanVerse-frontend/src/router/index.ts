@@ -67,14 +67,15 @@ router.beforeEach(async (to, _from, next) => {
       await userStore.fetchUserInfo()
     }
 
-    const isAdmin = userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+    const isSuperAdmin = userStore.role === 'SUPER_ADMIN'
+    const adminOnly = userStore.role === 'ADMIN'
     const adminAllowedPaths = [
       '/admin/users', '/admin/roles', '/admin/login-log', '/admin/operation-log',
       '/community/approval', '/profile'
     ]
 
-    // 管理员只能访问管理相关页面
-    if (isAdmin) {
+    // ADMIN（非超级管理员）只能访问管理页面
+    if (adminOnly) {
       if (to.path === '/') {
         next('/admin/users')
         return
@@ -87,6 +88,12 @@ router.beforeEach(async (to, _from, next) => {
         next('/admin/users')
         return
       }
+      next()
+      return
+    }
+
+    // SUPER_ADMIN 可以访问全部页面，无限制
+    if (isSuperAdmin) {
       next()
       return
     }
@@ -108,7 +115,7 @@ router.beforeEach(async (to, _from, next) => {
       await userStore.fetchUserInfo()
     }
     const loginIsAdmin = userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
-    next(loginIsAdmin ? '/admin/users' : '/dashboard')
+    next(loginIsAdmin ? (userStore.role === 'ADMIN' ? '/admin/users' : '/dashboard') : '/dashboard')
     return
   }
 

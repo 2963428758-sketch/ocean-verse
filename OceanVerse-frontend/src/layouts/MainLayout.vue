@@ -209,7 +209,7 @@ function onVisibilityChange() {
 }
 
 const menuItems = computed(() => {
-  if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
+  if (userStore.role === 'ADMIN') {
     return [
       { title: '系统管理', children: [
         { path: '/admin/users', title: '用户管理', icon: 'User' },
@@ -250,13 +250,23 @@ const menuItems = computed(() => {
     { path: '/ai', title: 'AI 工具', icon: 'MagicStick', children: [
       { path: '/ai/recognize', title: '图像识别', icon: 'MagicStick' }
     ]},
+    ...(userStore.role === 'SUPER_ADMIN' ? [
+      { path: '/admin', title: '系统管理', icon: 'Setting', children: [
+        { path: '/admin/users', title: '用户管理', icon: 'User' },
+        { path: '/admin/roles', title: '角色管理', icon: 'Stamp' },
+      ]},
+      { title: '系统日志', children: [
+        { path: '/admin/login-log', title: '登录日志', icon: 'Tickets' },
+        { path: '/admin/operation-log', title: '操作日志', icon: 'Document' },
+      ] },
+    ] : []),
   ]
 
   return items
 })
 
 const isAdmin = computed(() =>
-  userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+  userStore.role === 'ADMIN'
 )
 
 const breadcrumbs = computed(() => {

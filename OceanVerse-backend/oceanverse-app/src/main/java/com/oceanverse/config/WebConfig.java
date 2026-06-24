@@ -42,8 +42,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/visual/species/**",
                         "/api/visual/trend/**",
                         "/api/visual/statistics/**",
-                        "/api/message/test/**",
-                        "/api/ai/**"
+                        "/api/message/test/**"
                 );
 
         registry.addInterceptor(permissionInterceptor)
@@ -63,8 +62,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/visual/species/**",
                         "/api/visual/trend/**",
                         "/api/visual/statistics/**",
-                        "/api/message/test/**",
-                        "/api/ai/**"
+                        "/api/message/test/**"
                 );
     }
 

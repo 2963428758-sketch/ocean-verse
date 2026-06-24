@@ -9,6 +9,7 @@ import com.oceanverse.pojo.dto.AiObservationDTO;
 import com.oceanverse.pojo.dto.ChatDTO;
 import com.oceanverse.pojo.entity.ImageRecognition;
 import com.oceanverse.pojo.entity.QaHistory;
+import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.ai.rag.KnowledgeBaseService;
 import com.oceanverse.ai.service.AiService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -202,6 +203,7 @@ public class AiController {
      * 从 Authorization 头解析管理员 userId，触发后台异步重建。
      * 接口立即返回，重建完成后通过通知系统告知结果。
      */
+    @RequirePermission("ai:knowledge:rebuild")
     @PostMapping("/knowledge/rebuild")
     public Result<String> rebuildKnowledgeBase(@RequestHeader(value = "Authorization", required = false) String token) {
         if (knowledgeBaseService.isRebuilding()) {

@@ -1,5 +1,6 @@
 package com.oceanverse.community.controller;
 
+import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.CommentCreateDTO;
@@ -52,6 +53,7 @@ public class    CommunityController {
     // ==================== 帖子审核 ====================
 
     @RequireRole({"SUPER_ADMIN", "ADMIN"})
+    @RequirePermission("community:post:audit")
     @GetMapping("/post/pending")
     public Result<Object> listPendingPosts(
             @RequestParam(defaultValue = "1") Integer page,
@@ -60,6 +62,7 @@ public class    CommunityController {
     }
 
     @RequireRole({"SUPER_ADMIN", "ADMIN"})
+    @RequirePermission("community:post:audit")
     @PutMapping("/post/{id}/approve")
     public Result<Void> approvePost(@PathVariable Long id) {
         communityService.approvePost(id);
@@ -67,6 +70,7 @@ public class    CommunityController {
     }
 
     @RequireRole({"SUPER_ADMIN", "ADMIN"})
+    @RequirePermission("community:post:audit")
     @PutMapping("/post/{id}/reject")
     public Result<Void> rejectPost(@PathVariable Long id) {
         communityService.rejectPost(id);
