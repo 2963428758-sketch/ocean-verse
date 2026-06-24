@@ -70,12 +70,18 @@ router.beforeEach(async (to, _from, next) => {
 
     const isSuperAdmin = userStore.role === 'SUPER_ADMIN'
     const adminOnly = userStore.role === 'ADMIN'
-    const adminAllowedPaths = [
-      '/admin/users', '/admin/roles', '/admin/login-log', '/admin/operation-log',
-      '/community/approval', '/profile', '/settings'
+
+    // ADMIN 可访问的路径前缀
+    const adminAllowedPrefixes = [
+      '/admin/',         // 用户管理 / 角色管理 / 登录日志 / 操作日志
+      '/community/',     // 动态广场 / 帖子详情 / 帖子审核
+      '/species/',       // 物种列表 / 物种详情
+      '/visualization/', // 数据导出
+      '/profile',        // 个人主页
+      '/settings'        // 设置
     ]
 
-    // ADMIN（非超级管理员）只能访问管理页面
+    // ADMIN（非超级管理员）只能访问管理页面 + 内容管理页面
     if (adminOnly) {
       if (to.path === '/') {
         next('/admin/users')
@@ -85,7 +91,8 @@ router.beforeEach(async (to, _from, next) => {
         next()
         return
       }
-      if (!adminAllowedPaths.includes(to.path)) {
+      const allowed = adminAllowedPrefixes.some(prefix => to.path.startsWith(prefix))
+      if (!allowed) {
         next('/admin/users')
         return
       }

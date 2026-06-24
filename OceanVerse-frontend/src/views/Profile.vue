@@ -1,112 +1,141 @@
 <template>
   <div class="profile-page">
-    <div class="page-header"><h2>个人中心</h2><p>管理您的账户信息</p></div>
+    <div class="page-header">
+      <h2>个人中心</h2>
+      <p class="page-subtitle">管理您的账户信息和密码</p>
+    </div>
 
-    <el-row :gutter="24">
-      <el-col :span="8">
-        <el-card class="info-card">
-          <div class="avatar-section">
-            <el-avatar :size="80" :src="userStore.avatarUrl || undefined">
-              {{ userStore.username?.charAt(0)?.toUpperCase() }}
-            </el-avatar>
-            <h3>{{ userStore.nickname || userStore.username }}</h3>
-            <el-tag :type="roleTagType" size="small">{{ roleLabel }}</el-tag>
-          </div>
-          <el-descriptions :column="1" class="mt-16">
-            <el-descriptions-item label="用户名">{{ userStore.username }}</el-descriptions-item>
-            <el-descriptions-item label="昵称">{{ userStore.nickname || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="真实姓名">{{ userStore.realName || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="注册时间">{{ userStore.createTime || '-' }}</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-      </el-col>
-
-      <el-col :span="16">
-        <el-card>
-          <el-tabs v-model="activeTab">
-            <el-tab-pane label="编辑资料" name="profile">
-              <el-form ref="profileFormRef" :model="profileForm" :rules="profileRules" label-width="100px" style="max-width: 500px; margin-top: 16px;">
-                <el-form-item label="头像">
-                  <div class="avatar-upload-row">
-                    <el-avatar :size="60" :src="userStore.avatarUrl || undefined">
-                      {{ userStore.username?.charAt(0)?.toUpperCase() }}
-                    </el-avatar>
-                    <el-button size="small" type="primary" :loading="avatarUploading" @click="triggerAvatarUpload">
-                      上传头像
-                    </el-button>
-                    <input ref="avatarInputRef" type="file" accept="image/*" style="display: none" @change="handleAvatarFileChange" />
-                  </div>
-                </el-form-item>
-                <el-form-item label="昵称" prop="nickname">
-                  <el-input v-model="profileForm.nickname" placeholder="请输入昵称" maxlength="30" />
-                </el-form-item>
-                <el-form-item label="真实姓名" prop="realName">
-                  <el-input v-model="profileForm.realName" placeholder="请输入真实姓名" maxlength="50" />
-                </el-form-item>
-                <el-form-item>
-                  <el-button type="primary" :loading="profileLoading" @click="handleUpdateProfile">保存修改</el-button>
-                </el-form-item>
-              </el-form>
-            </el-tab-pane>
-
-            <el-tab-pane label="修改密码" name="password">
-              <div class="password-section" style="max-width: 500px; margin-top: 16px;">
-                <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
-                  <el-form-item label="旧密码" prop="oldPassword">
-                    <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入旧密码" />
-                  </el-form-item>
-                  <el-form-item label="新密码" prop="newPassword">
-                    <el-input v-model="passwordForm.newPassword" type="password" show-password placeholder="请输入新密码" />
-                    <div v-if="passwordForm.newPassword" class="pwd-strength">
-                      <div class="strength-bar">
-                        <div class="strength-fill" :class="strengthClass" :style="{ width: strengthPercent }" />
-                      </div>
-                      <span class="strength-label" :class="strengthClass">{{ strengthLabel }}</span>
-                      <div class="strength-checks">
-                        <span :class="pwChecks.minLength ? 'pass' : 'fail'">{{ pwChecks.minLength ? '✓' : '✗' }} 至少8位字符</span>
-                        <span :class="pwChecks.hasUpper ? 'pass' : 'fail'">{{ pwChecks.hasUpper ? '✓' : '✗' }} 包含大写字母</span>
-                        <span :class="pwChecks.hasLower ? 'pass' : 'fail'">{{ pwChecks.hasLower ? '✓' : '✗' }} 包含小写字母</span>
-                        <span :class="pwChecks.hasDigit ? 'pass' : 'fail'">{{ pwChecks.hasDigit ? '✓' : '✗' }} 包含数字</span>
-                        <span :class="pwChecks.hasSpecial ? 'pass' : 'fail'">{{ pwChecks.hasSpecial ? '✓' : '✗' }} 包含特殊字符</span>
-                        <span :class="pwChecks.enoughTypes ? 'pass' : 'fail'">{{ pwChecks.enoughTypes ? '✓' : '✗' }} 至少满足以上3种</span>
-                        <span v-if="!pwChecks.noWeakDict" class="fail">✗ 常见弱密码</span>
-                        <span v-if="!pwChecks.noUsername" class="fail">✗ 不能包含用户名</span>
-                        <span v-if="!pwChecks.noConsecutive" class="fail">✗ 不能含连续字符</span>
-                        <span v-if="!pwChecks.noRepeated" class="fail">✗ 不能含重复字符</span>
-                      </div>
-                    </div>
-                  </el-form-item>
-                  <el-form-item label="确认密码" prop="confirmPassword">
-                    <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
-                    <div v-if="passwordForm.confirmPassword && passwordForm.confirmPassword === passwordForm.newPassword" class="match-hint success mt-8">✓ 两次密码一致</div>
-                    <div v-else-if="passwordForm.confirmPassword && passwordForm.confirmPassword !== passwordForm.newPassword" class="match-hint error mt-8">✗ 两次密码不一致</div>
-                  </el-form-item>
-                  <el-form-item>
-                    <el-button type="primary" :loading="passwordLoading" @click="handleUpdatePassword">修改密码</el-button>
-                    <el-button @click="resetPasswordForm">重置</el-button>
-                  </el-form-item>
-                </el-form>
+    <div class="profile-layout">
+      <!-- 左侧信息卡 -->
+      <aside class="profile-sidebar">
+        <div class="user-card">
+          <div class="card-banner" :class="roleColorClass" />
+          <div class="card-body">
+            <div class="avatar-wrapper" @click="triggerAvatarUpload">
+              <el-avatar :size="80" :src="userStore.avatarUrl || undefined" class="user-avatar">
+                {{ userStore.username?.charAt(0)?.toUpperCase() }}
+              </el-avatar>
+              <div class="avatar-ring" :class="roleColorClass" />
+              <div class="avatar-overlay">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
               </div>
-            </el-tab-pane>
+              <input ref="avatarInputRef" type="file" accept="image/*" style="display:none" @change="handleAvatarFileChange" />
+            </div>
+            <h3 class="user-name">{{ userStore.nickname || userStore.username }}</h3>
+            <el-tag :type="roleTagType" size="small" effect="dark" round>{{ roleLabel }}</el-tag>
+          </div>
+          <div class="card-info">
+            <div class="info-item">
+              <span class="info-label">用户名</span>
+              <span class="info-value">{{ userStore.username }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">真实姓名</span>
+              <span class="info-value">{{ userStore.realName || '未设置' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">注册时间</span>
+              <span class="info-value">{{ formatDate(userStore.createTime) }}</span>
+            </div>
+          </div>
+        </div>
+      </aside>
 
-          </el-tabs>
-        </el-card>
-      </el-col>
-    </el-row>
+      <!-- 右侧功能 -->
+      <main class="profile-main">
+        <div class="content-card">
+          <!-- 自定义下划线 Tab -->
+          <nav class="custom-tabs">
+            <button :class="{ active: activeTab === 'profile' }" @click="activeTab = 'profile'">
+              编辑资料
+            </button>
+            <button :class="{ active: activeTab === 'password' }" @click="activeTab = 'password'">
+              修改密码
+            </button>
+          </nav>
 
-    <el-row style="margin-top: 24px;">
-      <el-col :span="24">
-        <el-card>
-          <template #header>
-            <span class="danger-title">危险操作</span>
-          </template>
-          <div class="danger-zone">
-            <div>
-              <p><strong>注销账号</strong></p>
-              <p class="danger-desc">注销后账号将被禁用，无法登录。数据保留30天后彻底删除。</p>
+          <!-- 编辑资料 -->
+          <section v-show="activeTab === 'profile'" class="tab-panel">
+            <el-form ref="profileFormRef" :model="profileForm" :rules="profileRules" label-position="top" class="profile-form">
+              <el-form-item label="昵称" prop="nickname">
+                <div class="input-with-counter">
+                  <el-input v-model="profileForm.nickname" placeholder="给自己起一个好听的名字" maxlength="30" />
+                  <span class="counter">{{ profileForm.nickname.length }}/30</span>
+                </div>
+              </el-form-item>
+              <el-form-item label="真实姓名" prop="realName">
+                <div class="input-with-counter">
+                  <el-input v-model="profileForm.realName" placeholder="请输入真实姓名" maxlength="50" />
+                  <span class="counter">{{ profileForm.realName.length }}/50</span>
+                </div>
+              </el-form-item>
+              <el-form-item class="btn-row">
+                <el-button type="primary" :loading="profileLoading" :class="{ saved: showSaved }" @click="handleUpdateProfile">
+                  {{ showSaved ? '✓ 已保存' : '保存修改' }}
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </section>
+
+          <!-- 修改密码 -->
+          <section v-show="activeTab === 'password'" class="tab-panel">
+            <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-position="top" class="password-form">
+              <el-form-item label="当前密码" prop="oldPassword">
+                <el-input v-model="passwordForm.oldPassword" type="password" show-password placeholder="请输入当前密码" />
+              </el-form-item>
+              <el-form-item label="新密码" prop="newPassword">
+                <el-input
+                  v-model="passwordForm.newPassword"
+                  type="password"
+                  show-password
+                  placeholder="请输入新密码"
+                  :class="['strength-input', strengthClass]"
+                />
+                <div v-if="passwordForm.newPassword" class="pwd-strength">
+                  <div class="strength-bar">
+                    <div class="strength-fill" :class="strengthClass" :style="{ width: strengthPercent }" />
+                  </div>
+                  <span class="strength-label" :class="strengthClass">{{ strengthLabel }}</span>
+                  <div class="strength-checks" v-show="showAllChecks">
+                    <span :class="pwChecks.minLength ? 'pass' : 'fail'">{{ pwChecks.minLength ? '✓' : '✗' }} 至少8位字符</span>
+                    <span :class="pwChecks.hasUpper ? 'pass' : 'fail'">{{ pwChecks.hasUpper ? '✓' : '✗' }} 包含大写字母</span>
+                    <span :class="pwChecks.hasLower ? 'pass' : 'fail'">{{ pwChecks.hasLower ? '✓' : '✗' }} 包含小写字母</span>
+                    <span :class="pwChecks.hasDigit ? 'pass' : 'fail'">{{ pwChecks.hasDigit ? '✓' : '✗' }} 包含数字</span>
+                    <span :class="pwChecks.hasSpecial ? 'pass' : 'fail'">{{ pwChecks.hasSpecial ? '✓' : '✗' }} 包含特殊字符</span>
+                    <span :class="pwChecks.enoughTypes ? 'pass' : 'fail'">{{ pwChecks.enoughTypes ? '✓' : '✗' }} 至少满足以上3种</span>
+                    <span v-if="!pwChecks.noWeakDict" class="fail">✗ 常见弱密码</span>
+                    <span v-if="!pwChecks.noUsername" class="fail">✗ 不能包含用户名</span>
+                    <span v-if="!pwChecks.noConsecutive" class="fail">✗ 不能含连续字符</span>
+                    <span v-if="!pwChecks.noRepeated" class="fail">✗ 不能含重复字符</span>
+                  </div>
+                  <button type="button" class="toggle-checks" @click="showAllChecks = !showAllChecks">
+                    {{ showAllChecks ? '收起规则 ▲' : '查看全部规则 ▼' }}
+                  </button>
+                </div>
+              </el-form-item>
+              <el-form-item label="确认新密码" prop="confirmPassword">
+                <el-input v-model="passwordForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+                <div v-if="passwordForm.confirmPassword && passwordForm.confirmPassword === passwordForm.newPassword" class="match-hint success">✓ 两次密码一致</div>
+                <div v-else-if="passwordForm.confirmPassword && passwordForm.confirmPassword !== passwordForm.newPassword" class="match-hint error">✗ 两次密码不一致</div>
+              </el-form-item>
+              <el-form-item class="btn-row">
+                <el-button type="primary" :loading="passwordLoading" @click="handleUpdatePassword">修改密码</el-button>
+                <el-button @click="resetPasswordForm">重置</el-button>
+              </el-form-item>
+            </el-form>
+          </section>
+        </div>
+
+        <!-- 危险操作 -->
+        <div class="danger-zone">
+          <div class="danger-bar" />
+          <div class="danger-content">
+            <div class="danger-text">
+              <strong>注销账号</strong>
+              <p>注销后账号将被禁用，无法登录。数据保留30天后彻底删除。</p>
             </div>
             <el-popconfirm
-              title="确定要注销账号吗？注销后无法登录。"
+              title="确定要注销账号吗？"
               confirm-button-text="确认注销"
               cancel-button-text="取消"
               @confirm="handleDeleteAccount"
@@ -116,9 +145,9 @@
               </template>
             </el-popconfirm>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </div>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -139,6 +168,8 @@ const profileLoading = ref(false)
 const passwordLoading = ref(false)
 const avatarUploading = ref(false)
 const deleteLoading = ref(false)
+const showSaved = ref(false)
+const showAllChecks = ref(false)
 
 const profileForm = reactive({
   nickname: '',
@@ -164,7 +195,6 @@ const validateConfirmPassword = (_rule: any, value: string, callback: any) => {
   }
 }
 
-// -- real-time password strength (与注册页一致) --
 const UPPER = /[A-Z]/
 const LOWER = /[a-z]/
 const DIGIT = /[0-9]/
@@ -241,22 +271,15 @@ const validateNewPassword = (_rule: any, value: string, callback: any) => {
 
 const passwordRules = {
   oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
-  newPassword: [
-    { required: true, validator: validateNewPassword, trigger: 'blur' }
-  ],
+  newPassword: [{ required: true, validator: validateNewPassword, trigger: 'blur' }],
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }
 
-// -- role display --
 const roleMap: Record<string, string> = {
-  SUPER_ADMIN: '超级管理员',
-  ADMIN: '管理员',
-  RESEARCHER: '研究员',
-  OBSERVER: '观测员',
-  VIEWER: '访客'
+  SUPER_ADMIN: '超级管理员', ADMIN: '管理员', RESEARCHER: '研究员', OBSERVER: '观测员', VIEWER: '访客'
 }
 
 const roleLabel = computed(() => roleMap[userStore.role] || userStore.role || '访客')
@@ -266,6 +289,17 @@ const roleTagType = computed(() => {
   return (map[userStore.role] || 'info') as any
 })
 
+const roleColorClass = computed(() => {
+  const map: Record<string, string> = { SUPER_ADMIN: 'role-danger', ADMIN: 'role-warning', RESEARCHER: 'role-primary', OBSERVER: 'role-success', VIEWER: 'role-info' }
+  return map[userStore.role] || 'role-info'
+})
+
+function formatDate(t?: string) {
+  if (!t) return '-'
+  const d = new Date(t)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 async function loadUserInfo() {
   try {
     const res: any = await getProfile()
@@ -274,9 +308,7 @@ async function loadUserInfo() {
       profileForm.nickname = res.data.nickname || ''
       profileForm.realName = res.data.realName || ''
     }
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }
 
 async function handleUpdateProfile() {
@@ -284,11 +316,10 @@ async function handleUpdateProfile() {
   profileLoading.value = true
   try {
     await updateProfile(profileForm)
-    ElMessage.success('资料更新成功')
+    showSaved.value = true
+    setTimeout(() => { showSaved.value = false }, 2000)
     await loadUserInfo()
-  } finally {
-    profileLoading.value = false
-  }
+  } finally { profileLoading.value = false }
 }
 
 async function handleUpdatePassword() {
@@ -298,9 +329,7 @@ async function handleUpdatePassword() {
     await updatePassword({ oldPassword: passwordForm.oldPassword, newPassword: passwordForm.newPassword })
     ElMessage.success('密码修改成功')
     resetPasswordForm()
-  } finally {
-    passwordLoading.value = false
-  }
+  } finally { passwordLoading.value = false }
 }
 
 function resetPasswordForm() {
@@ -308,6 +337,7 @@ function resetPasswordForm() {
   passwordForm.oldPassword = ''
   passwordForm.newPassword = ''
   passwordForm.confirmPassword = ''
+  showAllChecks.value = false
 }
 
 function triggerAvatarUpload() {
@@ -318,27 +348,16 @@ async function handleAvatarFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-
-  if (!file.type.startsWith('image/')) {
-    ElMessage.error('仅支持图片格式')
-    return
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    ElMessage.error('头像大小不能超过2MB')
-    return
-  }
+  if (!file.type.startsWith('image/')) { ElMessage.error('仅支持图片格式'); return }
+  if (file.size > 2 * 1024 * 1024) { ElMessage.error('头像大小不能超过2MB'); return }
 
   avatarUploading.value = true
   try {
     await uploadAvatar(file)
     ElMessage.success('头像上传成功')
     await loadUserInfo()
-  } catch {
-    // error handled by http interceptor
-  } finally {
-    avatarUploading.value = false
-    input.value = ''
-  }
+  } catch { /* error handled by http interceptor */ }
+  finally { avatarUploading.value = false; input.value = '' }
 }
 
 async function handleDeleteAccount() {
@@ -348,87 +367,244 @@ async function handleDeleteAccount() {
     ElMessage.success('账号已注销')
     userStore.logout()
     router.push('/login')
-  } finally {
-    deleteLoading.value = false
-  }
+  } finally { deleteLoading.value = false }
 }
 
-onMounted(() => {
-  loadUserInfo()
-})
+onMounted(() => { loadUserInfo() })
 </script>
 
 <style scoped lang="scss">
 .profile-page {
-  max-width: 1200px;
+  max-width: 1080px;
+  animation: fadeIn 0.4s ease;
 }
 
-.info-card {
-  text-align: center;
+.page-header {
+  margin-bottom: 28px;
+  h2 { font-size: 24px; color: var(--neutral-800); margin: 0 0 6px; }
+  .page-subtitle { font-size: 14px; color: var(--neutral-400); margin: 0; }
 }
 
-.avatar-section {
+/* ══════ 双栏布局 ══════ */
+.profile-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.profile-sidebar {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+.profile-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ══════ 用户卡片 ══════ */
+.user-card {
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--neutral-75);
+  transition: box-shadow 0.3s ease;
+  &:hover { box-shadow: var(--shadow-md); }
+}
+
+.card-banner {
+  height: 64px;
+  background: var(--gradient-ocean);
+  &.role-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+  &.role-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+  &.role-primary { background: linear-gradient(135deg, #3498db, #2980b9); }
+  &.role-success { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+  &.role-info { background: linear-gradient(135deg, #95a5a6, #7f8c8d); }
+}
+
+.card-body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--neutral-100);
-
-  h3 {
-    font-size: 18px;
-    color: var(--neutral-800);
-    margin: 0;
-  }
+  padding: 0 20px 16px;
+  margin-top: -40px;
+  position: relative;
+  z-index: 1;
 }
 
-.mt-16 {
-  margin-top: 16px;
+.avatar-wrapper {
+  position: relative;
+  cursor: pointer;
+
+  &:hover .avatar-overlay { opacity: 1; }
+  &:hover .user-avatar { transform: scale(1.05); }
+  &:hover .avatar-ring { opacity: 0.3; }
 }
 
-.avatar-upload-row {
+.user-avatar {
+  transition: transform 0.2s ease;
+  box-shadow: 0 0 0 4px var(--surface-card);
+}
+
+.avatar-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-main);
+  opacity: 1;
+  transition: opacity 0.2s ease;
+  &.role-danger { border-color: #e74c3c; }
+  &.role-warning { border-color: #f39c12; }
+  &.role-primary { border-color: #3498db; }
+  &.role-success { border-color: #27ae60; }
+  &.role-info { border-color: #95a5a6; }
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.35);
   display: flex;
   align-items: center;
-  gap: 12px;
-}
-
-.pagination-wrap {
-  display: flex;
   justify-content: center;
-  margin-top: 16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
-.danger-title {
-  font-size: 16px;
+.user-name {
+  font-size: 17px;
   font-weight: 600;
-  color: var(--el-color-danger);
+  color: var(--neutral-800);
+  margin: 12px 0 6px;
 }
 
-.danger-zone {
+.card-info {
+  padding: 16px 20px 0;
+  border-top: 1px solid var(--neutral-75);
+  margin: 0 20px;
+}
+
+.info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 8px 0;
+  & + .info-item { border-top: 1px solid var(--neutral-50); }
+}
 
-  p {
-    margin: 0;
-    line-height: 1.6;
-  }
+.info-label {
+  font-size: 13px;
+  color: var(--neutral-400);
+}
 
-  .danger-desc {
-    font-size: 13px;
-    color: var(--neutral-500);
-    margin-top: 4px;
+.info-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-700);
+  text-align: right;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══════ 内容卡片 ══════ */
+.content-card {
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--neutral-75);
+  overflow: hidden;
+}
+
+/* ══════ 自定义下划线 Tab ══════ */
+.custom-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--neutral-75);
+  padding: 0 24px;
+
+  button {
+    padding: 16px 20px;
+    border: none;
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--neutral-400);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 20px;
+      right: 20px;
+      height: 2px;
+      background: var(--primary-main);
+      border-radius: 1px;
+      transform: scaleX(0);
+      transition: transform 0.2s ease;
+    }
+
+    &:hover { color: var(--neutral-600); }
+    &.active {
+      color: var(--primary-main);
+      font-weight: 600;
+      &::after { transform: scaleX(1); }
+    }
   }
 }
 
-.password-section {
-  .mt-8 { margin-top: 8px; }
+.tab-panel {
+  padding: 28px 24px;
 }
 
-// 密码强度指示（与注册页一致）
-.pwd-strength {
+/* ══════ 表单 ══════ */
+.profile-form, .password-form {
+  max-width: 440px;
+}
+
+.input-with-counter {
+  position: relative;
+
+  .counter {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: var(--neutral-350);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  :deep(.el-input__inner) { padding-right: 42px; }
+}
+
+.btn-row {
   margin-top: 8px;
 }
+
+/* ══════ 保存按钮动画 ══════ */
+:deep(.saved) {
+  background: var(--el-color-success) !important;
+  border-color: var(--el-color-success) !important;
+  transition: all 0.3s ease;
+}
+
+/* ══════ 密码强度 ══════ */
+.strength-input {
+  :deep(.el-input__wrapper) {
+    transition: box-shadow 0.3s ease;
+  }
+  &.weak :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px #f56c6c inset !important; }
+  &.medium :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px #e6a23c inset !important; }
+  &.strong :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px #67c23a inset !important; }
+}
+
+.pwd-strength { margin-top: 8px; }
 
 .strength-bar {
   height: 4px;
@@ -461,14 +637,72 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
+  margin-bottom: 4px;
   span { font-size: 11px; }
   .pass { color: #67c23a; }
   .fail { color: var(--neutral-400); }
 }
 
+.toggle-checks {
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--primary-main);
+  cursor: pointer;
+  padding: 0;
+  margin-top: 2px;
+  &:hover { text-decoration: underline; }
+}
+
 .match-hint {
   font-size: 12px;
+  margin-top: 6px;
   &.success { color: var(--el-color-success); }
   &.error { color: var(--el-color-danger); }
+}
+
+/* ══════ 危险操作 ══════ */
+.danger-zone {
+  margin-top: 16px;
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--neutral-75);
+  overflow: hidden;
+  display: flex;
+}
+
+.danger-bar {
+  width: 4px;
+  background: var(--el-color-danger);
+  flex-shrink: 0;
+}
+
+.danger-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  gap: 16px;
+
+  p { font-size: 13px; color: var(--neutral-400); margin: 4px 0 0; font-weight: 400; }
+  strong { font-size: 14px; color: var(--neutral-700); }
+}
+
+/* ══════ 响应式 ══════ */
+@media (max-width: 768px) {
+  .profile-layout {
+    flex-direction: column;
+  }
+  .profile-sidebar { width: 100%; }
+  .danger-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

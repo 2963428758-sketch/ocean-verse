@@ -218,12 +218,17 @@ const menuItems = computed(() => {
         { path: '/admin/users', title: '用户管理', icon: 'User' },
         { path: '/admin/roles', title: '角色管理', icon: 'Stamp' },
       ]},
+      { title: '内容管理', children: [
+        { path: '/species/list', title: '物种列表', icon: 'Collection' },
+        { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+        { path: '/community/approval', title: '帖子审核', icon: 'CircleCheck' },
+      ]},
       { title: '系统日志', children: [
         { path: '/admin/login-log', title: '登录日志', icon: 'Tickets' },
         { path: '/admin/operation-log', title: '操作日志', icon: 'Document' },
       ]},
-      { title: '社区管理', children: [
-        { path: '/community/approval', title: '帖子审核', icon: 'CircleCheck' },
+      { title: '数据管理', children: [
+        { path: '/visualization/export', title: '数据导出', icon: 'Download' },
       ]},
     ]
   }
