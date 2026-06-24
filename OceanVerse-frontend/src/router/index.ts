@@ -42,8 +42,7 @@ const routes: RouteRecordRaw[] = [
         { path: 'login-log', name: 'LoginLog', component: () => import('@/views/admin/LoginLog.vue'), meta: { title: '登录日志', roles: ['SUPER_ADMIN', 'ADMIN'] } },
         { path: 'operation-log', name: 'OperationLog', component: () => import('@/views/admin/OperationLog.vue'), meta: { title: '操作日志', roles: ['SUPER_ADMIN', 'ADMIN'] } }
       ]},
-      { path: 'profile', name: 'Profile', component: () => import('@/views/MyProfile.vue'), meta: { title: '个人主页', hidden: true } },
-      { path: 'settings', name: 'Settings', component: () => import('@/views/Profile.vue'), meta: { title: '设置', hidden: true } }
+      { path: 'profile', name: 'Profile', component: () => import('@/views/MyProfile.vue'), meta: { title: '个人主页', hidden: true } }
     ]
   },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue') }
@@ -77,8 +76,7 @@ router.beforeEach(async (to, _from, next) => {
       '/community/',     // 动态广场 / 帖子详情 / 帖子审核
       '/species/',       // 物种列表 / 物种详情
       '/visualization/', // 数据导出
-      '/profile',        // 个人主页
-      '/settings'        // 设置
+      '/profile'         // 个人主页
     ]
 
     // ADMIN（非超级管理员）只能访问管理页面 + 内容管理页面

@@ -90,9 +90,6 @@
                 <el-dropdown-item command="profile">
                   <el-icon><User /></el-icon>个人主页
                 </el-dropdown-item>
-                <el-dropdown-item command="settings">
-                  <el-icon><Setting /></el-icon>设置
-                </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>
                   <el-icon><SwitchButton /></el-icon>退出登录
                 </el-dropdown-item>
@@ -281,7 +278,6 @@ const breadcrumbs = computed(() => {
 
 function handleCommand(cmd: string) {
   if (cmd === 'profile') router.push('/profile')
-  else if (cmd === 'settings') router.push('/settings')
   else if (cmd === 'logout') doLogout()
 }
 
