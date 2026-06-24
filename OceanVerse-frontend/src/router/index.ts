@@ -42,7 +42,8 @@ const routes: RouteRecordRaw[] = [
         { path: 'login-log', name: 'LoginLog', component: () => import('@/views/admin/LoginLog.vue'), meta: { title: '登录日志', roles: ['SUPER_ADMIN', 'ADMIN'] } },
         { path: 'operation-log', name: 'OperationLog', component: () => import('@/views/admin/OperationLog.vue'), meta: { title: '操作日志', roles: ['SUPER_ADMIN', 'ADMIN'] } }
       ]},
-      { path: 'profile', name: 'Profile', component: () => import('@/views/Profile.vue'), meta: { title: '个人中心', hidden: true } }
+      { path: 'profile', name: 'Profile', component: () => import('@/views/MyProfile.vue'), meta: { title: '个人主页', hidden: true } },
+      { path: 'settings', name: 'Settings', component: () => import('@/views/Profile.vue'), meta: { title: '设置', hidden: true } }
     ]
   },
   { path: '/:pathMatch(.*)*', name: 'NotFound', component: () => import('@/views/NotFound.vue') }
@@ -71,7 +72,7 @@ router.beforeEach(async (to, _from, next) => {
     const adminOnly = userStore.role === 'ADMIN'
     const adminAllowedPaths = [
       '/admin/users', '/admin/roles', '/admin/login-log', '/admin/operation-log',
-      '/community/approval', '/profile'
+      '/community/approval', '/profile', '/settings'
     ]
 
     // ADMIN（非超级管理员）只能访问管理页面
