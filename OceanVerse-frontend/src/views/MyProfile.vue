@@ -308,7 +308,7 @@ import {
   getFollowingList, getFollowerList, getLikedList, getFavoriteList,
   uploadAvatar, uploadBackground
 } from '@/api/community'
-import { updatePassword, deleteAccount } from '@/api/user'
+import { updatePassword, deleteAccount, updateProfile as updateUserProfile } from '@/api/user'
 import type { CommunityPost } from '@/types'
 import type { FormInstance, FormRules } from 'element-plus'
 import Cropper from 'cropperjs'
@@ -615,7 +615,8 @@ const strengthPercent = computed(() => {
 async function handleSaveProfile() {
   savingProfile.value = true
   try {
-    await updateProfile({ realName: settingsForm.realName })
+    await updateUserProfile({ realName: settingsForm.realName })
+    userStore.setUserInfo({ realName: settingsForm.realName })
     profileSaved.value = true
     setTimeout(() => { profileSaved.value = false }, 2000)
     ElMessage.success('资料已更新')
