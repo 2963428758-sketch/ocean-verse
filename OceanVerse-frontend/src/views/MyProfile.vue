@@ -38,6 +38,11 @@
           <div v-else class="bio-edit">
             <input ref="bioInput" v-model="bioValue" class="bio-input" maxlength="100" placeholder="写一句签名..." @keyup.enter="saveBio" @blur="saveBio" />
           </div>
+
+          <!-- 设置按钮 -->
+          <button class="settings-btn" @click="showSettings = true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
         </div>
 
         <!-- 数据统计 -->
@@ -223,11 +228,80 @@
         <el-button type="primary" @click="cropAndUpload">确认上传</el-button>
       </template>
     </el-dialog>
+
+    <!-- 设置抽屉 -->
+    <el-drawer v-model="showSettings" title="账号设置" size="420px" direction="rtl" :close-on-click-modal="true">
+      <div class="settings-body">
+        <!-- 编辑资料 -->
+        <h4 class="settings-title">编辑资料</h4>
+        <el-form ref="settingsFormRef" :model="settingsForm" label-position="top" class="settings-form">
+          <el-form-item label="真实姓名">
+            <el-input v-model="settingsForm.realName" placeholder="请输入真实姓名" maxlength="50" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="savingProfile" @click="handleSaveProfile">
+              {{ profileSaved ? '✓ 已保存' : '保存修改' }}
+            </el-button>
+          </el-form-item>
+        </el-form>
+
+        <el-divider />
+
+        <!-- 修改密码 -->
+        <h4 class="settings-title">修改密码</h4>
+        <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-position="top" class="settings-form">
+          <el-form-item label="当前密码" prop="oldPassword">
+            <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入当前密码" />
+          </el-form-item>
+          <el-form-item label="新密码" prop="newPassword">
+            <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="请输入新密码" :class="['strength-input', strengthClass]" />
+            <div v-if="pwdForm.newPassword" class="pwd-strength">
+              <div class="strength-bar"><div class="strength-fill" :class="strengthClass" :style="{ width: strengthPercent }" /></div>
+              <span class="strength-label" :class="strengthClass">{{ strengthLabel }}</span>
+              <div v-show="showAllChecks" class="strength-checks">
+                <span :class="pwChecks.minLength ? 'pass' : 'fail'">{{ pwChecks.minLength ? '✓' : '✗' }} 至少8位</span>
+                <span :class="pwChecks.hasUpper ? 'pass' : 'fail'">{{ pwChecks.hasUpper ? '✓' : '✗' }} 大写字母</span>
+                <span :class="pwChecks.hasLower ? 'pass' : 'fail'">{{ pwChecks.hasLower ? '✓' : '✗' }} 小写字母</span>
+                <span :class="pwChecks.hasDigit ? 'pass' : 'fail'">{{ pwChecks.hasDigit ? '✓' : '✗' }} 数字</span>
+                <span :class="pwChecks.hasSpecial ? 'pass' : 'fail'">{{ pwChecks.hasSpecial ? '✓' : '✗' }} 特殊字符</span>
+                <span :class="pwChecks.enoughTypes ? 'pass' : 'fail'">{{ pwChecks.enoughTypes ? '✓' : '✗' }} 至少3种</span>
+              </div>
+              <button type="button" class="toggle-checks" @click="showAllChecks = !showAllChecks">{{ showAllChecks ? '收起 ▲' : '展开规则 ▼' }}</button>
+            </div>
+          </el-form-item>
+          <el-form-item label="确认新密码" prop="confirmPassword">
+            <el-input v-model="pwdForm.confirmPassword" type="password" show-password placeholder="请再次输入新密码" />
+            <div v-if="pwdForm.confirmPassword && pwdForm.confirmPassword === pwdForm.newPassword" class="match-hint success">✓ 两次密码一致</div>
+            <div v-else-if="pwdForm.confirmPassword && pwdForm.confirmPassword !== pwdForm.newPassword" class="match-hint error">✗ 两次密码不一致</div>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="changingPwd" @click="handleChangePassword">修改密码</el-button>
+          </el-form-item>
+        </el-form>
+
+        <el-divider />
+
+        <!-- 危险操作 -->
+        <div class="drawer-danger">
+          <div class="drawer-danger-bar" />
+          <div class="drawer-danger-body">
+            <p><strong>注销账号</strong></p>
+            <p class="danger-desc">注销后无法登录，数据保留30天后彻底删除。</p>
+            <el-popconfirm title="确定要注销账号吗？" confirm-button-text="确认注销" cancel-button-text="取消" @confirm="handleDeleteAccount">
+              <template #reference>
+                <el-button type="danger" size="small" :loading="deletingAccount">注销账号</el-button>
+              </template>
+            </el-popconfirm>
+          </div>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, reactive, nextTick, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import {
@@ -235,14 +309,18 @@ import {
   getFollowingList, getFollowerList, getLikedList, getFavoriteList,
   uploadAvatar, uploadBackground
 } from '@/api/community'
+import { updatePassword, deleteAccount, updateProfile as updateUserProfile } from '@/api/user'
 import type { CommunityPost } from '@/types'
+import type { FormInstance, FormRules } from 'element-plus'
 import Cropper from 'cropperjs'
 import 'cropperjs/dist/cropper.css'
 
 defineOptions({ name: 'MyProfile' })
 
+const router = useRouter()
 const userStore = useUserStore()
 
+// ── Profile ──
 const showTab = ref('posts')
 const editingNickname = ref(false)
 const editingBio = ref(false)
@@ -282,6 +360,28 @@ const showCropper = ref(false)
 const cropperImageUrl = ref('')
 const cropperImage = ref<HTMLImageElement>()
 let cropper: Cropper | null = null
+
+// ── Settings drawer ──
+const showSettings = ref(false)
+const settingsFormRef = ref<FormInstance>()
+const pwdFormRef = ref<FormInstance>()
+const savingProfile = ref(false)
+const profileSaved = ref(false)
+const changingPwd = ref(false)
+const deletingAccount = ref(false)
+const showAllChecks = ref(false)
+
+const settingsForm = reactive({ realName: '' })
+const pwdForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' })
+
+const pwdRules: FormRules = {
+  oldPassword: [{ required: true, message: '请输入当前密码', trigger: 'blur' }],
+  newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' }],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { validator: (_r, v, cb) => cb(v !== pwdForm.newPassword ? new Error('两次密码不一致') : undefined), trigger: 'blur' }
+  ]
+}
 
 const displayNickname = computed(() => userStore.username || '用户')
 
@@ -460,9 +560,81 @@ function formatTime(t?: string) {
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
+// ══════ 密码强度（与 Profile 一致） ══════
+const UPPER = /[A-Z]/
+const LOWER = /[a-z]/
+const DIGIT = /[0-9]/
+const SPECIAL = /[!@#\$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/
+const CONSECUTIVE = /(?:abcdef|bcdefg|cdefgh|defghi|efghij|fghijk|ghijkl|hijklm|ijklmn|jklmno|klmnop|lmnopq|mnopqr|nopqrs|opqrst|pqrstu|qrstuv|rstuvw|stuvwx|tuvwxy|uvwxyz|123456|234567|345678|456789|567890|654321|765432|876543|987654)/i
+const REPEATED = /(.)\1{3,}/
+const WEAK_DICT = new Set(['123456','password','123456789','12345678','12345','1234567890','1234567','qwerty','abc123','111111','123123','admin','password1','iloveyou','welcome','monkey','dragon','master','football','baseball','sunshine','princess','1234','123','000000','666666','888888','qwerty123','1q2w3e4r','passw0rd'])
+
+const pwChecks = computed(() => {
+  const pwd = pwdForm.newPassword
+  if (!pwd) return { minLength: false, hasUpper: false, hasLower: false, hasDigit: false, hasSpecial: false, enoughTypes: false }
+  const hasUpper = UPPER.test(pwd), hasLower = LOWER.test(pwd), hasDigit = DIGIT.test(pwd), hasSpecial = SPECIAL.test(pwd)
+  const typeCount = [hasUpper, hasLower, hasDigit, hasSpecial].filter(Boolean).length
+  return { minLength: pwd.length >= 8, hasUpper, hasLower, hasDigit, hasSpecial, enoughTypes: typeCount >= 3 }
+})
+
+const strengthLabel = computed(() => {
+  const pwd = pwdForm.newPassword
+  if (!pwd || pwd.length < 3) return ''
+  const tc = [pwChecks.value.hasUpper, pwChecks.value.hasLower, pwChecks.value.hasDigit, pwChecks.value.hasSpecial].filter(Boolean).length
+  if (!pwChecks.value.minLength || tc < 2) return '弱'
+  if (pwChecks.value.minLength && tc >= 4 && pwd.length >= 12) return '强'
+  if (pwChecks.value.enoughTypes) return '中'
+  return '弱'
+})
+
+const strengthClass = computed(() => {
+  const m: Record<string, string> = { '强': 'strong', '中': 'medium', '弱': 'weak' }
+  return m[strengthLabel.value] || ''
+})
+const strengthPercent = computed(() => {
+  const m: Record<string, string> = { '强': '100%', '中': '66%', '弱': '33%' }
+  return m[strengthLabel.value] || '0%'
+})
+
+// ══════ Settings actions ══════
+async function handleSaveProfile() {
+  savingProfile.value = true
+  try {
+    await updateUserProfile({ realName: settingsForm.realName })
+    userStore.setUserInfo({ realName: settingsForm.realName })
+    profileSaved.value = true
+    setTimeout(() => { profileSaved.value = false }, 2000)
+    ElMessage.success('资料已更新')
+  } catch { /* http interceptor handles */ }
+  finally { savingProfile.value = false }
+}
+
+async function handleChangePassword() {
+  await pwdFormRef.value?.validate()
+  changingPwd.value = true
+  try {
+    await updatePassword({ oldPassword: pwdForm.oldPassword, newPassword: pwdForm.newPassword })
+    ElMessage.success('密码修改成功')
+    pwdForm.oldPassword = ''; pwdForm.newPassword = ''; pwdForm.confirmPassword = ''
+    showAllChecks.value = false
+  } catch { /* http interceptor handles */ }
+  finally { changingPwd.value = false }
+}
+
+async function handleDeleteAccount() {
+  deletingAccount.value = true
+  try {
+    await deleteAccount()
+    ElMessage.success('账号已注销')
+    userStore.logout()
+    router.push('/login')
+  } finally { deletingAccount.value = false }
+}
+
 onMounted(() => {
   loadProfile()
   loadMyPosts()
+  settingsForm.realName = userStore.realName || ''
 })
 </script>
 
@@ -895,6 +1067,127 @@ onMounted(() => {
 }
 
 .page-info { font-size: 13px; color: var(--neutral-500); }
+
+/* ══════ 设置按钮 ══════ */
+.settings-btn {
+  margin-left: auto;
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--neutral-50);
+  color: var(--neutral-400);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--primary-soft);
+    color: var(--primary-main);
+  }
+}
+
+/* ══════ 设置抽屉 ══════ */
+.settings-body {
+  padding: 0 8px;
+}
+
+.settings-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neutral-700);
+  margin: 0 0 16px;
+}
+
+.settings-form {
+  :deep(.el-form-item) { margin-bottom: 16px; }
+}
+
+/* ══════ 密码强度（抽屉内） ══════ */
+.strength-input {
+  :deep(.el-input__wrapper) { transition: box-shadow 0.3s ease; }
+  &.weak :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px #f56c6c inset !important; }
+  &.medium :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px #e6a23c inset !important; }
+  &.strong :deep(.el-input__wrapper) { box-shadow: 0 0 0 1px #67c23a inset !important; }
+}
+
+.pwd-strength { margin-top: 6px; }
+
+.strength-bar {
+  height: 4px;
+  background: var(--neutral-100);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.strength-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  &.weak { background: #f56c6c; }
+  &.medium { background: #e6a23c; }
+  &.strong { background: #67c23a; }
+}
+
+.strength-label {
+  font-size: 12px;
+  font-weight: 600;
+  &.weak { color: #f56c6c; }
+  &.medium { color: #e6a23c; }
+  &.strong { color: #67c23a; }
+}
+
+.strength-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 4px 0;
+  span { font-size: 11px; }
+  .pass { color: #67c23a; }
+  .fail { color: var(--neutral-400); }
+}
+
+.toggle-checks {
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--primary-main);
+  cursor: pointer;
+  padding: 0;
+  &:hover { text-decoration: underline; }
+}
+
+.match-hint {
+  font-size: 12px;
+  margin-top: 4px;
+  &.success { color: var(--el-color-success); }
+  &.error { color: var(--el-color-danger); }
+}
+
+/* ══════ 危险操作（抽屉内） ══════ */
+.drawer-danger {
+  display: flex;
+  padding: 12px 0;
+}
+
+.drawer-danger-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: var(--el-color-danger);
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.drawer-danger-body {
+  flex: 1;
+  p { margin: 0 0 8px; font-size: 13px; }
+  .danger-desc { color: var(--neutral-400); margin-bottom: 10px; }
+}
 
 /* ══════ 裁切弹窗 ══════ */
 .cropper-container {

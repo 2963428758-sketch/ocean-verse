@@ -90,9 +90,6 @@
                 <el-dropdown-item command="profile">
                   <el-icon><User /></el-icon>个人主页
                 </el-dropdown-item>
-                <el-dropdown-item command="settings">
-                  <el-icon><Setting /></el-icon>设置
-                </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>
                   <el-icon><SwitchButton /></el-icon>退出登录
                 </el-dropdown-item>
@@ -212,18 +209,23 @@ function onVisibilityChange() {
 }
 
 const menuItems = computed(() => {
-  if (userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN') {
+  if (userStore.role === 'ADMIN') {
     return [
       { title: '系统管理', children: [
         { path: '/admin/users', title: '用户管理', icon: 'User' },
         { path: '/admin/roles', title: '角色管理', icon: 'Stamp' },
       ]},
+      { title: '内容管理', children: [
+        { path: '/species/list', title: '物种列表', icon: 'Collection' },
+        { path: '/community/feed', title: '动态广场', icon: 'Postcard' },
+        { path: '/community/approval', title: '帖子审核', icon: 'CircleCheck' },
+      ]},
       { title: '系统日志', children: [
         { path: '/admin/login-log', title: '登录日志', icon: 'Tickets' },
         { path: '/admin/operation-log', title: '操作日志', icon: 'Document' },
       ]},
-      { title: '社区管理', children: [
-        { path: '/community/approval', title: '帖子审核', icon: 'CircleCheck' },
+      { title: '数据管理', children: [
+        { path: '/visualization/export', title: '数据导出', icon: 'Download' },
       ]},
     ]
   }
@@ -251,13 +253,23 @@ const menuItems = computed(() => {
     { path: '/ai', title: 'AI 工具', icon: 'MagicStick', children: [
       { path: '/ai/recognize', title: '图像识别', icon: 'MagicStick' }
     ]},
+    ...(userStore.role === 'SUPER_ADMIN' ? [
+      { path: '/admin', title: '系统管理', icon: 'Setting', children: [
+        { path: '/admin/users', title: '用户管理', icon: 'User' },
+        { path: '/admin/roles', title: '角色管理', icon: 'Stamp' },
+      ]},
+      { title: '系统日志', children: [
+        { path: '/admin/login-log', title: '登录日志', icon: 'Tickets' },
+        { path: '/admin/operation-log', title: '操作日志', icon: 'Document' },
+      ] },
+    ] : []),
   ]
 
   return items
 })
 
 const isAdmin = computed(() =>
-  userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'
+  userStore.role === 'ADMIN'
 )
 
 const breadcrumbs = computed(() => {
@@ -266,7 +278,6 @@ const breadcrumbs = computed(() => {
 
 function handleCommand(cmd: string) {
   if (cmd === 'profile') router.push('/profile')
-  else if (cmd === 'settings') router.push('/settings')
   else if (cmd === 'logout') doLogout()
 }
 

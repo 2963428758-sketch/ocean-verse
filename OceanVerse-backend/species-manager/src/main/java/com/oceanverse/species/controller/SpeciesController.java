@@ -3,6 +3,7 @@ package com.oceanverse.species.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.oceanverse.common.annotation.OperateLog;
 import com.oceanverse.common.annotation.RequirePermission;
+import com.oceanverse.common.annotation.RequireRole;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.pojo.dto.SpeciesQueryDTO;
 import com.oceanverse.pojo.entity.Species;
@@ -38,6 +39,7 @@ public class SpeciesController {
         return Result.success(speciesService.getSpeciesDetail(id));
     }
 
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER"})
     @RequirePermission("species:create")
     @OperateLog(module = "物种管理", type = OperateLog.OperateType.CREATE)
     @PostMapping
@@ -46,6 +48,7 @@ public class SpeciesController {
         return Result.success(species.getId());
     }
 
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER"})
     @RequirePermission("species:update")
     @OperateLog(module = "物种管理", type = OperateLog.OperateType.UPDATE)
     @PutMapping("/{id}")
@@ -55,6 +58,7 @@ public class SpeciesController {
         return Result.success();
     }
 
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER"})
     @RequirePermission("species:delete")
     @OperateLog(module = "物种管理", type = OperateLog.OperateType.DELETE)
     @DeleteMapping("/{id}")
@@ -78,6 +82,7 @@ public class SpeciesController {
     /**
      * 上传物种图片（支持批量上传）
      */
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER"})
     @RequirePermission("species:create")
     @PostMapping("/{id}/media")
     public Result<List<SpeciesMedia>> uploadMedia(
@@ -97,6 +102,7 @@ public class SpeciesController {
     /**
      * 删除媒体资源
      */
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER"})
     @RequirePermission("species:delete")
     @DeleteMapping("/media/{mediaId}")
     public Result<Void> deleteMedia(@PathVariable Long mediaId) {
@@ -107,6 +113,7 @@ public class SpeciesController {
     /**
      * 设置主图
      */
+    @RequireRole({"SUPER_ADMIN", "RESEARCHER"})
     @RequirePermission("species:update")
     @PutMapping("/media/{mediaId}/primary")
     public Result<Void> setPrimary(@PathVariable Long mediaId) {

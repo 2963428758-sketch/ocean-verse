@@ -54,7 +54,7 @@ public class AdminController {
     @OperateLog(module = "用户管理", type = OperateLog.OperateType.UPDATE)
     @Operation(summary = "修改用户状态", description = "启用/禁用/锁定用户，禁用后 Token 和权限缓存被清除")
     @PutMapping("/user/{userId}/status")
-    @RequirePermission("user:update")
+    @RequirePermission("user:status")
     public Result<Void> updateStatus(
             @Parameter(description = "用户ID") @PathVariable Long userId,
             @Valid @RequestBody UpdateStatusDTO dto) {
@@ -88,7 +88,7 @@ public class AdminController {
 
     @Operation(summary = "登录日志分页列表", description = "按用户名、登录状态筛选登录日志")
     @GetMapping("/log/login/list")
-    @RequirePermission("user:list")
+    @RequirePermission("log:login")
     public Result<PageResult<SysLoginLog>> loginLogList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
@@ -110,7 +110,7 @@ public class AdminController {
 
     @Operation(summary = "操作日志分页列表", description = "按模块、操作人筛选操作日志")
     @GetMapping("/log/operation/list")
-    @RequirePermission("user:list")
+    @RequirePermission("log:operate")
     public Result<PageResult<SysOperateLog>> operationLogList(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") int size,
