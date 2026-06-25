@@ -161,6 +161,9 @@ public class CommunityServiceImpl implements CommunityService {
         if (query.getPostType() != null) {
             wrapper.eq(CommunityPost::getPostType, query.getPostType());
         }
+        if (query.getKeyword() != null && !query.getKeyword().isBlank()) {
+            wrapper.like(CommunityPost::getContent, query.getKeyword().trim());
+        }
         if ("HOT".equals(query.getOrderBy())) {
             wrapper.orderByDesc(CommunityPost::getLikeCount);
         } else {

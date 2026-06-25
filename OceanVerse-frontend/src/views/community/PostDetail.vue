@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -191,20 +191,31 @@ async function loadComments() {
     const res: any = await getCommentList(postId, { page: 1, size: 50 })
     const records = res.data?.records || res.data || []
     comments.value = records.map((c: CommunityComment) => ({ ...c, isLiked: false }))
-    // 如果有 comment 参数，定位到该评论
-    const commentId = route.query.comment
-    if (commentId) {
-      nextTick(() => {
-        const el = document.getElementById(`comment-${commentId}`)
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          el.classList.add('highlight')
-        }
-      })
-    }
   } catch (e) { console.error(e) }
   finally { loadingComments.value = false }
 }
+
+function scrollToComment() {
+  const commentId = route.query.comment
+  if (!commentId) return
+  setTimeout(() => {
+    const el = document.getElementById(`comment-${commentId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('highlight')
+    }
+  }, 300)
+}
+
+watch([loading, loadingComments], ([postLoading, commentsLoading]) => {
+  if (!postLoading && !commentsLoading) {
+    scrollToComment()
+  }
+})
+
+onMounted(async () => {
+  await Promise.all([loadPost(), loadComments()])
+})
 
 async function handleLikePost() {
   try {

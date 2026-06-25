@@ -1,91 +1,77 @@
 <template>
   <div class="my-profile-page">
-    <!-- 个人信息卡片 -->
-    <div class="profile-card">
-      <!-- 背景图 -->
-      <div class="profile-cover" :style="bgStyle" @click="triggerBgUpload">
-        <div class="cover-overlay"></div>
-        <div class="cover-edit">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          更换背景
+    <!-- 个人信息 -->
+    <div class="profile-header">
+      <div class="profile-left">
+        <!-- 头像 -->
+        <div class="avatar-wrap" @click="triggerAvatarUpload">
+          <div class="profile-avatar">
+            <img v-if="userStore.avatarUrl" :src="userStore.avatarUrl" class="avatar-img" />
+            <span v-else>{{ userStore.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
+          </div>
+          <div class="avatar-overlay">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="handleAvatarUpload" />
         </div>
-        <input ref="bgInput" type="file" accept="image/*" style="display:none" @change="handleBgUpload" />
       </div>
 
-      <div class="profile-body">
-        <div class="profile-top">
-          <!-- 头像 -->
-          <div class="avatar-wrap">
-            <div class="profile-avatar" @click="triggerAvatarUpload">
-              <img v-if="userStore.avatarUrl" :src="userStore.avatarUrl" class="avatar-img" />
-              <span v-else>{{ userStore.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
-            </div>
-            <label class="avatar-edit" @click.stop="triggerAvatarUpload">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </label>
-            <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="handleAvatarUpload" />
+      <div class="profile-right">
+        <!-- 昵称 -->
+        <div class="name-row">
+          <h1 v-if="!editingNickname" class="profile-name" @click="startEditNickname">
+            {{ displayNickname }}
+          </h1>
+          <div v-else class="nickname-edit">
+            <input ref="nicknameInput" v-model="nicknameValue" class="nickname-input" maxlength="20" @keyup.enter="saveNickname" @blur="saveNickname" />
           </div>
+        </div>
 
-          <div class="profile-info">
-            <!-- 昵称 -->
-            <div class="name-row">
-              <h2 v-if="!editingNickname" class="profile-name" @click="startEditNickname">
-                {{ displayNickname }}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </h2>
-              <div v-else class="nickname-edit">
-                <input ref="nicknameInput" v-model="nicknameValue" class="nickname-input" maxlength="20" @keyup.enter="saveNickname" @blur="saveNickname" />
-              </div>
-            </div>
+        <!-- 小红书号 -->
+        <p class="profile-id">用户ID：{{ userStore.userId }}</p>
 
-            <!-- 签名 -->
-            <div class="bio-row">
-              <p v-if="!editingBio" class="profile-bio" @click="startEditBio">
-                {{ bioValue || '点击添加个人签名...' }}
-              </p>
-              <div v-else class="bio-edit">
-                <input ref="bioInput" v-model="bioValue" class="bio-input" maxlength="100" placeholder="写一句签名..." @keyup.enter="saveBio" @blur="saveBio" />
-              </div>
-            </div>
-
-            <p class="profile-id">ID: {{ userStore.userId }}</p>
+        <!-- 签名 -->
+        <div class="bio-row">
+          <p v-if="!editingBio" class="profile-bio" @click="startEditBio">
+            {{ bioValue || '点击添加个人签名...' }}
+          </p>
+          <div v-else class="bio-edit">
+            <input ref="bioInput" v-model="bioValue" class="bio-input" maxlength="100" placeholder="写一句签名..." @keyup.enter="saveBio" @blur="saveBio" />
           </div>
         </div>
 
         <!-- 数据统计 -->
         <div class="profile-stats">
-          <div class="stat-item" @click="showTab = 'posts'">
-            <span class="stat-value">{{ postCount }}</span>
-            <span class="stat-label">帖子</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item" @click="showTab = 'followers'">
-            <span class="stat-value">{{ followerCount }}</span>
-            <span class="stat-label">粉丝</span>
-          </div>
-          <div class="stat-divider"></div>
-          <div class="stat-item" @click="showTab = 'following'">
+          <span class="stat-item">
             <span class="stat-value">{{ followCount }}</span>
             <span class="stat-label">关注</span>
-          </div>
-        </div>
-
-        <!-- Tab 切换 -->
-        <div class="profile-tabs">
-          <button :class="{ active: showTab === 'posts' }" @click="showTab = 'posts'">我的动态</button>
-          <button :class="{ active: showTab === 'following' }" @click="showTab = 'following'; loadFollowing()">关注</button>
-          <button :class="{ active: showTab === 'followers' }" @click="showTab = 'followers'; loadFollowers()">粉丝</button>
-          <button :class="{ active: showTab === 'liked' }" @click="showTab = 'liked'; loadLiked()">点赞</button>
-          <button :class="{ active: showTab === 'favorites' }" @click="showTab = 'favorites'; loadFavorites()">收藏</button>
+          </span>
+          <span class="stat-item">
+            <span class="stat-value">{{ followerCount }}</span>
+            <span class="stat-label">粉丝</span>
+          </span>
+          <span class="stat-item">
+            <span class="stat-value">{{ postCount }}</span>
+            <span class="stat-label">获赞与收藏</span>
+          </span>
         </div>
       </div>
     </div>
 
+    <!-- Tab 切换 -->
+    <div class="profile-tabs">
+      <button :class="{ active: showTab === 'posts' }" @click="showTab = 'posts'">笔记</button>
+      <button :class="{ active: showTab === 'following' }" @click="showTab = 'following'; loadFollowing()">关注</button>
+      <button :class="{ active: showTab === 'followers' }" @click="showTab = 'followers'; loadFollowers()">粉丝</button>
+      <button :class="{ active: showTab === 'favorites' }" @click="showTab = 'favorites'; loadFavorites()">收藏</button>
+      <button :class="{ active: showTab === 'liked' }" @click="showTab = 'liked'; loadLiked()">点赞</button>
+    </div>
+
     <!-- 我的动态 -->
     <div v-if="showTab === 'posts'" class="posts-section">
-      <div v-loading="loadingPosts" class="waterfall">
+      <div v-loading="loadingPosts" class="waterfall" :class="{ 'single-col': myPosts.length === 0 }">
         <div v-if="myPosts.length === 0 && !loadingPosts" class="empty-state">
-          <p>暂无动态</p>
+          <p>暂无笔记</p>
         </div>
         <div v-for="post in myPosts" :key="post?.id" class="feed-card" @click="$router.push(`/community/post/${post?.id}`)">
           <div v-if="parseImages(post?.imageUrls).length" class="card-image-wrap">
@@ -98,11 +84,16 @@
           <div class="card-body">
             <p class="card-text">{{ post?.content }}</p>
             <div class="card-footer">
-              <span class="card-time">{{ formatTime(post?.createTime) }}</span>
-              <div class="card-stats">
-                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> {{ post?.likeCount }}</span>
-                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> {{ post?.commentCount }}</span>
+              <div class="card-user">
+                <div class="card-avatar">
+                  {{ userStore.username?.charAt(0)?.toUpperCase() || 'U' }}
+                </div>
+                <span class="card-username">{{ userStore.username || '用户' }}</span>
               </div>
+              <span class="card-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#ff4757" stroke="#ff4757" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                {{ post?.likeCount || 0 }}
+              </span>
             </div>
           </div>
         </div>
@@ -126,7 +117,7 @@
             <span v-else>{{ user?.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
           </div>
           <span class="user-name">{{ user?.username }}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
       </div>
     </div>
@@ -143,46 +134,14 @@
             <span v-else>{{ user?.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
           </div>
           <span class="user-name">{{ user?.username }}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
-      </div>
-    </div>
-
-    <!-- 点赞列表 -->
-    <div v-if="showTab === 'liked'" class="posts-section">
-      <div v-loading="loadingLiked" class="waterfall">
-        <div v-if="likedPosts.length === 0 && !loadingLiked" class="empty-state">
-          <p>暂无点赞记录</p>
-        </div>
-        <div v-for="post in likedPosts" :key="post?.id" class="feed-card" @click="$router.push(`/community/post/${post?.id}`)">
-          <div v-if="parseImages(post?.imageUrls).length" class="card-image-wrap">
-            <img :src="parseImages(post?.imageUrls)[0]" class="card-image" loading="lazy" />
-          </div>
-          <div v-else class="card-image-wrap no-image">
-            <span>📝</span>
-          </div>
-          <div class="card-body">
-            <p class="card-text">{{ post?.content }}</p>
-            <div class="card-footer">
-              <span class="card-time">{{ formatTime(post?.createTime) }}</span>
-              <div class="card-stats">
-                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> {{ post?.likeCount }}</span>
-                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> {{ post?.commentCount }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-if="totalLiked > pageSize" class="pagination-wrap">
-        <button class="page-btn" :disabled="likedPage <= 1" @click="likedPage--; loadLiked()">上一页</button>
-        <span class="page-info">{{ likedPage }} / {{ Math.ceil(totalLiked / pageSize) }}</span>
-        <button class="page-btn" :disabled="likedPage >= Math.ceil(totalLiked / pageSize)" @click="likedPage++; loadLiked()">下一页</button>
       </div>
     </div>
 
     <!-- 收藏列表 -->
     <div v-if="showTab === 'favorites'" class="posts-section">
-      <div v-loading="loadingFavorites" class="waterfall">
+      <div v-loading="loadingFavorites" class="waterfall" :class="{ 'single-col': favoritePosts.length === 0 }">
         <div v-if="favoritePosts.length === 0 && !loadingFavorites" class="empty-state">
           <p>暂无收藏</p>
         </div>
@@ -196,11 +155,16 @@
           <div class="card-body">
             <p class="card-text">{{ post?.content }}</p>
             <div class="card-footer">
-              <span class="card-time">{{ formatTime(post?.createTime) }}</span>
-              <div class="card-stats">
-                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> {{ post?.likeCount }}</span>
-                <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> {{ post?.commentCount }}</span>
+              <div class="card-user">
+                <div class="card-avatar">
+                  {{ post?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                </div>
+                <span class="card-username">{{ post?.username || '用户' }}</span>
               </div>
+              <span class="card-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#ff4757" stroke="#ff4757" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                {{ post?.likeCount || 0 }}
+              </span>
             </div>
           </div>
         </div>
@@ -209,6 +173,43 @@
         <button class="page-btn" :disabled="favoritePage <= 1" @click="favoritePage--; loadFavorites()">上一页</button>
         <span class="page-info">{{ favoritePage }} / {{ Math.ceil(totalFavorites / pageSize) }}</span>
         <button class="page-btn" :disabled="favoritePage >= Math.ceil(totalFavorites / pageSize)" @click="favoritePage++; loadFavorites()">下一页</button>
+      </div>
+    </div>
+
+    <!-- 点赞列表 -->
+    <div v-if="showTab === 'liked'" class="posts-section">
+      <div v-loading="loadingLiked" class="waterfall" :class="{ 'single-col': likedPosts.length === 0 }">
+        <div v-if="likedPosts.length === 0 && !loadingLiked" class="empty-state">
+          <p>暂无点赞</p>
+        </div>
+        <div v-for="post in likedPosts" :key="post?.id" class="feed-card" @click="$router.push(`/community/post/${post?.id}`)">
+          <div v-if="parseImages(post?.imageUrls).length" class="card-image-wrap">
+            <img :src="parseImages(post?.imageUrls)[0]" class="card-image" loading="lazy" />
+          </div>
+          <div v-else class="card-image-wrap no-image">
+            <span>📝</span>
+          </div>
+          <div class="card-body">
+            <p class="card-text">{{ post?.content }}</p>
+            <div class="card-footer">
+              <div class="card-user">
+                <div class="card-avatar">
+                  {{ post?.username?.charAt(0)?.toUpperCase() || 'U' }}
+                </div>
+                <span class="card-username">{{ post?.username || '用户' }}</span>
+              </div>
+              <span class="card-like">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#ff4757" stroke="#ff4757" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                {{ post?.likeCount || 0 }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="totalLiked > pageSize" class="pagination-wrap">
+        <button class="page-btn" :disabled="likedPage <= 1" @click="likedPage--; loadLiked()">上一页</button>
+        <span class="page-info">{{ likedPage }} / {{ Math.ceil(totalLiked / pageSize) }}</span>
+        <button class="page-btn" :disabled="likedPage >= Math.ceil(totalLiked / pageSize)" @click="likedPage++; loadLiked()">下一页</button>
       </div>
     </div>
 
@@ -249,8 +250,8 @@ const nicknameValue = ref('')
 const bioValue = ref('')
 const nicknameInput = ref<HTMLInputElement>()
 const bioInput = ref<HTMLInputElement>()
+const originalBio = ref('')
 const avatarInput = ref<HTMLInputElement>()
-const bgInput = ref<HTMLInputElement>()
 
 const backgroundUrl = ref('')
 const postCount = ref(0)
@@ -260,7 +261,7 @@ const followCount = ref(0)
 const myPosts = ref<CommunityPost[]>([])
 const loadingPosts = ref(false)
 const postPage = ref(1)
-const pageSize = 12
+const pageSize = 20
 const totalPosts = ref(0)
 
 const loadingFollow = ref(false)
@@ -283,12 +284,6 @@ const cropperImage = ref<HTMLImageElement>()
 let cropper: Cropper | null = null
 
 const displayNickname = computed(() => userStore.username || '用户')
-const bgStyle = computed(() => {
-  if (backgroundUrl.value) {
-    return { backgroundImage: `url(${backgroundUrl.value})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-  }
-  return {}
-})
 
 async function loadProfile() {
   if (!userStore.userId) return
@@ -351,7 +346,6 @@ async function loadFavorites() {
   finally { loadingFavorites.value = false }
 }
 
-// ── 头像 ──
 function triggerAvatarUpload() { avatarInput.value?.click() }
 async function handleAvatarUpload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -367,8 +361,7 @@ async function handleAvatarUpload(e: Event) {
   if (avatarInput.value) avatarInput.value.value = ''
 }
 
-// ── 背景图 ──
-function triggerBgUpload() { bgInput.value?.click() }
+function triggerBgUpload() { /* bgInput.value?.click() */ }
 async function handleBgUpload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -399,19 +392,11 @@ async function handleBgUpload(e: Event) {
     })
   }
   reader.readAsDataURL(file)
-  if (bgInput.value) bgInput.value.value = ''
 }
 
 async function cropAndUpload() {
   if (!cropper) return
-  const canvas = cropper.getCroppedCanvas({
-    width: 1200,
-    height: 400,
-    fillColor: '#fff',
-    imageSmoothingEnabled: true,
-    imageSmoothingQuality: 'high',
-  })
-
+  const canvas = cropper.getCroppedCanvas({ width: 1200, height: 400, fillColor: '#fff', imageSmoothingEnabled: true, imageSmoothingQuality: 'high' })
   canvas.toBlob(async (blob) => {
     if (!blob) return
     const file = new File([blob], 'background.jpg', { type: 'image/jpeg' })
@@ -426,7 +411,6 @@ async function cropAndUpload() {
   }, 'image/jpeg', 0.9)
 }
 
-// ── 昵称 ──
 function startEditNickname() {
   nicknameValue.value = userStore.username || ''
   editingNickname.value = true
@@ -443,20 +427,21 @@ async function saveNickname() {
   } catch (e) { console.error(e) }
 }
 
-// ── 签名 ──
 function startEditBio() {
+  originalBio.value = bioValue.value || ''
   editingBio.value = true
   nextTick(() => bioInput.value?.focus())
 }
 async function saveBio() {
   editingBio.value = false
+  const val = bioValue.value.trim()
+  if (val === originalBio.value) return
   try {
-    await updateBio({ bio: bioValue.value.trim() })
+    await updateBio({ bio: val })
     ElMessage.success('签名已更新')
   } catch (e) { console.error(e) }
 }
 
-// ── 工具 ──
 function parseImages(imageUrls?: string): string[] {
   if (!imageUrls) return []
   try { const a = JSON.parse(imageUrls); return Array.isArray(a) ? a.filter(Boolean) : [] }
@@ -483,95 +468,47 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .my-profile-page {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
 }
 
-/* ══════ 个人信息卡片 ══════ */
-.profile-card {
-  background: var(--surface-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--neutral-75);
-  overflow: hidden;
-  margin-bottom: 20px;
-}
-
-.profile-cover {
-  height: 140px;
-  background: linear-gradient(135deg, #1a6b8a 0%, #2d8cb0 40%, #5bb5d5 100%);
-  position: relative;
-  cursor: pointer;
-  transition: opacity 0.2s;
-
-  &:hover .cover-overlay { opacity: 1; }
-}
-
-.cover-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.3);
-  opacity: 0;
-  transition: opacity 0.2s;
+/* ══════ 个人信息头部 ══════ */
+.profile-header {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 40px;
+  padding: 40px 0 32px;
+  border-bottom: 1px solid var(--neutral-100);
+  margin-bottom: 0;
 }
 
-.cover-edit {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-
-  .profile-cover:hover & { opacity: 1; }
-}
-
-.profile-body {
-  padding: 0 24px 16px;
-}
-
-.profile-top {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  margin-top: -40px;
-  position: relative;
-  z-index: 1;
-}
-
-/* ══════ 头像 ══════ */
-.avatar-wrap {
-  position: relative;
+.profile-left {
   flex-shrink: 0;
 }
 
+.avatar-wrap {
+  position: relative;
+  cursor: pointer;
+  width: 100px;
+  height: 100px;
+
+  &:hover .avatar-overlay {
+    opacity: 1;
+  }
+}
+
 .profile-avatar {
-  width: 88px;
-  height: 88px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   background: var(--gradient-ocean);
   color: #fff;
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 4px solid var(--surface-card);
-  box-shadow: var(--shadow-md);
-  cursor: pointer;
   overflow: hidden;
-  transition: transform 0.2s;
-
-  &:hover { transform: scale(1.03); }
 }
 
 .avatar-img {
@@ -580,56 +517,48 @@ onMounted(() => {
   object-fit: cover;
 }
 
-.avatar-edit {
+.avatar-overlay {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 28px;
-  height: 28px;
+  inset: 0;
   border-radius: 50%;
-  background: var(--primary-main);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: background 0.2s;
-
-  &:hover { background: var(--primary-light); }
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
-.profile-info {
+.profile-right {
   flex: 1;
   min-width: 0;
-  padding-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .profile-name {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--neutral-800);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
   margin: 0;
+  cursor: pointer;
 
-  &:hover { color: var(--primary-main); }
+  &:hover {
+    color: var(--primary-main);
+  }
 }
 
 .nickname-edit {
-  display: flex;
-  align-items: center;
+  display: inline-flex;
 }
 
 .nickname-input {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--neutral-800);
   border: none;
@@ -638,146 +567,167 @@ onMounted(() => {
   background: none;
   padding: 2px 0;
   font-family: inherit;
-  width: 180px;
+  width: 200px;
 }
 
-/* ══════ 签名 ══════ */
+.profile-id {
+  font-size: 13px;
+  color: var(--neutral-400);
+  margin: 0 0 6px;
+}
+
 .bio-row {
-  margin-top: 4px;
+  margin-bottom: 12px;
 }
 
 .profile-bio {
-  font-size: 13px;
-  color: var(--neutral-500);
+  font-size: 14px;
+  color: var(--neutral-600);
   margin: 0;
   cursor: pointer;
-  padding: 3px 8px;
-  border-radius: var(--radius-xs);
-  transition: all 0.15s;
+  padding: 2px 6px;
+  border-radius: 4px;
   display: inline-block;
+  transition: background 0.15s;
 
   &:hover {
     background: var(--neutral-75);
-    color: var(--neutral-600);
   }
 }
 
 .bio-input {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--neutral-700);
   border: none;
   border-bottom: 1.5px solid var(--primary-lighter);
   outline: none;
   background: none;
-  padding: 3px 8px;
+  padding: 2px 6px;
   font-family: inherit;
   width: 260px;
 }
 
-.profile-id {
-  font-size: 12px;
-  color: var(--neutral-400);
-  margin-top: 4px;
-}
-
-/* ══════ 统计 ══════ */
 .profile-stats {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 16px;
-  padding: 14px 0;
-  background: var(--neutral-25);
-  border-radius: var(--radius-md);
+  gap: 24px;
 }
 
 .stat-item {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  cursor: pointer;
-  transition: color 0.2s;
-
-  &:hover .stat-value { color: var(--primary-main); }
+  align-items: baseline;
+  gap: 4px;
+  cursor: default;
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--neutral-800);
-  transition: color 0.2s;
 }
 
 .stat-label {
-  font-size: 12px;
-  color: var(--neutral-400);
-}
-
-.stat-divider {
-  width: 1px;
-  height: 28px;
-  background: var(--neutral-100);
+  font-size: 13px;
+  color: var(--neutral-500);
 }
 
 /* ══════ Tab 切换 ══════ */
 .profile-tabs {
   display: flex;
   gap: 4px;
-  margin-top: 14px;
-  border-top: 1px solid var(--neutral-75);
-  padding-top: 12px;
+  border-bottom: 1px solid var(--neutral-100);
+  margin-bottom: 16px;
 
   button {
-    flex: 1;
-    padding: 8px 0;
+    padding: 14px 24px;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 0;
     background: none;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: var(--neutral-500);
     cursor: pointer;
-    transition: all 0.2s;
+    position: relative;
+    transition: color 0.2s;
 
-    &:hover { color: var(--primary-main); background: var(--primary-soft); }
-    &.active { color: var(--primary-main); background: var(--primary-soft); font-weight: 600; }
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 50%;
+      transform: translateX(-50%) scaleX(0);
+      width: 24px;
+      height: 2px;
+      background: var(--neutral-800);
+      border-radius: 1px;
+      transition: transform 0.2s;
+    }
+
+    &:hover {
+      color: var(--neutral-700);
+    }
+
+    &.active {
+      color: var(--neutral-800);
+      font-weight: 600;
+
+      &::after {
+        transform: translateX(-50%) scaleX(1);
+      }
+    }
   }
 }
 
 /* ══════ 瀑布流 ══════ */
-.posts-section { margin-top: 4px; }
+.posts-section { margin-top: 0; }
 
 .waterfall {
-  columns: 2;
+  columns: 4;
   column-gap: 12px;
+
+  &.single-col {
+    columns: 1;
+  }
+}
+
+@media (max-width: 1200px) {
+  .waterfall { columns: 3; }
+}
+@media (max-width: 900px) {
+  .waterfall { columns: 2; }
+}
+@media (max-width: 600px) {
+  .waterfall { columns: 2; column-gap: 8px; }
 }
 
 .feed-card {
   break-inside: avoid;
   margin-bottom: 12px;
   background: var(--surface-card);
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s var(--ease-out);
-  border: 1px solid var(--neutral-75);
+  border: none;
   display: inline-block;
   width: 100%;
-  &:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
 }
 
 .card-image-wrap {
   position: relative;
   width: 100%;
   overflow: hidden;
+
   &.no-image {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 120px;
-    background: linear-gradient(135deg, #e8f4f8, #f0f4f8);
+    background: linear-gradient(135deg, #f0f7fa 0%, #e8f4f8 100%);
     span { font-size: 32px; opacity: 0.4; }
   }
 }
@@ -786,8 +736,6 @@ onMounted(() => {
   width: 100%;
   display: block;
   object-fit: cover;
-  transition: transform 0.4s var(--ease-out);
-  .feed-card:hover & { transform: scale(1.03); }
 }
 
 .status-badge {
@@ -796,17 +744,17 @@ onMounted(() => {
   left: 8px;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
   backdrop-filter: blur(8px);
-  &.pending { background: rgba(204,138,48,0.85); color: #fff; }
+  &.pending { background: rgba(204, 138, 48, 0.85); color: #fff; }
 }
 
 .card-body { padding: 10px 12px 8px; }
 
 .card-text {
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1.6;
   color: var(--neutral-700);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -820,33 +768,63 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 6px;
-  border-top: 1px solid var(--neutral-75);
 }
 
-.card-time { font-size: 11px; color: var(--neutral-400); }
-
-.card-stats {
+.card-user {
   display: flex;
-  gap: 10px;
-  span { display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--neutral-400); }
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.card-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--gradient-ocean);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card-username {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neutral-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+}
+
+.card-like {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--neutral-400);
+  flex-shrink: 0;
 }
 
 /* ══════ 用户列表 ══════ */
-.user-list-section { margin-top: 4px; }
+.user-list-section { margin-top: 0; }
 
 .user-list {
   background: var(--surface-card);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--neutral-75);
+  border-radius: 10px;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .user-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
+  padding: 14px 18px;
   cursor: pointer;
   transition: background 0.15s;
 
@@ -855,8 +833,8 @@ onMounted(() => {
 }
 
 .list-avatar {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: var(--gradient-ocean);
   color: #fff;
@@ -882,10 +860,16 @@ onMounted(() => {
   color: var(--neutral-700);
 }
 
+/* ══════ 空状态 ══════ */
 .empty-state {
   text-align: center;
-  padding: 60px 20px;
-  p { font-size: 14px; color: var(--neutral-400); }
+  padding: 80px 20px;
+  columns: 1;
+
+  p {
+    font-size: 14px;
+    color: var(--neutral-400);
+  }
 }
 
 /* ══════ 分页 ══════ */
@@ -920,6 +904,26 @@ onMounted(() => {
   img {
     max-width: 100%;
     max-height: 400px;
+  }
+}
+
+/* ══════ 响应式 ══════ */
+@media (max-width: 600px) {
+  .profile-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 24px 0;
+    text-align: center;
+  }
+
+  .profile-stats {
+    justify-content: center;
+  }
+
+  .profile-tabs button {
+    padding: 12px 16px;
+    font-size: 14px;
   }
 }
 </style>

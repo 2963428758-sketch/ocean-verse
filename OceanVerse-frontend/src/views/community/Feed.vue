@@ -1,34 +1,59 @@
 <template>
   <div class="feed-page">
-    <!-- 顶部 -->
-    <div class="feed-header">
-      <div class="header-left">
-        <h2>动态广场</h2>
-        <span class="header-desc">探索海洋世界的精彩分享</span>
+    <!-- 顶部发布栏 -->
+    <div class="feed-topbar">
+      <div class="search-input-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input
+          v-model="searchKeyword"
+          class="search-input"
+          placeholder="搜索帖子..."
+          @keyup.enter="currentPage = 1; loadPosts()"
+        />
+        <button v-if="searchKeyword" class="search-clear" @click="searchKeyword = ''; currentPage = 1; loadPosts()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
-      <button class="create-btn" @click="showCreateDialog = true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        发布动态
+      <button class="publish-btn" @click="showCreateDialog = true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
     </div>
 
-    <!-- 筛选标签 -->
-    <div class="feed-tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.value"
-        class="tab-item"
-        :class="{ active: currentFilter === tab.value }"
-        @click="currentFilter = tab.value; currentPage = 1; loadPosts()"
-      >
-        {{ tab.label }}
-      </button>
+    <!-- 筛选标签 + 排序 -->
+    <div class="feed-toolbar">
+      <div class="feed-tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          class="tab-item"
+          :class="{ active: currentFilter === tab.value }"
+          @click="currentFilter = tab.value; currentPage = 1; loadPosts()"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+      <div class="sort-buttons">
+        <button
+          class="sort-btn"
+          :class="{ active: currentSort === 'newest' }"
+          @click="currentSort = 'newest'; currentPage = 1; loadPosts()"
+        >
+          最新
+        </button>
+        <button
+          class="sort-btn"
+          :class="{ active: currentSort === 'likes' }"
+          @click="currentSort = 'likes'; currentPage = 1; loadPosts()"
+        >
+          最热
+        </button>
+      </div>
     </div>
 
     <!-- 瀑布流帖子列表 -->
     <div v-loading="loading" class="waterfall" :class="{ 'single-col': posts.length === 0 }">
       <div v-if="posts.length === 0 && !loading" class="empty-state">
-        <div class="empty-icon"> ocean </div>
+        <div class="empty-icon">🌊</div>
         <p>暂无动态，快来发布第一条吧！</p>
       </div>
 
@@ -46,7 +71,7 @@
             loading="lazy"
           />
           <span v-if="post.parsedImages.length > 1" class="image-count">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><rect x="3" y="3" width="18" height="18" rx="3" stroke="white" stroke-width="2" fill="none"/><rect x="7" y="7" width="14" height="14" rx="3" fill="white" opacity="0.5"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="3" y="3" width="18" height="18" rx="3" stroke="white" stroke-width="2" fill="none"/><rect x="7" y="7" width="14" height="14" rx="3" fill="white" opacity="0.5"/></svg>
             {{ post.parsedImages.length }}
           </span>
           <span v-if="post.postType !== 'NORMAL'" class="type-badge" :class="post.postType">
@@ -62,26 +87,22 @@
         <div class="card-body">
           <p class="card-text">{{ post.content }}</p>
 
-          <!-- 底部：用户 + 操作 -->
+          <!-- 底部：用户 + 点赞 -->
           <div class="card-footer">
-            <div class="card-user">
-              <div class="card-avatar" @click.stop="goToUser(post.userId)">
+            <div class="card-user" @click.stop="goToUser(post.userId)">
+              <div class="card-avatar">
                 {{ post.username?.charAt(0)?.toUpperCase() || 'U' }}
               </div>
-              <span class="card-username" @click.stop="goToUser(post.userId)">{{ post.username || '用户' }}</span>
+              <span class="card-username">{{ post.username || '用户' }}</span>
             </div>
             <div class="card-actions" @click.stop>
               <button
-                class="card-action"
+                class="like-btn"
                 :class="{ liked: post.isLiked }"
                 @click="handleLike(post)"
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" :fill="post.isLiked ? '#ff4757' : 'none'" :stroke="post.isLiked ? '#ff4757' : '#948f86'" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                <span>{{ post.likeCount || 0 }}</span>
-              </button>
-              <button class="card-action" @click.stop="goToDetail(post.id)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <span>{{ post.commentCount || 0 }}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" :fill="post.isLiked ? '#ff4757' : 'none'" :stroke="post.isLiked ? '#ff4757' : '#999'" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <span v-if="post.likeCount">{{ post.likeCount }}</span>
               </button>
               <el-popconfirm
                 v-if="post.userId === userStore.userId"
@@ -89,8 +110,8 @@
                 @confirm="handleDeletePost(post)"
               >
                 <template #reference>
-                  <button class="card-action delete" @click.stop>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <button class="delete-btn" @click.stop>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </template>
               </el-popconfirm>
@@ -150,7 +171,7 @@
           accept="image/*"
           class="create-upload"
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
         </el-upload>
         <p class="upload-hint">最多 9 张，单张不超过 10MB</p>
       </div>
@@ -185,14 +206,16 @@ const loading = ref(false)
 const creating = ref(false)
 const posts = ref<(CommunityPost & { username?: string; parsedImages?: string[]; isLiked?: boolean; isFavorited?: boolean })[]>([])
 const currentPage = ref(1)
-const pageSize = 12
+const pageSize = 20
 const total = ref(0)
 const currentFilter = ref('ALL')
+const currentSort = ref('newest')
+const searchKeyword = ref('')
 const showCreateDialog = ref(false)
 const uploadRef = ref()
 
 const tabs = [
-  { label: '全部', value: 'ALL' },
+  { label: '推荐', value: 'ALL' },
   { label: '日常', value: 'NORMAL' },
   { label: '观测', value: 'OBSERVATION' },
   { label: '识别', value: 'RECOGNITION' },
@@ -220,6 +243,12 @@ async function loadPosts() {
       params.myPending = true
     } else if (currentFilter.value !== 'ALL') {
       params.postType = currentFilter.value
+    }
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value.trim()
+    }
+    if (currentSort.value === 'likes') {
+      params.orderBy = 'HOT'
     }
     const res: any = await getPostList(params)
     const records = res.data?.records || res.data || []
@@ -331,115 +360,201 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .feed-page {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
 }
 
-/* ══════ 顶部 ══════ */
-.feed-header {
+/* ══════ 顶部发布栏 ══════ */
+.feed-topbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
-.header-left {
-  h2 {
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--neutral-800);
-    letter-spacing: -0.02em;
-    margin-bottom: 2px;
+.search-input-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-card);
+  border: 1px solid var(--neutral-100);
+  border-radius: 20px;
+  padding: 0 16px;
+  transition: all 0.2s;
+
+  &:focus-within {
+    border-color: var(--primary-lighter);
+    box-shadow: 0 0 0 2px rgba(26, 107, 138, 0.08);
   }
-  .header-desc {
-    font-size: 13px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 14px;
+  color: var(--neutral-700);
+  padding: 10px 0;
+  font-family: inherit;
+
+  &::placeholder {
     color: var(--neutral-400);
   }
 }
 
-.create-btn {
+.search-clear {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 22px;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--neutral-75);
+  }
+}
+
+.publish-btn {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: var(--gradient-ocean);
   color: #fff;
   border: none;
-  border-radius: 24px;
-  font-size: 14px;
-  font-weight: 600;
+  border-radius: 50%;
   cursor: pointer;
-  transition: all 0.25s var(--ease-out);
-  box-shadow: 0 4px 14px rgba(26, 107, 138, 0.3);
+  transition: transform 0.2s;
+  flex-shrink: 0;
 
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(26, 107, 138, 0.4);
-  }
-
-  &:active {
-    transform: translateY(0);
+    transform: scale(1.05);
   }
 }
 
-/* ══════ 筛选标签 ══════ */
-.feed-tabs {
+/* ══════ 工具栏（筛选 + 排序）══════ */
+.feed-toolbar {
   display: flex;
-  gap: 6px;
-  margin-bottom: 20px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--neutral-100);
+  margin-bottom: 16px;
 }
 
 .tab-item {
-  padding: 7px 18px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 20px;
-  font-size: 13px;
+  border-radius: 0;
+  font-size: 14px;
   font-weight: 500;
   color: var(--neutral-500);
-  background: var(--surface-card);
+  background: transparent;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid var(--neutral-100);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 24px;
+    height: 2px;
+    background: var(--neutral-800);
+    border-radius: 1px;
+    transition: transform 0.2s;
+  }
 
   &:hover {
-    color: var(--primary-main);
-    border-color: var(--primary-lighter);
+    color: var(--neutral-700);
   }
 
   &.active {
-    background: var(--primary-main);
+    color: var(--neutral-800);
+    font-weight: 600;
+
+    &::after {
+      transform: translateX(-50%) scaleX(1);
+    }
+  }
+}
+
+.feed-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.sort-buttons {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.sort-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--neutral-500);
+  background: var(--neutral-50);
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    color: var(--neutral-700);
+    background: var(--neutral-100);
+  }
+
+  &.active {
     color: #fff;
-    border-color: var(--primary-main);
-    box-shadow: 0 2px 8px rgba(26, 107, 138, 0.25);
+    background: var(--neutral-800);
   }
 }
 
 /* ══════ 瀑布流 ══════ */
 .waterfall {
-  columns: 2;
-  column-gap: 14px;
+  columns: 4;
+  column-gap: 12px;
 
   &.single-col {
     columns: 1;
   }
 }
 
+@media (max-width: 1200px) {
+  .waterfall { columns: 3; }
+}
+@media (max-width: 90px) {
+  .waterfall { columns: 2; }
+}
+@media (max-width: 600px) {
+  .waterfall { columns: 2; column-gap: 8px; }
+}
+
 .feed-card {
   break-inside: avoid;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   background: var(--surface-card);
-  border-radius: var(--radius-lg);
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.3s var(--ease-out);
-  border: 1px solid var(--neutral-75);
+  border: none;
   display: inline-block;
   width: 100%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 
   &:hover {
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-3px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   }
 }
 
@@ -453,12 +568,12 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 140px;
-    background: linear-gradient(135deg, #e8f4f8 0%, #f0f4f8 100%);
+    height: 120px;
+    background: linear-gradient(135deg, #f0f7fa 0%, #e8f4f8 100%);
 
     .no-image-icon {
-      font-size: 36px;
-      opacity: 0.5;
+      font-size: 32px;
+      opacity: 0.4;
     }
   }
 }
@@ -467,11 +582,6 @@ onMounted(() => {
   width: 100%;
   display: block;
   object-fit: cover;
-  transition: transform 0.4s var(--ease-out);
-
-  .feed-card:hover & {
-    transform: scale(1.03);
-  }
 }
 
 .image-count {
@@ -481,13 +591,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 3px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .type-badge {
@@ -496,31 +606,19 @@ onMounted(() => {
   left: 8px;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
   backdrop-filter: blur(8px);
 
-  &.NORMAL {
-    background: rgba(26, 107, 138, 0.85);
-    color: #fff;
-  }
-  &.OBSERVATION {
-    background: rgba(45, 138, 94, 0.85);
-    color: #fff;
-  }
-  &.RECOGNITION {
-    background: rgba(224, 120, 80, 0.85);
-    color: #fff;
-  }
-  &.pending {
-    background: rgba(204, 138, 48, 0.85);
-    color: #fff;
-  }
+  &.NORMAL { background: rgba(26, 107, 138, 0.85); color: #fff; }
+  &.OBSERVATION { background: rgba(45, 138, 94, 0.85); color: #fff; }
+  &.RECOGNITION { background: rgba(224, 120, 80, 0.85); color: #fff; }
+  &.pending { background: rgba(204, 138, 48, 0.85); color: #fff; }
 }
 
 /* ══════ 内容区 ══════ */
 .card-body {
-  padding: 12px 14px 10px;
+  padding: 10px 12px 8px;
 }
 
 .card-text {
@@ -530,10 +628,10 @@ onMounted(() => {
   white-space: pre-wrap;
   word-break: break-word;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 /* ══════ 底部 ══════ */
@@ -541,8 +639,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 8px;
-  border-top: 1px solid var(--neutral-75);
 }
 
 .card-user {
@@ -550,38 +646,33 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  cursor: pointer;
 }
 
 .card-avatar {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: var(--gradient-ocean);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  cursor: pointer;
-  transition: transform 0.2s;
-
-  &:hover {
-    transform: scale(1.1);
-  }
 }
 
 .card-username {
   font-size: 12px;
   font-weight: 500;
-  color: var(--neutral-600);
-  cursor: pointer;
+  color: var(--neutral-500);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100px;
 
-  &:hover {
+  .card-user:hover & {
     color: var(--primary-main);
   }
 }
@@ -589,11 +680,11 @@ onMounted(() => {
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
-.card-action {
+.like-btn {
   display: flex;
   align-items: center;
   gap: 3px;
@@ -602,20 +693,36 @@ onMounted(() => {
   cursor: pointer;
   font-size: 12px;
   color: var(--neutral-400);
-  padding: 3px 6px;
-  border-radius: var(--radius-xs);
+  padding: 2px 4px;
+  border-radius: 6px;
   transition: all 0.2s;
 
   &:hover {
-    color: var(--primary-main);
-    background: var(--primary-soft);
+    color: #ff4757;
+    background: rgba(255, 71, 87, 0.06);
   }
 
   &.liked {
     color: #ff4757;
   }
+}
 
-  &.delete:hover {
+.delete-btn {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: all 0.2s;
+
+  .feed-card:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
     color: var(--danger);
     background: rgba(196, 53, 53, 0.06);
   }
@@ -660,11 +767,12 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 80px 20px;
+  columns: 1;
 
   .empty-icon {
     font-size: 48px;
-    margin-bottom: 16px;
-    opacity: 0.4;
+    margin-bottom: 12px;
+    opacity: 0.5;
   }
 
   p {
@@ -767,22 +875,57 @@ onMounted(() => {
 }
 
 /* ══════ 响应式 ══════ */
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .feed-page {
     padding: 0 4px;
   }
 
-  .waterfall {
-    columns: 2;
-    column-gap: 10px;
+  .feed-topbar {
+    gap: 8px;
   }
 
-  .feed-card {
-    margin-bottom: 10px;
+  .search-input-box {
+    padding: 0 12px;
+  }
+
+  .search-input {
+    font-size: 13px;
+    padding: 8px 0;
+  }
+
+  .publish-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .feed-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .feed-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tab-item {
+    padding: 8px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .sort-buttons {
+    align-self: flex-end;
   }
 
   .card-body {
-    padding: 10px 10px 8px;
+    padding: 8px 10px 6px;
   }
 
   .card-text {

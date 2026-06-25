@@ -51,7 +51,7 @@ export const getUserProfile = (userId: number) => http.get(`/community/user/${us
 
 export const updateProfile = (data: any) => http.put('/community/profile', data)
 
-export const updateBio = (data: any) => http.put('/community/bio', data)
+export const updateBio = (data: any) => http.put('/community/bio', null, { params: data })
 
 export const getFollowingList = () => http.get('/community/following')
 
