@@ -36,7 +36,6 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/species/statistics",
                         "/api/species/{id}/distributions",
                         "/api/community/post/list",
-                        "/api/community/post/{id}",
                         // 可视化查询接口放行，但导出接口 /api/visual/export/** 需登录
                         "/api/visual/dashboard",
                         "/api/visual/species/**",
@@ -56,7 +55,6 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/species/statistics",
                         "/api/species/{id}/distributions",
                         "/api/community/post/list",
-                        "/api/community/post/{id}",
                         // 可视化查询接口放行，但导出接口 /api/visual/export/** 需登录
                         "/api/visual/dashboard",
                         "/api/visual/species/**",

@@ -105,7 +105,7 @@
                 <span v-if="post.likeCount">{{ post.likeCount }}</span>
               </button>
               <el-popconfirm
-                v-if="post.userId === userStore.userId"
+                v-if="post.userId === userStore.userId || userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'"
                 title="确定删除？"
                 @confirm="handleDeletePost(post)"
               >

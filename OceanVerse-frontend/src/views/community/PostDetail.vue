@@ -8,7 +8,7 @@
       <span class="nav-title">帖子详情</span>
       <div class="nav-right">
         <el-popconfirm
-          v-if="post?.userId === userStore.userId"
+          v-if="post?.userId === userStore.userId || userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'"
           title="确定删除这条帖子？"
           @confirm="handleDeletePost"
         >
@@ -123,7 +123,7 @@
                 {{ comment.likeCount || 0 }}
               </button>
               <el-popconfirm
-                v-if="comment.userId === userStore.userId"
+                v-if="comment.userId === userStore.userId || userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'"
                 title="确定删除？"
                 @confirm="handleDeleteComment(comment)"
               >
