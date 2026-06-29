@@ -575,8 +575,10 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Object getFollowingList(String token) {
-        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+    public Object getFollowingList(Long userId, String token) {
+        if (userId == null) {
+            userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        }
         List<CommunityFollow> follows = followMapper.selectList(
                 new LambdaQueryWrapper<CommunityFollow>()
                         .eq(CommunityFollow::getUserId, userId)
@@ -600,8 +602,10 @@ public class CommunityServiceImpl implements CommunityService {
     }
 
     @Override
-    public Object getFollowerList(String token) {
-        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+    public Object getFollowerList(Long userId, String token) {
+        if (userId == null) {
+            userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        }
         List<CommunityFollow> followers = followMapper.selectList(
                 new LambdaQueryWrapper<CommunityFollow>()
                         .eq(CommunityFollow::getFollowUserId, userId)
