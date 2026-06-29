@@ -760,6 +760,8 @@ onMounted(loadData)
 .species-detail-page {
   animation: fadeIn 0.3s ease;
   max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .page-header {
