@@ -1200,12 +1200,12 @@ SELECT 1, `id` FROM `sys_permission`;
 -- 补充: user:update(13), user:status(17) — 用户状态管理
 --       species:list(30)                    — 内容查看
 --       community(4), post:audit(41), delete(42), comment:delete(43) — 内容审核
---       permission:list(70), visual:export(51) — 辅助管理
+--       permission:list(70), visual(5) — 辅助管理
 INSERT IGNORE INTO `sys_role_permission` (`role_id`, `permission_id`) VALUES
 (2, 13),  (2, 17),
 (2, 30),
 (2, 4),  (2, 41),  (2, 42),  (2, 43),
-(2, 51),  (2, 70);
+(2, 5),  (2, 70);
 
 -- ── RESEARCHER（role_id=3）：物种管理 + 观测录入 ──
 -- 原有: 3,30,31,32,33, 4（40 已由上方 DELETE 清理）

@@ -65,9 +65,12 @@ http.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    // 从 Blob 响应中提取错误消息
+    const errorMessage = await extractErrorMessage(error)
+
     // 403 Forbidden — 权限不足，不触发登录重定向
     if (error.response.status === 403) {
-      const message = error.response?.data?.message || '权限不足，无法执行此操作'
+      const message = errorMessage || '权限不足，无法执行此操作'
       const now = Date.now()
 
       // 3秒内不重复显示相同的错误消息
@@ -131,10 +134,25 @@ http.interceptors.response.use(
     }
 
     if (error.response?.status !== 401) {
-      ElMessage.error(error.response?.data?.message || error.message || '请求失败')
+      ElMessage.error(errorMessage || error.message || '请求失败')
     }
     return Promise.reject(error)
   }
 )
+
+/** 从响应中提取错误消息，处理 blob responseType 的情况 */
+async function extractErrorMessage(error: any): Promise<string | undefined> {
+  const config = error.config || error.response?.config
+  if (config?.responseType === 'blob' && error.response?.data instanceof Blob) {
+    try {
+      const text = await error.response.data.text()
+      const json = JSON.parse(text)
+      return json.message
+    } catch {
+      return undefined
+    }
+  }
+  return error.response?.data?.message
+}
 
 export default http
