@@ -91,7 +91,8 @@
           <div class="card-footer">
             <div class="card-user" @click.stop="goToUser(post.userId)">
               <div class="card-avatar">
-                {{ post.username?.charAt(0)?.toUpperCase() || 'U' }}
+                <img v-if="post.avatarUrl" :src="post.avatarUrl" class="avatar-img" />
+                <span v-else>{{ post.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
               </div>
               <span class="card-username">{{ post.username || '用户' }}</span>
             </div>
@@ -661,6 +662,13 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 .card-username {

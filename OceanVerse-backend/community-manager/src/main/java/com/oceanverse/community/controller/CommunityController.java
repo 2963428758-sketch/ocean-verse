@@ -31,6 +31,14 @@ public class    CommunityController {
         return Result.success();
     }
 
+    @PutMapping("/post/{id}")
+    public Result<Void> updatePost(@PathVariable Long id,
+                                    @Valid @RequestBody PostCreateDTO dto,
+                                    @RequestHeader("Authorization") String token) {
+        communityService.updatePost(id, dto, token);
+        return Result.success();
+    }
+
     @GetMapping("/post/list")
     public Result<Object> listPosts(PostQueryDTO query,
                                     @RequestHeader(value = "Authorization", required = false) String token) {

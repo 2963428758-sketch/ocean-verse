@@ -14,7 +14,10 @@
       <div v-for="post in posts" :key="post.id" class="approval-card">
         <div class="card-header">
           <div class="user-info">
-            <div class="avatar">{{ post.username?.charAt(0)?.toUpperCase() || 'U' }}</div>
+            <div class="avatar">
+              <img v-if="post.avatarUrl" :src="post.avatarUrl" class="avatar-img" />
+              <span v-else>{{ post.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
+            </div>
             <div class="meta">
               <span class="username">{{ post.username || '用户' }}</span>
               <span class="time">{{ formatTime(post.createTime) }}</span>
@@ -200,6 +203,13 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 .meta {

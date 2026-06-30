@@ -4,6 +4,8 @@ import http from '@/utils/http'
 
 export const createPost = (data: any) => http.post('/community/post', data)
 
+export const updatePost = (id: number, data: any) => http.put(`/community/post/${id}`, data)
+
 export const getPostList = (params: any) => http.get('/community/post/list', { params })
 
 export const getPostDetail = (id: number) => http.get(`/community/post/${id}`)

@@ -6,6 +6,7 @@ import com.oceanverse.pojo.dto.PostQueryDTO;
 
 public interface CommunityService {
     void createPost(PostCreateDTO dto, String token);
+    void updatePost(Long id, PostCreateDTO dto, String token);
     Object listPosts(PostQueryDTO query, String token);
     Object getPostDetail(Long id, String token);
     void deletePost(Long id, String token);

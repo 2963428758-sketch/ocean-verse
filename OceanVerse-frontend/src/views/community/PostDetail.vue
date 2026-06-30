@@ -7,6 +7,13 @@
       </button>
       <span class="nav-title">帖子详情</span>
       <div class="nav-right">
+        <button
+          v-if="isRejectedPost"
+          class="nav-action edit"
+          @click="openEditDialog"
+        >
+          编辑重提
+        </button>
         <el-popconfirm
           v-if="post?.userId === userStore.userId || userStore.role === 'SUPER_ADMIN' || userStore.role === 'ADMIN'"
           title="确定删除这条帖子？"
@@ -24,7 +31,8 @@
       <div class="author-bar">
         <div class="author-info" @click="$router.push(`/community/user/${post.userId}`)">
           <div class="author-avatar">
-            {{ post.username?.charAt(0)?.toUpperCase() || 'U' }}
+            <img v-if="post.avatarUrl" :src="post.avatarUrl" class="avatar-img" />
+            <span v-else>{{ post.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
           </div>
           <div class="author-meta">
             <span class="author-name">{{ post.username || '用户' }}</span>
@@ -34,6 +42,14 @@
         <span v-if="post.postType !== 'NORMAL'" class="type-tag" :class="post.postType">
           {{ postTypeLabel(post.postType) }}
         </span>
+      </div>
+
+      <!-- 被驳回提示 -->
+      <div v-if="isRejectedPost" class="rejected-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <span>审核未通过，请修改后重新提交</span>
       </div>
 
       <!-- 文字内容 -->
@@ -105,7 +121,8 @@
         </div>
         <div v-for="comment in comments" :key="comment.id" :id="`comment-${comment.id}`" class="comment-item">
           <div class="comment-avatar" @click="$router.push(`/community/user/${comment.userId}`)">
-            {{ comment.username?.charAt(0)?.toUpperCase() || 'U' }}
+            <img v-if="comment.avatarUrl" :src="comment.avatarUrl" class="avatar-img" />
+            <span v-else>{{ comment.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
           </div>
           <div class="comment-body">
             <div class="comment-meta">
@@ -136,6 +153,27 @@
         </div>
       </div>
     </div>
+
+    <!-- 编辑帖子弹窗 -->
+    <el-dialog v-model="showEditDialog" title="编辑帖子" width="600px" :close-on-click-modal="false">
+      <el-form v-if="editingPost">
+        <el-form-item label="内容">
+          <el-input v-model="editContent" type="textarea" :rows="5" placeholder="请输入帖子内容" />
+        </el-form-item>
+        <el-form-item label="图片">
+          <div class="edit-images">
+            <div v-for="(img, idx) in editImages" :key="idx" class="edit-image-item">
+              <img :src="img" />
+              <el-icon class="remove-btn" @click="editImages.splice(idx, 1)"><Close /></el-icon>
+            </div>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">重新提交</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -143,9 +181,10 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Close } from '@element-plus/icons-vue'
 import {
   getPostDetail, getCommentList, createComment, deleteComment, deletePost,
-  toggleLike, toggleFavorite
+  toggleLike, toggleFavorite, updatePost
 } from '@/api/community'
 import type { CommunityPost, CommunityComment } from '@/types'
 import { useUserStore } from '@/stores/user'
@@ -163,6 +202,17 @@ const comments = ref<(CommunityComment & { username?: string; isLiked?: boolean 
 const commentContent = ref('')
 const isLiked = ref(false)
 const isFavorited = ref(false)
+
+// 编辑帖子
+const showEditDialog = ref(false)
+const editingPost = ref<CommunityPost | null>(null)
+const editContent = ref('')
+const editImages = ref<string[]>([])
+const editLoading = ref(false)
+
+const isRejectedPost = computed(() => {
+  return post.value?.userId === userStore.userId && (post.value?.status === 4 || post.value?.status === 0)
+})
 
 const parsedImages = computed(() => {
   if (!post.value?.imageUrls) return []
@@ -275,6 +325,41 @@ function previewImage(idx: number) {
   // Simple preview - could use el-image-viewer
 }
 
+// 编辑帖子
+function openEditDialog() {
+  if (!post.value) return
+  editingPost.value = post.value
+  editContent.value = post.value.content || ''
+  editImages.value = parseImages(post.value.imageUrls)
+  showEditDialog.value = true
+}
+
+async function handleEditSubmit() {
+  if (!editingPost.value) return
+  if (!editContent.value.trim()) {
+    ElMessage.warning('请输入帖子内容')
+    return
+  }
+  editLoading.value = true
+  try {
+    await updatePost(editingPost.value.id, {
+      content: editContent.value.trim(),
+      postType: editingPost.value.postType || 'NORMAL',
+      imageUrls: JSON.stringify(editImages.value)
+    })
+    ElMessage.success('已重新提交审核')
+    showEditDialog.value = false
+    loadPost()
+  } catch (e) { console.error(e) }
+  finally { editLoading.value = false }
+}
+
+function parseImages(imageUrls?: string): string[] {
+  if (!imageUrls) return []
+  try { const a = JSON.parse(imageUrls); return Array.isArray(a) ? a.filter(Boolean) : [] }
+  catch { return imageUrls ? [imageUrls] : [] }
+}
+
 function postTypeLabel(type: string): string {
   return { NORMAL: '日常', OBSERVATION: '观测', RECOGNITION: '识别' }[type] || type
 }
@@ -357,6 +442,15 @@ onMounted(() => {
   border-radius: var(--radius-sm);
   transition: all 0.2s;
 
+  &.edit {
+    color: var(--primary-main);
+    font-weight: 500;
+
+    &:hover {
+      background: var(--primary-soft);
+    }
+  }
+
   &.delete:hover {
     color: var(--danger);
     background: rgba(196, 53, 53, 0.06);
@@ -400,9 +494,16 @@ onMounted(() => {
   justify-content: center;
   flex-shrink: 0;
   transition: transform 0.2s;
+  overflow: hidden;
 
   &:hover {
     transform: scale(1.05);
+  }
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 }
 
@@ -506,6 +607,61 @@ onMounted(() => {
 
   &:nth-child(3):hover {
     color: var(--accent-warm);
+  }
+}
+
+/* ══════ 被驳回提示 ══════ */
+.rejected-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: #fef2f2;
+  border-left: 3px solid #e74c3c;
+  margin: 0 18px;
+  border-radius: var(--radius-sm);
+
+  span {
+    font-size: 13px;
+    color: #e74c3c;
+    font-weight: 500;
+  }
+}
+
+/* ══════ 编辑图片 ══════ */
+.edit-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.edit-image-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
   }
 }
 
@@ -653,10 +809,17 @@ onMounted(() => {
   justify-content: center;
   flex-shrink: 0;
   cursor: pointer;
+  overflow: hidden;
 
   &:hover {
     background: var(--primary-soft);
     color: var(--primary-main);
+  }
+
+  .avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 }
 

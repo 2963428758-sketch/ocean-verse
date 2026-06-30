@@ -66,6 +66,7 @@
     <!-- Tab 切换 -->
     <div class="profile-tabs">
       <button :class="{ active: showTab === 'posts' }" @click="showTab = 'posts'">笔记</button>
+      <button :class="{ active: showTab === 'rejected' }" @click="showTab = 'rejected'; loadRejectedPosts()">未通过</button>
       <button :class="{ active: showTab === 'following' }" @click="showTab = 'following'; loadFollowing()">关注</button>
       <button :class="{ active: showTab === 'followers' }" @click="showTab = 'followers'; loadFollowers()">粉丝</button>
       <button :class="{ active: showTab === 'favorites' }" @click="showTab = 'favorites'; loadFavorites()">收藏</button>
@@ -107,6 +108,35 @@
         <button class="page-btn" :disabled="postPage <= 1" @click="postPage--; loadMyPosts()">上一页</button>
         <span class="page-info">{{ postPage }} / {{ Math.ceil(totalPosts / pageSize) }}</span>
         <button class="page-btn" :disabled="postPage >= Math.ceil(totalPosts / pageSize)" @click="postPage++; loadMyPosts()">下一页</button>
+      </div>
+    </div>
+
+    <!-- 未通过的帖子 -->
+    <div v-if="showTab === 'rejected'" class="posts-section">
+      <div v-loading="loadingRejected" class="waterfall" :class="{ 'single-col': rejectedPosts.length === 0 }">
+        <div v-if="rejectedPosts.length === 0 && !loadingRejected" class="empty-state">
+          <p>暂无未通过的帖子</p>
+        </div>
+        <div v-for="post in rejectedPosts" :key="post?.id" class="feed-card">
+          <div v-if="parseImages(post?.imageUrls).length" class="card-image-wrap" @click="$router.push(`/community/post/${post?.id}`)">
+            <img :src="parseImages(post?.imageUrls)[0]" class="card-image" loading="lazy" />
+            <span class="status-badge rejected">未通过</span>
+          </div>
+          <div v-else class="card-image-wrap no-image" @click="$router.push(`/community/post/${post?.id}`)">
+            <span>📝</span>
+            <span class="status-badge rejected">未通过</span>
+          </div>
+          <div class="card-body" @click="$router.push(`/community/post/${post?.id}`)">
+            <p class="card-text">{{ post?.content }}</p>
+            <div class="card-footer">
+              <span class="card-time">{{ formatTime(post?.createTime) }}</span>
+            </div>
+          </div>
+          <button class="edit-btn" @click.stop="openEditDialog(post)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            编辑重提
+          </button>
+        </div>
       </div>
     </div>
 
@@ -218,6 +248,27 @@
       </div>
     </div>
 
+    <!-- 编辑帖子弹窗 -->
+    <el-dialog v-model="showEditDialog" title="编辑帖子" width="600px" :close-on-click-modal="false">
+      <el-form v-if="editingPost">
+        <el-form-item label="内容">
+          <el-input v-model="editContent" type="textarea" :rows="5" placeholder="请输入帖子内容" />
+        </el-form-item>
+        <el-form-item label="图片">
+          <div class="edit-images">
+            <div v-for="(img, idx) in editImages" :key="idx" class="edit-image-item">
+              <img :src="img" />
+              <el-icon class="remove-btn" @click="editImages.splice(idx, 1)"><Close /></el-icon>
+            </div>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">重新提交</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 背景图裁切弹窗 -->
     <el-dialog v-model="showCropper" title="裁切背景图" width="800px" :close-on-click-modal="false">
       <div class="cropper-container">
@@ -303,11 +354,12 @@
 import { ref, computed, reactive, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Close } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import {
   getPostList, getUserProfile, updateProfile, updateBio,
   getFollowingList, getFollowerList, getLikedList, getFavoriteList,
-  uploadAvatar, uploadBackground
+  uploadAvatar, uploadBackground, updatePost
 } from '@/api/community'
 import { updatePassword, deleteAccount, updateProfile as updateUserProfile } from '@/api/user'
 import type { CommunityPost } from '@/types'
@@ -341,6 +393,9 @@ const loadingPosts = ref(false)
 const postPage = ref(1)
 const pageSize = 20
 const totalPosts = ref(0)
+
+const rejectedPosts = ref<CommunityPost[]>([])
+const loadingRejected = ref(false)
 
 const loadingFollow = ref(false)
 const followingList = ref<{ userId: number; username: string; avatarUrl?: string }[]>([])
@@ -402,10 +457,21 @@ async function loadMyPosts() {
   loadingPosts.value = true
   try {
     const res: any = await getPostList({ userId: userStore.userId, page: postPage.value, size: pageSize })
-    myPosts.value = (res.data?.records || res.data || []).filter(Boolean)
+    const allPosts = (res.data?.records || res.data || []).filter(Boolean)
+    myPosts.value = allPosts.filter((p: any) => p.status !== 4 && p.status !== 0)
     totalPosts.value = res.data?.total || 0
   } catch (e) { console.error(e) }
   finally { loadingPosts.value = false }
+}
+
+async function loadRejectedPosts() {
+  loadingRejected.value = true
+  try {
+    const res: any = await getPostList({ userId: userStore.userId, page: 1, size: 100 })
+    const allPosts = (res.data?.records || res.data || []).filter(Boolean)
+    rejectedPosts.value = allPosts.filter((p: any) => p.status === 4 || p.status === 0)
+  } catch (e) { console.error(e) }
+  finally { loadingRejected.value = false }
 }
 
 async function loadFollowing() {
@@ -540,6 +606,41 @@ async function saveBio() {
     await updateBio({ bio: val })
     ElMessage.success('签名已更新')
   } catch (e) { console.error(e) }
+}
+
+// 编辑帖子
+const showEditDialog = ref(false)
+const editingPost = ref<CommunityPost | null>(null)
+const editContent = ref('')
+const editImages = ref<string[]>([])
+const editLoading = ref(false)
+
+function openEditDialog(post: CommunityPost) {
+  editingPost.value = post
+  editContent.value = post.content || ''
+  editImages.value = parseImages(post.imageUrls)
+  showEditDialog.value = true
+}
+
+async function handleEditSubmit() {
+  if (!editingPost.value) return
+  if (!editContent.value.trim()) {
+    ElMessage.warning('请输入帖子内容')
+    return
+  }
+  editLoading.value = true
+  try {
+    await updatePost(editingPost.value.id, {
+      content: editContent.value.trim(),
+      postType: editingPost.value.postType || 'NORMAL',
+      imageUrls: JSON.stringify(editImages.value)
+    })
+    ElMessage.success('已重新提交审核')
+    showEditDialog.value = false
+    loadMyPosts()
+    loadRejectedPosts()
+  } catch (e) { console.error(e) }
+  finally { editLoading.value = false }
 }
 
 function parseImages(imageUrls?: string): string[] {
@@ -920,6 +1021,66 @@ onMounted(() => {
   border-radius: 8px;
   backdrop-filter: blur(8px);
   &.pending { background: rgba(204, 138, 48, 0.85); color: #fff; }
+  &.rejected { background: rgba(231, 76, 60, 0.85); color: #fff; }
+}
+
+.edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: calc(100% - 24px);
+  margin: 0 12px 12px;
+  padding: 8px 0;
+  border: 1px solid var(--primary-main);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--primary-main);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--primary-soft);
+  }
+}
+
+/* 编辑图片 */
+.edit-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.edit-image-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 6px;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-btn {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+  }
 }
 
 .card-body { padding: 10px 12px 8px; }
@@ -940,6 +1101,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.card-time {
+  font-size: 11px;
+  color: var(--neutral-400);
+  flex-shrink: 0;
 }
 
 .card-user {

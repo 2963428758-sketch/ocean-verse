@@ -110,6 +110,9 @@ async function handleRead(item: CommunityNotification) {
   } else if (item.type === 'FOLLOW' && item.relatedId) {
     // 关注通知 -> 用户主页
     router.push({ path: `/community/user/${item.relatedId}` })
+  } else if (item.type === 'SYSTEM' && item.targetPostId) {
+    // 系统通知（帖子审核通过/未通过）-> 帖子详情页
+    router.push({ path: `/community/post/${item.targetPostId}` })
   }
 }
 

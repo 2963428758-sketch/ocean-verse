@@ -71,6 +71,33 @@ public class CommunityServiceImpl implements CommunityService {
 
     @Override
     @Transactional
+    public void updatePost(Long id, PostCreateDTO dto, String token) {
+        Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
+        CommunityPost post = postMapper.selectById(id);
+        if (post == null) {
+            throw BusinessException.notFound("动态");
+        }
+        // 只有帖子作者可以编辑
+        if (!post.getUserId().equals(userId)) {
+            throw BusinessException.forbidden();
+        }
+        // 只有审核未通过(status=4 或 status=0)的帖子可以重新编辑提交
+        if (post.getStatus() != 4 && post.getStatus() != 0) {
+            throw BusinessException.fail("只能编辑审核未通过的帖子");
+        }
+        post.setContent(dto.getContent());
+        post.setPostType(dto.getPostType() != null ? dto.getPostType() : "NORMAL");
+        post.setRelatedSpeciesId(dto.getRelatedSpeciesId());
+        post.setRelatedObservationId(dto.getRelatedObservationId());
+        post.setImageUrls(dto.getImageUrls());
+        post.setStatus(3); // 重新提交审核
+        post.setUpdateTime(LocalDateTime.now());
+        postMapper.updateById(post);
+        log.info("用户 {} 重新提交动态: {}", userId, post.getId());
+    }
+
+    @Override
+    @Transactional
     public void deletePost(Long id, String token) {
         Long userId = JwtUtil.getUserId(token.replace("Bearer ", ""));
         CommunityPost post = postMapper.selectById(id);
@@ -124,11 +151,11 @@ public class CommunityServiceImpl implements CommunityService {
         if (post == null) {
             throw BusinessException.notFound("动态");
         }
-        post.setStatus(0);
+        post.setStatus(4); // 审核未通过
         postMapper.updateById(post);
         // 通知发布者
         sendNotification(post.getUserId(), "SYSTEM", "帖子审核未通过",
-                "你的动态未通过审核，如有疑问请联系管理员", post.getId(), post.getId(), null);
+                "你的动态未通过审核，可前往个人主页重新编辑提交", post.getId(), post.getId(), null);
     }
 
     @Override
@@ -150,13 +177,18 @@ public class CommunityServiceImpl implements CommunityService {
             }
             wrapper.eq(CommunityPost::getUserId, currentUserId)
                     .eq(CommunityPost::getStatus, 3);
+        } else if (query.getUserId() != null) {
+            // 指定用户帖子
+            wrapper.eq(CommunityPost::getUserId, query.getUserId());
+            // 如果是查看自己的帖子，显示所有状态
+            if (currentUserId != null && query.getUserId().equals(currentUserId)) {
+                wrapper.in(CommunityPost::getStatus, 0, 1, 3, 4);
+            } else {
+                wrapper.eq(CommunityPost::getStatus, 1);
+            }
         } else {
             // 正常广场只显示已审核的帖子
             wrapper.eq(CommunityPost::getStatus, 1);
-        }
-
-        if (query.getUserId() != null) {
-            wrapper.eq(CommunityPost::getUserId, query.getUserId());
         }
         if (query.getPostType() != null) {
             wrapper.eq(CommunityPost::getPostType, query.getPostType());
@@ -672,17 +704,25 @@ public class CommunityServiceImpl implements CommunityService {
     private void fillUsernames(List<CommunityPost> posts) {
         if (posts == null || posts.isEmpty()) return;
         Set<Long> userIds = posts.stream().map(CommunityPost::getUserId).collect(Collectors.toSet());
-        Map<Long, String> usernameMap = userMapper.selectBatchIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
-        posts.forEach(p -> p.setUsername(usernameMap.getOrDefault(p.getUserId(), "用户")));
+        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        posts.forEach(p -> {
+            User u = userMap.get(p.getUserId());
+            p.setUsername(u != null ? u.getUsername() : "用户");
+            p.setAvatarUrl(u != null ? u.getAvatarUrl() : null);
+        });
     }
 
     private void fillCommentUsernames(List<CommunityComment> comments) {
         if (comments == null || comments.isEmpty()) return;
         Set<Long> userIds = comments.stream().map(CommunityComment::getUserId).collect(Collectors.toSet());
-        Map<Long, String> usernameMap = userMapper.selectBatchIds(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
-        comments.forEach(c -> c.setUsername(usernameMap.getOrDefault(c.getUserId(), "用户")));
+        Map<Long, User> userMap = userMapper.selectBatchIds(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+        comments.forEach(c -> {
+            User u = userMap.get(c.getUserId());
+            c.setUsername(u != null ? u.getUsername() : "用户");
+            c.setAvatarUrl(u != null ? u.getAvatarUrl() : null);
+        });
     }
 
     private void sendNotification(Long targetUserId, String type, String title, String content, 
