@@ -445,7 +445,6 @@ async function handleExport() {
     ElMessage.success(`成功导出 ${selectedFormats.value.length} 个文件`)
   } catch (e: any) {
     console.error('导出失败', e)
-    ElMessage.error(e.message || '导出失败')
   } finally {
     exporting.value = false
   }

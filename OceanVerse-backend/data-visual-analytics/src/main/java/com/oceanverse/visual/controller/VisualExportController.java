@@ -1,7 +1,7 @@
 package com.oceanverse.visual.controller;
 
 import com.oceanverse.auth.context.UserContext;
-import com.oceanverse.common.annotation.RequireRole;
+import com.oceanverse.common.annotation.RequirePermission;
 import com.oceanverse.common.result.Result;
 import com.oceanverse.visual.dto.ExportQueryDTO;
 import com.oceanverse.visual.mapper.VisualMapper;
@@ -19,14 +19,14 @@ import java.util.stream.Collectors;
 /**
  * 数据导出接口
  * <p>
- * 鉴权：需要登录（WebConfig 中 /api/visual/export/** 不在放行列表）。
- * 角色区分：all=true 时仅管理员可用，Service 层二次校验。
+ * 鉴权：需登录且拥有 visual 权限（即"数据可视化"菜单权限，可在角色管理页面分配）。
+ * 非管理员导出时必须有筛选条件，all=true 或无筛选条件仅管理员可用。
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/visual/export")
 @RequiredArgsConstructor
-@RequireRole({"SUPER_ADMIN", "ADMIN", "RESEARCHER", "OBSERVER"})
+@RequirePermission("visual")
 public class VisualExportController {
 
     private final VisualExportService visualExportService;
@@ -88,11 +88,26 @@ public class VisualExportController {
     // ==================== 鉴权校验 ====================
 
     /**
-     * 检查全量导出权限：all=true 时仅管理员可用
+     * 检查全量导出权限：all=true 或无筛选条件时仅管理员可用
      */
     private void checkAllPermission(ExportQueryDTO query) {
-        if (Boolean.TRUE.equals(query.getAll()) && !UserContext.isSuperAdmin() && !UserContext.hasAnyRole("ADMIN")) {
+        boolean isAdmin = UserContext.isSuperAdmin() || UserContext.hasAnyRole("ADMIN");
+        if (isAdmin) {
+            return;
+        }
+        if (Boolean.TRUE.equals(query.getAll())) {
             throw new com.oceanverse.common.exception.BusinessException(403, "无权限导出全量数据，仅管理员可使用此功能");
         }
+        if (!hasAnyFilter(query)) {
+            throw new com.oceanverse.common.exception.BusinessException(403, "请选择至少一个筛选条件，或联系管理员导出全量数据");
+        }
+    }
+
+    private boolean hasAnyFilter(ExportQueryDTO query) {
+        return (query.getIucnStatus() != null && !query.getIucnStatus().trim().isEmpty())
+                || (query.getFamily() != null && !query.getFamily().trim().isEmpty())
+                || (query.getObservationType() != null && !query.getObservationType().trim().isEmpty())
+                || (query.getStartDate() != null && !query.getStartDate().trim().isEmpty())
+                || (query.getEndDate() != null && !query.getEndDate().trim().isEmpty());
     }
 }
