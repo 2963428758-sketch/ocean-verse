@@ -32,6 +32,6 @@ public interface CommunityService {
     void updateProfile(String nickname, String token);
     void updateBio(String bio, String token);
     String uploadBackground(org.springframework.web.multipart.MultipartFile file, String token);
-    Object getFollowingList(String token);
-    Object getFollowerList(String token);
+    Object getFollowingList(Long userId, String token);
+    Object getFollowerList(Long userId, String token);
 }
