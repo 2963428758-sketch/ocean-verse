@@ -257,6 +257,7 @@ const menuItems = computed(() => {
       { path: '/admin', title: '系统管理', icon: 'Setting', children: [
         { path: '/admin/users', title: '用户管理', icon: 'User' },
         { path: '/admin/roles', title: '角色管理', icon: 'Stamp' },
+        { path: '/admin/ai-eval', title: 'AI 评估', icon: 'TrendCharts' },
       ]},
       { title: '系统日志', children: [
         { path: '/admin/login-log', title: '登录日志', icon: 'Tickets' },

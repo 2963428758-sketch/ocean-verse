@@ -43,14 +43,18 @@
               <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
                 <path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
-              <span>新对话</span>
             </button>
             <button class="icon-btn" @click="handleRebuildKnowledge" :disabled="rebuilding" title="重建知识库">
               <svg viewBox="0 0 20 20" fill="none" width="16" height="16" :class="{ spinning: rebuilding }">
                 <path d="M3 10a7 7 0 0112.9-3.7M17 10a7 7 0 01-12.9 3.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 <path d="M16 3v4h-4M4 17v-4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
-              <span>知识库</span>
+            </button>
+            <button class="icon-btn" @click="router.push('/ai/chat-history'); drawerVisible = false" title="问答历史">
+              <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
+                <polyline points="10 6 10 10 13 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
             </button>
             <button class="icon-btn close-btn" @click="drawerVisible = false" title="关闭">
               <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
@@ -58,6 +62,12 @@
               </svg>
             </button>
           </div>
+        </div>
+
+        <!-- 配额提示 -->
+        <div v-if="chatQuotaRemaining !== null" class="quota-bar" :class="{ warning: chatQuotaRemaining <= 5, danger: chatQuotaRemaining <= 2 }">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>今日剩余对话 <strong>{{ chatQuotaRemaining }}</strong> 次</span>
         </div>
 
         <!-- 问题类型选择 -->
@@ -176,11 +186,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, nextTick, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { marked } from 'marked'
-import { chatWithAIStream, clearSession, submitFeedback, rebuildKnowledgeBase } from '@/api/ai'
+import { chatWithAIStream, clearSession, submitFeedback, rebuildKnowledgeBase, getAiQuota } from '@/api/ai'
 import { ElMessage } from 'element-plus'
 
 marked.setOptions({ breaks: true, gfm: true })
+
+const router = useRouter()
 
 const renderMarkdown = (text: string): string => {
   if (!text) return ''
@@ -243,9 +256,25 @@ function refreshSuggestions() {
 
 const suggestionCards = ref<typeof suggestionPool>([])
 
-// 每次打开抽屉时重新随机建议卡片
+// 配额显示
+const chatQuotaRemaining = ref<number | null>(null)
+
+async function fetchQuota() {
+  try {
+    const res: any = await getAiQuota()
+    const data = res.data || res
+    chatQuotaRemaining.value = data.chatRemaining ?? null
+  } catch {
+    chatQuotaRemaining.value = null
+  }
+}
+
+// 每次打开抽屉时重新随机建议卡片 + 刷新配额
 watch(drawerVisible, (visible) => {
-  if (visible) refreshSuggestions()
+  if (visible) {
+    refreshSuggestions()
+    fetchQuota()
+  }
 })
 
 function generateSessionId(): string {
@@ -388,8 +417,9 @@ function scrollToBottom() {
 .icon-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
-  padding: 6px 12px;
+  padding: 6px 8px;
   border: 1px solid var(--neutral-200);
   border-radius: 8px;
   background: white;
@@ -408,6 +438,33 @@ function scrollToBottom() {
 }
 
 /* ── 问题类型 ── */
+.quota-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+  font-size: 12px;
+  color: #606266;
+  background: #f0f9ff;
+  border-bottom: 1px solid #e0f2fe;
+  flex-shrink: 0;
+
+  strong { font-weight: 600; color: #1565c0; }
+
+  &.warning {
+    background: #fff8e1;
+    border-color: #ffecb3;
+    color: #e65100;
+    strong { color: #e65100; }
+  }
+  &.danger {
+    background: #ffebee;
+    border-color: #ffcdd2;
+    color: #c62828;
+    strong { color: #c62828; }
+  }
+}
+
 .type-bar {
   display: flex;
   gap: 6px;

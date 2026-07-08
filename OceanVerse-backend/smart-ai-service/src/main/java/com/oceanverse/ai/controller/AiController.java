@@ -27,10 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * AI 智能服务接口 — 成员B/E
- * 包含：图像识别、智能问答、数据分析
- */
+
 @Slf4j
 @RestController
 @RequestMapping("/api/ai")

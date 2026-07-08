@@ -7,6 +7,7 @@ import com.oceanverse.message.service.RedisStreamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.RecordId;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -17,12 +18,14 @@ import java.util.Map;
  * <p>
  * 提供向各个 Stream 发布测试消息的接口，
  * 用于验证消费者链路是否正常工作。
- * 生产环境应删除或禁用此 Controller。
+ * <p>
+ * 通过 @Profile 限制仅在 dev/test 环境生效，生产环境不会注册此 Controller。
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/message/test")
 @RequiredArgsConstructor
+@Profile({"dev", "test"})
 public class MessageTestController {
 
     private final RedisStreamService redisStreamService;

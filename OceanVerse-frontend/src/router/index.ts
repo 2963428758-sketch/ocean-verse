@@ -25,6 +25,8 @@ const routes: RouteRecordRaw[] = [
       ]},
       { path: 'ai', name: 'AI', redirect: '/ai/recognize', meta: { title: 'AI 工具', icon: 'MagicStick' }, children: [
         { path: 'recognize', name: 'AIRecognize', component: () => import('@/views/ai/Recognize.vue'), meta: { title: '图像识别' } },
+        { path: 'recognition-history', name: 'RecognitionHistory', component: () => import('@/views/ai/RecognitionHistory.vue'), meta: { title: '识别历史', hidden: true } },
+        { path: 'chat-history', name: 'ChatHistory', component: () => import('@/views/ai/ChatHistory.vue'), meta: { title: '问答历史', hidden: true } },
         { path: 'chat', name: 'AIChat', redirect: '/dashboard' }
       ]},
       { path: 'community', name: 'Community', redirect: '/community/feed', meta: { title: '社区', icon: 'ChatDotRound' }, children: [
@@ -40,7 +42,8 @@ const routes: RouteRecordRaw[] = [
         { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue'), meta: { title: '用户管理', roles: ['SUPER_ADMIN', 'ADMIN'] } },
         { path: 'roles', name: 'RoleManagement', component: () => import('@/views/admin/RoleManagement.vue'), meta: { title: '角色管理', roles: ['SUPER_ADMIN', 'ADMIN'] } },
         { path: 'login-log', name: 'LoginLog', component: () => import('@/views/admin/LoginLog.vue'), meta: { title: '登录日志', roles: ['SUPER_ADMIN', 'ADMIN'] } },
-        { path: 'operation-log', name: 'OperationLog', component: () => import('@/views/admin/OperationLog.vue'), meta: { title: '操作日志', roles: ['SUPER_ADMIN', 'ADMIN'] } }
+        { path: 'operation-log', name: 'OperationLog', component: () => import('@/views/admin/OperationLog.vue'), meta: { title: '操作日志', roles: ['SUPER_ADMIN', 'ADMIN'] } },
+        { path: 'ai-eval', name: 'AiEvalStats', component: () => import('@/views/admin/AiEvalStats.vue'), meta: { title: 'AI 评估', roles: ['SUPER_ADMIN'] } }
       ]},
       { path: 'profile', name: 'Profile', component: () => import('@/views/MyProfile.vue'), meta: { title: '个人主页', hidden: true } }
     ]

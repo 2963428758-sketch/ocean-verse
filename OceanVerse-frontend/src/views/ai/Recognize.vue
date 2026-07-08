@@ -5,6 +5,15 @@
         <h2>🔍 AI 图像识别</h2>
         <p>上传海洋生物照片，AI 自动识别物种并给出详细分析</p>
       </div>
+      <div class="header-actions">
+        <span v-if="recognitionQuota !== null" class="quota-tag" :class="{ warning: recognitionQuota <= 2, danger: recognitionQuota <= 0 }">
+          今日剩余 <strong>{{ recognitionQuota }}</strong> 次
+        </span>
+        <button class="history-btn" @click="$router.push('/ai/recognition-history')" title="识别历史">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          历史
+        </button>
+      </div>
     </div>
 
     <div class="recognize-layout">
@@ -190,12 +199,25 @@
 defineOptions({ name: 'AiRecognize' })
 import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { recognizeImage, getRecognitionById } from '@/api/ai'
+import { recognizeImage, getRecognitionById, getAiQuota } from '@/api/ai'
 import { getSpeciesDetail } from '@/api/species'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
+
+// 配额显示
+const recognitionQuota = ref<number | null>(null)
+
+async function fetchQuota() {
+  try {
+    const res: any = await getAiQuota()
+    const data = res.data || res
+    recognitionQuota.value = data.recognitionRemaining ?? null
+  } catch {
+    recognitionQuota.value = null
+  }
+}
 
 const fileInput = ref<HTMLInputElement>()
 const file = ref<File | null>(null)
@@ -345,6 +367,7 @@ async function doRecognize() {
     }
   } finally {
     loading.value = false
+    fetchQuota()
   }
 }
 
@@ -462,6 +485,7 @@ async function loadRecognitionById(id: number) {
 
 // 首次挂载：从通知 ?id= 或 sessionStorage 恢复
 onMounted(async () => {
+  fetchQuota()
   const queryId = route.query.id
   const savedId = sessionStorage.getItem('lastRecognitionId')
   const id = queryId || savedId
@@ -491,8 +515,52 @@ onActivated(async () => {
 .page-header {
   flex-shrink: 0;
   margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   h2 { margin: 0; font-size: 20px; }
   p { margin: 4px 0 0; color: var(--neutral-500); font-size: 14px; }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .quota-tag {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #f0f9ff;
+    color: #1565c0;
+    border: 1px solid #e0f2fe;
+    white-space: nowrap;
+
+    strong { font-weight: 700; }
+    &.warning { background: #fff8e1; color: #e65100; border-color: #ffecb3; }
+    &.danger { background: #ffebee; color: #c62828; border-color: #ffcdd2; }
+  }
+
+  .history-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border: 1px solid var(--el-border-color, #dcdfe6);
+    border-radius: 8px;
+    background: var(--el-bg-color, #fff);
+    color: var(--el-text-color-regular, #606266);
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    white-space: nowrap;
+
+    &:hover {
+      border-color: var(--el-color-primary, #409eff);
+      color: var(--el-color-primary, #409eff);
+    }
+  }
 }
 
 /* ── 两栏布局 ── */
