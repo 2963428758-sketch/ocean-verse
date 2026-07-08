@@ -48,15 +48,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
-            // 1. 校验 JWT 签名和有效期
+            // 1. 校验 JWT 签名和有效期 — 过期直接返回 401，避免 Spring Security 返回 403 阻断前端刷新流程
             if (!JwtUtil.validate(token)) {
-                filterChain.doFilter(request, response);
+                writeUnauthorized(response, "Token 已过期或无效");
                 return;
             }
 
             // 2. 校验 Token 类型（必须是 AccessToken）
             if (!JwtUtil.isAccessToken(token)) {
-                filterChain.doFilter(request, response);
+                writeUnauthorized(response, "Token 类型错误，需要 AccessToken");
                 return;
             }
 

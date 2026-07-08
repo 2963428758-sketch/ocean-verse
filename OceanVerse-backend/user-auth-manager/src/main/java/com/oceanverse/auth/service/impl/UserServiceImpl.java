@@ -310,7 +310,15 @@ public class UserServiceImpl implements UserService {
         user.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(user);
 
-        // 修改密码后清除所有 Token，强制重新登录
+        // 修改密码后，先将 Token 加入黑名单（使其立即失效），再清除缓存，强制重新登录
+        String accessToken = redisUtil.get(CommonConstants.REDIS_USER_TOKEN + userId);
+        if (accessToken != null) {
+            String tokenHash = DigestUtils.md5DigestAsHex(accessToken.getBytes());
+            long remainingSeconds = JwtUtil.getRemainingSeconds(accessToken);
+            if (remainingSeconds > 0) {
+                redisUtil.set(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash, "1", remainingSeconds);
+            }
+        }
         redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + userId);
         redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
         redisUtil.delete(CommonConstants.REDIS_USER_PERMS + userId);
@@ -488,7 +496,17 @@ public class UserServiceImpl implements UserService {
             userRoleMapper.insert(userRole);
         }
 
-        // 清除该用户的权限和角色缓存，下次请求时重新加载
+        // 先将 Token 加入黑名单（角色变更后旧 Token 的 role 已失效），再清除缓存
+        String accessToken = redisUtil.get(CommonConstants.REDIS_USER_TOKEN + dto.getUserId());
+        if (accessToken != null) {
+            String tokenHash = DigestUtils.md5DigestAsHex(accessToken.getBytes());
+            long remainingSeconds = JwtUtil.getRemainingSeconds(accessToken);
+            if (remainingSeconds > 0) {
+                redisUtil.set(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash, "1", remainingSeconds);
+            }
+        }
+        redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + dto.getUserId());
+        redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + dto.getUserId());
         redisUtil.delete(CommonConstants.REDIS_USER_PERMS + dto.getUserId());
         redisUtil.delete(CommonConstants.REDIS_USER_ROLES + dto.getUserId());
 
