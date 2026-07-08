@@ -60,10 +60,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 3. 校验 Token 黑名单
+            // 3. 校验 Token 黑名单 — 直接返回 401，避免 Spring Security 返回 403 导致前端无法触发刷新流程
             String tokenHash = DigestUtils.md5DigestAsHex(token.getBytes());
             if (Boolean.TRUE.equals(redisUtil.hasKey(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash))) {
-                filterChain.doFilter(request, response);
+                writeUnauthorized(response, "Token 已失效，请重新登录");
                 return;
             }
 
@@ -90,5 +90,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 直接写入 401 响应，返回 JSON 格式的错误信息
+     */
+    private void writeUnauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"code\":401,\"message\":\"" + message + "\"}");
     }
 }

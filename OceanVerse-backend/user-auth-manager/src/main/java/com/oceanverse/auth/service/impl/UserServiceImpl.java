@@ -437,8 +437,16 @@ public class UserServiceImpl implements UserService {
         user.setUpdateTime(LocalDateTime.now());
         userMapper.updateById(user);
 
-        // 如果禁用/锁定用户，清除其权限缓存和 Token
+        // 如果禁用/锁定用户，先将 Token 加入黑名单（使其立即失效），再清除缓存
         if (status != CommonConstants.USER_STATUS_NORMAL) {
+            String accessToken = redisUtil.get(CommonConstants.REDIS_USER_TOKEN + userId);
+            if (accessToken != null) {
+                String tokenHash = DigestUtils.md5DigestAsHex(accessToken.getBytes());
+                long remainingSeconds = JwtUtil.getRemainingSeconds(accessToken);
+                if (remainingSeconds > 0) {
+                    redisUtil.set(CommonConstants.REDIS_TOKEN_BLACKLIST + tokenHash, "1", remainingSeconds);
+                }
+            }
             redisUtil.delete(CommonConstants.REDIS_USER_TOKEN + userId);
             redisUtil.delete(CommonConstants.REDIS_USER_REFRESH_TOKEN + userId);
             redisUtil.delete(CommonConstants.REDIS_USER_PERMS + userId);
