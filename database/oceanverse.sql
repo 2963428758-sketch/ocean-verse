@@ -1,16 +1,5 @@
 -- =====================================================
 -- OceanVerse — 智慧海洋探索平台 完整数据库初始化脚本
--- 合并自: oceanverse.sql, new.sql, migration-permissions-v2.sql, species_distribution
--- 生成时间: 2026-06-24
--- =====================================================
-
--- =====================================================
--- OceanVerse — 智慧海洋探索平台 完整数据库初始化脚本
--- 合并自: oceanverse.sql, migration-observation-deleted.sql,
---         community-manager.sql, init-permission-tables.sql,
---         test-species-media.sql, test-species-extra.sql,
---         test-observation-data.sql, community_data.sql
--- 生成时间: 2026-06-17
 -- =====================================================
 DROP TABLE IF EXISTS `sys_operation_log`;
 
@@ -33,24 +22,10 @@ CREATE TABLE `sys_operation_log` (
                                      KEY `idx_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
 
-ALTER TABLE observation MODIFY COLUMN location_id BIGINT UNSIGNED DEFAULT NULL;
-
 CREATE DATABASE IF NOT EXISTS `oceanverse` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `oceanverse`;
 
 SET FOREIGN_KEY_CHECKS = 0;
-
-UPDATE observation SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
-UPDATE species SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
-UPDATE ecosystem SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
-UPDATE observation_location SET deleted = UNIX_TIMESTAMP() WHERE deleted = 1;
-
-
-INSERT INTO sys_notification (user_id, title, content, type, is_read, create_time)
-VALUES (1, 'AI 识别次数即将用尽', '今日剩余识别次数：2 次，请合理安排使用。', 'QUOTA_WARNING', 0, NOW());
-
-ALTER TABLE sys_user DROP COLUMN email;
-ALTER TABLE sys_user DROP COLUMN phone;
 
 -- =====================================================
 -- 一、建表语句
@@ -65,8 +40,6 @@ CREATE TABLE `sys_user` (
     `username` VARCHAR(50) NOT NULL COMMENT '用户名',
     `nickname` VARCHAR(50) DEFAULT NULL COMMENT '昵称',
     `password` VARCHAR(255) NOT NULL COMMENT '密码(BCrypt加密)',
-    `email` VARCHAR(100) NOT NULL COMMENT '邮箱',
-    `phone` VARCHAR(20) DEFAULT NULL COMMENT '手机号',
     `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名',
     `avatar_url` VARCHAR(500) DEFAULT NULL COMMENT '头像URL',
     `background_url` VARCHAR(500) DEFAULT NULL COMMENT '背景图URL',
@@ -79,8 +52,7 @@ CREATE TABLE `sys_user` (
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_username` (`username`),
-    UNIQUE KEY `uk_email` (`email`)
+    UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统用户表';
 
 CREATE TABLE `sys_role` (
@@ -497,10 +469,10 @@ INSERT INTO `sys_role` (`id`, `role_code`, `role_name`, `description`, `status`)
 (5, 'VIEWER', '访客', '普通访客', 1);
 
 -- ── 管理员账号 admin / admin123 ──
-INSERT INTO `sys_user` (`id`, `username`, `password`, `email`, `real_name`, `status`) VALUES
-(1, 'admin', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', 'admin@oceanverse.com', '系统管理员', 1),
-(2, 'researcher', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', 'researcher@oceanverse.com', '张研究员', 1),
-(3, 'observer', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', 'observer@oceanverse.com', '李观测员', 1);
+INSERT INTO `sys_user` (`id`, `username`, `password`, `real_name`, `status`) VALUES
+(1, 'admin', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', '系统管理员', 1),
+(2, 'researcher', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', '张研究员', 1),
+(3, 'observer', '$2a$10$gDsgAg9lLg5MsxAsMQnRvuoOJX/OQPtW4f29nuPndev0ul7tisdrW', '李观测员', 1);
 
 INSERT INTO `sys_user_role` (`user_id`, `role_id`) VALUES
 (1, 1), (2, 3), (3, 4);
@@ -1096,15 +1068,6 @@ INSERT INTO `community_favorite` (`user_id`, `target_id`, `target_type`, `create
 
 
 -- =====================================================
--- 补充列（来自 new.sql，使用 IF NOT EXISTS 防止重复）
--- =====================================================
-ALTER TABLE sys_user ADD COLUMN IF NOT EXISTS background_url VARCHAR(500) DEFAULT NULL COMMENT '背景图URL' AFTER avatar_url;
-ALTER TABLE sys_user ADD COLUMN IF NOT EXISTS bio VARCHAR(500) DEFAULT NULL COMMENT '个人简介' AFTER background_url;
-ALTER TABLE sys_notification ADD COLUMN IF NOT EXISTS target_post_id BIGINT UNSIGNED DEFAULT NULL COMMENT '目标帖子ID' AFTER related_id;
-ALTER TABLE sys_notification ADD COLUMN IF NOT EXISTS from_user_id BIGINT UNSIGNED DEFAULT NULL COMMENT '操作者ID' AFTER target_post_id;
-
-
--- =====================================================
 -- 物种分布数据 (species_distribution) — 共21条
 -- =====================================================
 INSERT INTO oceanverse.species_distribution (id, species_id, distribution_type, region_name, country, province, latitude, longitude, depth_min, depth_max, habitat_type, is_primary, population_estimate, distribution_status, create_time, update_time, deleted) VALUES (1, 1, 'NATIVE', '南海西沙群岛', '中国', '海南', 16.831900, 112.332800, 0.00, 40.00, '珊瑚礁', 1, null, 'COMMON', '2026-06-17 11:47:34', '2026-06-17 11:47:34', 0);
@@ -1129,20 +1092,10 @@ INSERT INTO oceanverse.species_distribution (id, species_id, distribution_type, 
 INSERT INTO oceanverse.species_distribution (id, species_id, distribution_type, region_name, country, province, latitude, longitude, depth_min, depth_max, habitat_type, is_primary, population_estimate, distribution_status, create_time, update_time, deleted) VALUES (20, 29, 'NATIVE', null, null, null, 30.000000, 120.000000, null, null, null, 1, null, 'COMMON', '2026-06-18 10:51:07', '2026-06-18 10:51:07', 0);
 INSERT INTO oceanverse.species_distribution (id, species_id, distribution_type, region_name, country, province, latitude, longitude, depth_min, depth_max, habitat_type, is_primary, population_estimate, distribution_status, create_time, update_time, deleted) VALUES (21, 34, 'NATIVE', null, null, null, 30.000000, 110.000000, null, null, null, 1, null, 'COMMON', '2026-06-18 11:03:26', '2026-06-18 11:03:54', 21);
 -- =====================================================
--- OceanVerse — 权限补充 & 建表问题修复 迁移脚本 v2
--- 用途: 补齐缺失权限码 + 修复建表问题 + 重新分配角色权限
--- 前置: 已执行 oceanverse.sql 完整初始化
--- 执行时间: 2026-06-24
+-- 权限补充 & 角色权限重新分配
 -- =====================================================
 
-SET FOREIGN_KEY_CHECKS = 0;
-
--- =====================================================
--- 第〇部分：建表结构与实体类对齐
--- =====================================================
-
--- =====================================================
--- 第一部分：补充缺失权限码（共 11 条）
+-- 补充缺失权限码（共 11 条）
 -- =====================================================
 
 -- 【权限管理】P1修复: permission:list 在 PermissionController 中被引用但DB不存在
@@ -1188,7 +1141,7 @@ INSERT IGNORE INTO `sys_permission` (`id`, `parent_id`, `name`, `perm_code`, `ty
 
 
 -- =====================================================
--- 第二部分：角色权限重新分配
+-- 角色权限重新分配
 -- =====================================================
 
 -- ── SUPER_ADMIN（role_id=1）：自动拥有全部权限 ──
@@ -1227,7 +1180,7 @@ INSERT IGNORE INTO `sys_role_permission` (`role_id`, `permission_id`) VALUES
 
 
 -- =====================================================
--- 第三部分：补充测试账号
+-- 补充测试账号
 -- =====================================================
 
 -- ADMIN 管理员测试账号 (admin2 / admin123)
