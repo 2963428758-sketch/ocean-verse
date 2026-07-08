@@ -34,6 +34,9 @@ public class CommunityPost {
     /** 非数据库字段，由 service 填充 */
     @TableField(exist = false)
     private String username;
+    /** 用户头像URL */
+    @TableField(exist = false)
+    private String avatarUrl;
     /** 当前用户是否已点赞 */
     @TableField(exist = false)
     private Boolean isLiked;

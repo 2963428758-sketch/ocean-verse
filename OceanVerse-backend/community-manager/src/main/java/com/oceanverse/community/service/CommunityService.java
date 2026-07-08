@@ -6,6 +6,7 @@ import com.oceanverse.pojo.dto.PostQueryDTO;
 
 public interface CommunityService {
     void createPost(PostCreateDTO dto, String token);
+    void updatePost(Long id, PostCreateDTO dto, String token);
     Object listPosts(PostQueryDTO query, String token);
     Object getPostDetail(Long id, String token);
     void deletePost(Long id, String token);
@@ -32,6 +33,6 @@ public interface CommunityService {
     void updateProfile(String nickname, String token);
     void updateBio(String bio, String token);
     String uploadBackground(org.springframework.web.multipart.MultipartFile file, String token);
-    Object getFollowingList(String token);
-    Object getFollowerList(String token);
+    Object getFollowingList(Long userId, String token);
+    Object getFollowerList(Long userId, String token);
 }

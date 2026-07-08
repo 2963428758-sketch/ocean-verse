@@ -31,6 +31,14 @@ public class    CommunityController {
         return Result.success();
     }
 
+    @PutMapping("/post/{id}")
+    public Result<Void> updatePost(@PathVariable Long id,
+                                    @Valid @RequestBody PostCreateDTO dto,
+                                    @RequestHeader("Authorization") String token) {
+        communityService.updatePost(id, dto, token);
+        return Result.success();
+    }
+
     @GetMapping("/post/list")
     public Result<Object> listPosts(PostQueryDTO query,
                                     @RequestHeader(value = "Authorization", required = false) String token) {
@@ -217,13 +225,17 @@ public class    CommunityController {
     }
 
     @GetMapping("/following")
-    public Result<Object> getFollowingList(@RequestHeader("Authorization") String token) {
-        return Result.success(communityService.getFollowingList(token));
+    public Result<Object> getFollowingList(
+            @RequestParam(required = false) Long userId,
+            @RequestHeader("Authorization") String token) {
+        return Result.success(communityService.getFollowingList(userId, token));
     }
 
     @GetMapping("/follower")
-    public Result<Object> getFollowerList(@RequestHeader("Authorization") String token) {
-        return Result.success(communityService.getFollowerList(token));
+    public Result<Object> getFollowerList(
+            @RequestParam(required = false) Long userId,
+            @RequestHeader("Authorization") String token) {
+        return Result.success(communityService.getFollowerList(userId, token));
     }
 
     // ==================== 排行榜 ====================

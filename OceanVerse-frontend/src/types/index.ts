@@ -109,6 +109,7 @@ export interface CommunityPost {
   id: number
   userId: number
   username?: string
+  avatarUrl?: string
   content: string
   postType: string
   relatedSpeciesId?: number
@@ -129,6 +130,7 @@ export interface CommunityComment {
   postId: number
   userId: number
   username?: string
+  avatarUrl?: string
   parentId?: number
   content: string
   likeCount: number

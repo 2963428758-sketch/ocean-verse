@@ -1,6 +1,6 @@
 <template>
-  <div v-loading="loading" class="profile-page">
-    <!-- 返回 -->
+  <div v-loading="loading" class="user-profile-page">
+    <!-- 返回导航 -->
     <div class="nav-bar">
       <button class="back-btn" @click="$router.back()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -9,20 +9,29 @@
       <div style="width: 36px"></div>
     </div>
 
-    <!-- 用户信息卡片 -->
+    <!-- 个人信息卡片 -->
     <div v-if="profile" class="profile-card">
-      <div class="profile-cover"></div>
+      <!-- 背景图 -->
+      <div class="profile-cover" :style="coverStyle">
+        <div class="cover-gradient"></div>
+      </div>
+
       <div class="profile-body">
         <div class="profile-top">
-          <div class="profile-avatar-wrap">
+          <!-- 头像 -->
+          <div class="avatar-wrap">
             <div class="profile-avatar">
-              {{ profile.username?.charAt(0)?.toUpperCase() || 'U' }}
+              <img v-if="profile.avatarUrl" :src="profile.avatarUrl" class="avatar-img" />
+              <span v-else>{{ profile.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
             </div>
           </div>
+
           <div class="profile-info">
             <h2 class="profile-name">{{ profile.username }}</h2>
+            <p v-if="profile.bio" class="profile-bio">{{ profile.bio }}</p>
             <p class="profile-id">ID: {{ userId }}</p>
           </div>
+
           <div v-if="!isSelf" class="profile-action">
             <button
               class="follow-btn"
@@ -30,34 +39,41 @@
               :disabled="followLoading"
               @click="handleFollow"
             >
-              {{ isFollowing ? '已关注' : '+ 关注' }}
+              <span v-if="followLoading" class="btn-loading"></span>
+              <span v-else>{{ isFollowing ? '已关注' : '+ 关注' }}</span>
             </button>
           </div>
         </div>
 
         <!-- 数据统计 -->
         <div class="profile-stats">
-          <div class="stat-item">
-            <span class="stat-value">{{ profile.postCount }}</span>
+          <div class="stat-item" @click="showTab = 'posts'">
+            <span class="stat-value">{{ profile.postCount || 0 }}</span>
             <span class="stat-label">帖子</span>
           </div>
           <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-value">{{ profile.followerCount }}</span>
+          <div class="stat-item" @click="showTab = 'followers'">
+            <span class="stat-value">{{ profile.followerCount || 0 }}</span>
             <span class="stat-label">粉丝</span>
           </div>
           <div class="stat-divider"></div>
-          <div class="stat-item">
-            <span class="stat-value">{{ profile.followCount }}</span>
+          <div class="stat-item" @click="showTab = 'following'">
+            <span class="stat-value">{{ profile.followCount || 0 }}</span>
             <span class="stat-label">关注</span>
           </div>
+        </div>
+
+        <!-- Tab 切换 -->
+        <div class="profile-tabs">
+          <button :class="{ active: showTab === 'posts' }" @click="showTab = 'posts'">TA 的动态</button>
+          <button :class="{ active: showTab === 'followers' }" @click="showTab = 'followers'; loadFollowers()">粉丝</button>
+          <button :class="{ active: showTab === 'following' }" @click="showTab = 'following'; loadFollowing()">关注</button>
         </div>
       </div>
     </div>
 
-    <!-- 用户帖子 - 瀑布流 -->
-    <div class="posts-section">
-      <h3 class="section-title">TA 的动态</h3>
+    <!-- TA 的动态 -->
+    <div v-if="showTab === 'posts'" class="posts-section">
       <div v-loading="loadingPosts" class="waterfall">
         <div v-if="userPosts.length === 0 && !loadingPosts" class="empty-state">
           <p>暂无动态</p>
@@ -75,7 +91,7 @@
             </span>
           </div>
           <div v-else class="card-image-wrap no-image">
-            <span class="no-image-text">📝</span>
+            <span class="no-image-icon">📝</span>
           </div>
           <div class="card-body">
             <p class="card-text">{{ post.content }}</p>
@@ -84,15 +100,54 @@
               <div class="card-stats">
                 <span class="stat">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                  {{ post.likeCount }}
+                  {{ post.likeCount || 0 }}
                 </span>
                 <span class="stat">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  {{ post.commentCount }}
+                  {{ post.commentCount || 0 }}
                 </span>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+      <div v-if="totalPosts > pageSize" class="pagination-wrap">
+        <button class="page-btn" :disabled="postPage <= 1" @click="postPage--; loadUserPosts()">上一页</button>
+        <span class="page-info">{{ postPage }} / {{ Math.ceil(totalPosts / pageSize) }}</span>
+        <button class="page-btn" :disabled="postPage >= Math.ceil(totalPosts / pageSize)" @click="postPage++; loadUserPosts()">下一页</button>
+      </div>
+    </div>
+
+    <!-- 关注列表 -->
+    <div v-if="showTab === 'following'" class="user-list-section">
+      <div v-loading="loadingFollow" class="user-list">
+        <div v-if="followingList.length === 0 && !loadingFollow" class="empty-state">
+          <p>暂未关注任何人</p>
+        </div>
+        <div v-for="user in followingList" :key="user.userId" class="user-item" @click="$router.push(`/community/user/${user.userId}`)">
+          <div class="list-avatar">
+            <img v-if="user.avatarUrl" :src="user.avatarUrl" />
+            <span v-else>{{ user.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
+          </div>
+          <span class="user-name">{{ user.username }}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- 粉丝列表 -->
+    <div v-if="showTab === 'followers'" class="user-list-section">
+      <div v-loading="loadingFollow" class="user-list">
+        <div v-if="followerList.length === 0 && !loadingFollow" class="empty-state">
+          <p>暂无粉丝</p>
+        </div>
+        <div v-for="user in followerList" :key="user.userId" class="user-item" @click="$router.push(`/community/user/${user.userId}`)">
+          <div class="list-avatar">
+            <img v-if="user.avatarUrl" :src="user.avatarUrl" />
+            <span v-else>{{ user.username?.charAt(0)?.toUpperCase() || 'U' }}</span>
+          </div>
+          <span class="user-name">{{ user.username }}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#948f86" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
       </div>
     </div>
@@ -104,8 +159,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { getUserProfile, toggleFollow, getPostList } from '@/api/community'
-import type { UserProfile, CommunityPost } from '@/types'
+import { getUserProfile, toggleFollow, getPostList, getFollowingList, getFollowerList } from '@/api/community'
+import type { CommunityPost } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,16 +170,33 @@ const userId = Number(route.params.id)
 const loading = ref(false)
 const loadingPosts = ref(false)
 const followLoading = ref(false)
-const profile = ref<UserProfile | null>(null)
+const profile = ref<any>(null)
 const userPosts = ref<CommunityPost[]>([])
 const isFollowing = ref(false)
 const isSelf = computed(() => userStore.userId === userId)
+
+const showTab = ref('posts')
+const postPage = ref(1)
+const pageSize = 12
+const totalPosts = ref(0)
+
+const loadingFollow = ref(false)
+const followingList = ref<{ userId: number; username: string; avatarUrl?: string }[]>([])
+const followerList = ref<{ userId: number; username: string; avatarUrl?: string }[]>([])
+
+const coverStyle = computed(() => {
+  if (profile.value?.backgroundUrl) {
+    return { backgroundImage: `url(${profile.value.backgroundUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+  }
+  return {}
+})
 
 async function loadProfile() {
   loading.value = true
   try {
     const res: any = await getUserProfile(userId)
     profile.value = res.data || res
+    isFollowing.value = profile.value?.isFollowing || false
   } catch (e) { console.error(e) }
   finally { loading.value = false }
 }
@@ -132,10 +204,29 @@ async function loadProfile() {
 async function loadUserPosts() {
   loadingPosts.value = true
   try {
-    const res: any = await getPostList({ userId, page: 1, size: 50 })
+    const res: any = await getPostList({ userId, page: postPage.value, size: pageSize })
     userPosts.value = res.data?.records || res.data || []
+    totalPosts.value = res.data?.total || 0
   } catch (e) { console.error(e) }
   finally { loadingPosts.value = false }
+}
+
+async function loadFollowing() {
+  loadingFollow.value = true
+  try {
+    const res: any = await getFollowingList(userId)
+    followingList.value = res.data || []
+  } catch (e) { console.error(e) }
+  finally { loadingFollow.value = false }
+}
+
+async function loadFollowers() {
+  loadingFollow.value = true
+  try {
+    const res: any = await getFollowerList(userId)
+    followerList.value = res.data || []
+  } catch (e) { console.error(e) }
+  finally { loadingFollow.value = false }
 }
 
 async function handleFollow() {
@@ -187,8 +278,8 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.profile-page {
-  max-width: 680px;
+.user-profile-page {
+  max-width: 960px;
   margin: 0 auto;
   animation: fadeIn 0.4s ease;
 }
@@ -237,51 +328,59 @@ onMounted(() => {
 }
 
 .profile-cover {
-  height: 100px;
+  height: 140px;
   background: linear-gradient(135deg, #1a6b8a 0%, #2d8cb0 40%, #5bb5d5 100%);
   position: relative;
+}
 
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 40px;
-    background: linear-gradient(to top, rgba(255,255,255,0.1), transparent);
-  }
+.cover-gradient {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(to top, rgba(0,0,0,0.15), transparent);
 }
 
 .profile-body {
-  padding: 0 24px 20px;
+  padding: 0 24px 16px;
 }
 
 .profile-top {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  margin-top: -32px;
+  margin-top: -40px;
   position: relative;
   z-index: 1;
 }
 
-.profile-avatar-wrap {
+/* ══════ 头像 ══════ */
+.avatar-wrap {
+  position: relative;
   flex-shrink: 0;
 }
 
 .profile-avatar {
-  width: 72px;
-  height: 72px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   background: var(--gradient-ocean);
   color: #fff;
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 4px solid var(--surface-card);
   box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-info {
@@ -291,21 +390,30 @@ onMounted(() => {
 }
 
 .profile-name {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--neutral-800);
-  margin-bottom: 2px;
+  margin: 0 0 4px;
+}
+
+.profile-bio {
+  font-size: 13px;
+  color: var(--neutral-500);
+  margin: 0 0 4px;
+  line-height: 1.5;
 }
 
 .profile-id {
   font-size: 12px;
   color: var(--neutral-400);
+  margin: 0;
 }
 
 .profile-action {
   padding-bottom: 4px;
 }
 
+/* ══════ 关注按钮 ══════ */
 .follow-btn {
   padding: 8px 28px;
   border: none;
@@ -317,6 +425,10 @@ onMounted(() => {
   background: var(--gradient-ocean);
   color: #fff;
   box-shadow: 0 3px 12px rgba(26, 107, 138, 0.3);
+  min-width: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -339,14 +451,27 @@ onMounted(() => {
   }
 }
 
+.btn-loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ══════ 统计 ══════ */
 .profile-stats {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  margin-top: 20px;
-  padding: 16px 0;
+  margin-top: 16px;
+  padding: 14px 0;
   background: var(--neutral-25);
   border-radius: var(--radius-md);
 }
@@ -357,12 +482,17 @@ onMounted(() => {
   align-items: center;
   gap: 2px;
   flex: 1;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover .stat-value { color: var(--primary-main); }
 }
 
 .stat-value {
   font-size: 20px;
   font-weight: 700;
   color: var(--neutral-800);
+  transition: color 0.2s;
 }
 
 .stat-label {
@@ -376,20 +506,34 @@ onMounted(() => {
   background: var(--neutral-100);
 }
 
-/* ══════ 帖子区域 ══════ */
-.posts-section {
-  margin-top: 4px;
-}
+/* ══════ Tab 切换 ══════ */
+.profile-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 14px;
+  border-top: 1px solid var(--neutral-75);
+  padding-top: 12px;
 
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--neutral-800);
-  margin-bottom: 14px;
-  padding-left: 2px;
+  button {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--neutral-500);
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover { color: var(--primary-main); background: var(--primary-soft); }
+    &.active { color: var(--primary-main); background: var(--primary-soft); font-weight: 600; }
+  }
 }
 
 /* ══════ 瀑布流 ══════ */
+.posts-section { margin-top: 4px; }
+
 .waterfall {
   columns: 2;
   column-gap: 12px;
@@ -406,11 +550,7 @@ onMounted(() => {
   border: 1px solid var(--neutral-75);
   display: inline-block;
   width: 100%;
-
-  &:hover {
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-2px);
-  }
+  &:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
 }
 
 .card-image-wrap {
@@ -425,7 +565,7 @@ onMounted(() => {
     height: 120px;
     background: linear-gradient(135deg, #e8f4f8, #f0f4f8);
 
-    .no-image-text {
+    .no-image-icon {
       font-size: 32px;
       opacity: 0.4;
     }
@@ -498,14 +638,83 @@ onMounted(() => {
   color: var(--neutral-400);
 }
 
+/* ══════ 用户列表 ══════ */
+.user-list-section { margin-top: 4px; }
+
+.user-list {
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--neutral-75);
+  overflow: hidden;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  & + .user-item { border-top: 1px solid var(--neutral-75); }
+  &:hover { background: var(--neutral-25); }
+}
+
+.list-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--gradient-ocean);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.user-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--neutral-700);
+}
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  columns: 1;
-
-  p {
-    font-size: 14px;
-    color: var(--neutral-400);
-  }
+  p { font-size: 14px; color: var(--neutral-400); }
 }
+
+/* ══════ 分页 ══════ */
+.pagination-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 0;
+}
+
+.page-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--neutral-200);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--neutral-600);
+  background: var(--surface-card);
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover:not(:disabled) { border-color: var(--primary-main); color: var(--primary-main); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.page-info { font-size: 13px; color: var(--neutral-500); }
 </style>

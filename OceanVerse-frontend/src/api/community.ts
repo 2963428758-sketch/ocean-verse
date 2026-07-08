@@ -4,6 +4,8 @@ import http from '@/utils/http'
 
 export const createPost = (data: any) => http.post('/community/post', data)
 
+export const updatePost = (id: number, data: any) => http.put(`/community/post/${id}`, data)
+
 export const getPostList = (params: any) => http.get('/community/post/list', { params })
 
 export const getPostDetail = (id: number) => http.get(`/community/post/${id}`)
@@ -53,9 +55,9 @@ export const updateProfile = (data: any) => http.put('/community/profile', data)
 
 export const updateBio = (data: any) => http.put('/community/bio', null, { params: data })
 
-export const getFollowingList = () => http.get('/community/following')
+export const getFollowingList = (userId?: number) => http.get('/community/following', { params: userId ? { userId } : {} })
 
-export const getFollowerList = () => http.get('/community/follower')
+export const getFollowerList = (userId?: number) => http.get('/community/follower', { params: userId ? { userId } : {} })
 
 // ==================== 背景图 ====================
 

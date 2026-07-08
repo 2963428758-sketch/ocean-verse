@@ -72,33 +72,45 @@ public class DataScopeInterceptor implements InnerInterceptor {
 
         String originalSql = boundSql.getSql();
 
+        // 构建数据权限附加条件
+        StringBuilder conditions = new StringBuilder();
         boolean matched = false;
-        for (Map.Entry<String, Pattern> entry : TABLE_PATTERNS.entrySet()) {
-            if (entry.getValue().matcher(originalSql).find()) {
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) {
-            return;
-        }
-
-        StringBuilder newSql = new StringBuilder();
-        newSql.append("SELECT * FROM (");
-        newSql.append(originalSql);
-        newSql.append(") _ds_tmp WHERE 1=1");
-
         for (Map.Entry<String, String> entry : TABLE_USER_COLUMN.entrySet()) {
             if (TABLE_PATTERNS.get(entry.getKey()).matcher(originalSql).find()) {
+                matched = true;
                 // 对于 community_comment 表，如果 SQL 中已有 post_id 条件，跳过 user_id 过滤
                 if ("community_comment".equals(entry.getKey())
                         && Pattern.compile("\\bpost_id\\b", Pattern.CASE_INSENSITIVE).matcher(originalSql).find()) {
                     continue;
                 }
-                newSql.append(" AND ").append(entry.getValue())
-                        .append(" = ").append(userInfo.getUserId());
+                if (conditions.length() > 0) {
+                    conditions.append(" AND ");
+                }
+                conditions.append(entry.getValue()).append(" = ").append(userInfo.getUserId());
             }
         }
+        if (!matched || conditions.length() == 0) {
+            return;
+        }
+
+        // 找到注入位置：ORDER BY / GROUP BY / LIMIT 之前，或 SQL 末尾
+        String upperSql = originalSql.toUpperCase();
+        int insertPos = originalSql.length();
+        String[] keywords = {"ORDER BY", "GROUP BY", "LIMIT"};
+        for (String kw : keywords) {
+            int idx = upperSql.lastIndexOf(kw);
+            if (idx > 0) {
+                insertPos = Math.min(insertPos, idx);
+            }
+        }
+
+        // 判断原 SQL 是否已有 WHERE 子句，决定用 AND 还是 WHERE
+        String beforeInsert = originalSql.substring(0, insertPos);
+        boolean hasWhere = beforeInsert.toUpperCase().contains("WHERE");
+        String prefix = hasWhere ? " AND " : " WHERE ";
+
+        StringBuilder newSql = new StringBuilder(originalSql);
+        newSql.insert(insertPos, prefix + conditions + " ");
 
         PluginUtils.MPBoundSql mpBoundSql = PluginUtils.mpBoundSql(boundSql);
         mpBoundSql.sql(newSql.toString());
