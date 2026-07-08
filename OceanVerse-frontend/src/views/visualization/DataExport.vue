@@ -43,8 +43,8 @@
         </div>
         <div class="filter-item">
           <label>科</label>
-          <el-select v-model="filters.family" multiple filterable allow-create placeholder="全部科" clearable style="width: 100%">
-            <el-option v-for="f in familyOptions" :key="f" :label="f" :value="f" />
+          <el-select v-model="filters.family" multiple filterable placeholder="全部科" clearable style="width: 100%">
+            <el-option v-for="f in familyOptions" :key="f.value" :label="f.label" :value="f.value" />
           </el-select>
         </div>
       </div>
@@ -199,7 +199,7 @@ const filters = ref({
 const dateRange = ref<[string, string] | null>(null)
 
 const iucnOptions = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD']
-const familyOptions = ['海龟科', '海豚科', '鲸鲨科', '珊瑚科', '儒艮科']
+const familyOptions = ref<{ label: string; value: string }[]>([])
 const obsTypeOptions = [
   { label: '潜水观测', value: 'DIVE' },
   { label: '调查观测', value: 'SURVEY' },
@@ -502,7 +502,18 @@ function exportPNG() {
 }
 
 // ==================== 生命周期 ====================
-onMounted(() => {
+onMounted(async () => {
+  // 动态加载科列表
+  try {
+    const res: any = await getSpeciesByFamily()
+    const list = res.data || []
+    familyOptions.value = list.map((item: any) => ({
+      label: `${item.family}（${item.count} 种）`,
+      value: item.family
+    }))
+  } catch (e) {
+    console.error('加载科列表失败', e)
+  }
   // 默认选中物种分布
   selectType('species')
 })
