@@ -205,16 +205,16 @@ public class    CommunityController {
     // ==================== 个人资料 ====================
 
     @PutMapping("/profile")
-    public Result<Void> updateProfile(@RequestParam String nickname,
+    public Result<Void> updateProfile(@RequestBody java.util.Map<String, String> params,
                                        @RequestHeader("Authorization") String token) {
-        communityService.updateProfile(nickname, token);
+        communityService.updateProfile(params.get("nickname"), token);
         return Result.success();
     }
 
     @PutMapping("/bio")
-    public Result<Void> updateBio(@RequestParam String bio,
+    public Result<Void> updateBio(@RequestBody java.util.Map<String, String> params,
                                    @RequestHeader("Authorization") String token) {
-        communityService.updateBio(bio, token);
+        communityService.updateBio(params.get("bio"), token);
         return Result.success();
     }
 
