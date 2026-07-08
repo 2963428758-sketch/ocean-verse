@@ -29,7 +29,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="lastLoginTime" label="最后登录" width="170">
+        <el-table-column prop="lastLoginTime" label="最后登录" min-width="170">
           <template #default="{ row }">{{ row.lastLoginTime || '-' }}</template>
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
