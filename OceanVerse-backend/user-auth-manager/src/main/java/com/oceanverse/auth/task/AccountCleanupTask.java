@@ -25,7 +25,8 @@ public class AccountCleanupTask {
     private final UserRoleMapper userRoleMapper;
 
     @Scheduled(cron = "0 0 3 * * ?")
-    public void cleanExpiredAccounts() {
+    public void
+    cleanExpiredAccounts() {
         LocalDateTime thirtyDaysAgo = LocalDateTime.now().minusDays(30);
         List<User> expiredUsers = userMapper.selectExpiredDeletedUsers(thirtyDaysAgo);
 
