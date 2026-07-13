@@ -77,7 +77,7 @@ public class AiProperties {
      * 语义缓存向量相似度阈值（0-1），
      * 实测语义等价但措辞不同的问题余弦相似度约 0.886-0.897，取 0.85 较合理
      */
-    private Double cacheSemanticThreshold = 0.85;
+    private Double cacheSemanticThreshold = 0.80;
 
     /**
      * 语义缓存向量存储持久化文件路径
